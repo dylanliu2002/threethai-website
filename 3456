@@ -1,0 +1,7 @@
+▲ Next.js 16.1.3
+- Local:         http://localhost:3000
+- Network:       http://0.0.0.0:3000
+
+✓ Starting...
+✓ Ready in 100ms
+[inquiry] {"reference":"RF-260831-C7CB","kind":"quote","locale":"en","fields":{"name":"Local Verify Test","company":"","country":"","email":"local-verify@example.com","phone":"","product":"","application":"","specification":"","temperature":"","quantity":"","destination":"","message":"Local end-to-end verification of the inquiry pipeline after db.ts and schema bootstrap changes. Automated test, safe to delete."}}

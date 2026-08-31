@@ -195,3 +195,23 @@ Work Log:
 Stage Summary:
 - User action pending: create README.md on GitHub web -> auto-deploy starts -> watch Deployments turn green
 - Local git identity fixed for all future work; old commits remain in history (harmless once HEAD is valid)
+
+---
+Task ID: 11
+Agent: Super Z (main)
+Task: Post-launch verification + update todo.md; diagnose & fix production inquiry persistence failure
+
+Work Log:
+- Live smoke: threethai.com 308->www 200, /zh 200, /request-quote 200 — deployment healthy
+- E2E browser test on live /request-quote: POST 200 but generic persist-error banner returned (validation PASSED, DB insert failed)
+- Diagnosis: banner text maps to `status:error && !fieldErrors` branch in inquiry-form.tsx = persist failure. Causes: (a) Neon pooled DATABASE_URL (PgBouncer transaction mode) incompatible with Prisma prepared statements; (b) Inquiry table possibly never created
+- Fix 1 (db.ts): resolveDatasourceUrl prefers DATABASE_URL_UNPOOLED, else appends pgbouncer=true&connection_limit=5 to pooled postgres URL; SQLite passthrough; prod log level query->error/warn (PII leak fix)
+- Fix 2 (inquiry.ts): idempotent ensureSchema() bootstrap (CREATE TABLE IF NOT EXISTS + unique index) before insert — covers missed SQL step
+- Verified locally: build passes; prod-server E2E on :3000 submitted OK, Prisma readback confirmed row RF-260831-C7CB in SQLite
+- Committed ab06758 with corrected identity dylanliu2002 <110671153+dylanliu2002@users.noreply.github.com>
+- Rewrote todo.md: new P0 urgent section (deploy fix, retest online, delete test rows, token hygiene), marked deployment+Postgres done, reordered P1-P5
+- Note: remote has README.md commit (user web-created) not in local history -> need `git pull --rebase` before push; requires fresh fine-grained PAT from user
+
+Stage Summary:
+- Fix committed locally, blocked on push (old PAT dead); asked user for new Contents:RW token
+- After deploy: I re-run browser E2E on live site, then user deletes test rows via provided SQL
