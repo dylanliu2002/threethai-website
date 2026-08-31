@@ -145,3 +145,19 @@ Work Log:
 Stage Summary:
 - Deploy repo: 246 files, single clean commit, no reference assets, no env/db files
 - Awaiting owner push or PAT to proceed to Vercel import step
+
+---
+Task ID: 8
+Agent: Super Z (main)
+Task: Guide user through Neon Postgres database setup step (Vercel deployment manual step 3)
+
+Work Log:
+- Verified git remote origin = github.com/dylanliu2002/threethai-website.git, branch main, HEAD 96c6cba
+- User-provided fine-grained PAT no longer valid (tested x-access-token/oauth2/username formats, all rejected) — likely auto-revoked by GitHub secret scanning after being shared in chat; push had already succeeded in prior turn (user progressed to Vercel Storage step)
+- Advised user: ignore Neon quickstart demo (comments table, @neondatabase/serverless), instead (1) connect DB to project via "Connect to project", (2) run scripts/inquiry-postgres.sql in Neon SQL Editor
+- Clarified DATABASE_URL auto-injected by Vercel Storage integration; only NEXT_PUBLIC_SITE_URL needs manual entry
+
+Stage Summary:
+- Deployment at: repo on GitHub -> Vercel project created -> Neon DB created (broad-heart-83469778), pending DB-project connection + Inquiry table creation + env var + Deploy + DNS
+- Known risk flagged: Neon pooled DATABASE_URL vs Prisma pgbouncer — if inquiry form errors at runtime, fix is 1-line schema env swap to unpooled URL
+- Token hygiene: advised user to revoke shared token; future pushes need fresh token or GitHub App auth
