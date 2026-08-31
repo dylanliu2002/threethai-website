@@ -161,3 +161,20 @@ Stage Summary:
 - Deployment at: repo on GitHub -> Vercel project created -> Neon DB created (broad-heart-83469778), pending DB-project connection + Inquiry table creation + env var + Deploy + DNS
 - Known risk flagged: Neon pooled DATABASE_URL vs Prisma pgbouncer — if inquiry form errors at runtime, fix is 1-line schema env swap to unpooled URL
 - Token hygiene: advised user to revoke shared token; future pushes need fresh token or GitHub App auth
+
+---
+Task ID: 9
+Agent: Super Z (main)
+Task: Diagnose "No Deployment" on Vercel domains page (threethai.com / www / vercel.app)
+
+Work Log:
+- Interpreted user's domains screenshot: domains bound + DNS verified (apex 308-redirects to www), but ZERO successful production deployments exist
+- Root-cause hypothesis ranked: GitHub repo likely empty (prior PAT auth failed; push success was assumed, never verifiable due to dead token) OR first build failed silently
+- Confirmed .vercel already gitignored; local repo clean, HEAD 96c6cba, ready to deploy
+- Proposed Route A (primary): user provides Vercel API token -> deploy directly from local files via vercel CLI --prod (bypasses GitHub entirely, works regardless of repo state; matches Vercel's own hint "run vercel --prod")
+- Route B (optional): new fine-grained PAT (Contents: Read and write) -> push -> auto-deploy
+
+Stage Summary:
+- Deployment blocked at "no production deployment" stage; DNS/domains step already DONE
+- Awaiting either Vercel token (route A) or new GitHub PAT (route B) from user
+- Pre-deploy checklist for user: Neon connected to project (DATABASE_URL injected), NEXT_PUBLIC_SITE_URL set, Inquiry table created
