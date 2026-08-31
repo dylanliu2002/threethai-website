@@ -129,3 +129,19 @@ Work Log:
 Stage Summary:
 - Repo is Vercel-ready: push to GitHub (private) → import → Vercel Postgres → env DATABASE_URL + NEXT_PUBLIC_SITE_URL=https://threethai.com → db:push:pg once → DNS cutover (2 records)
 - Local dev environment unaffected (SQLite path intact, dev server verified earlier)
+
+---
+Task ID: 8
+Agent: main (Super Z)
+Task: Push site to GitHub dylanliu2002/threethai-website (owner-provided repo)
+
+Work Log:
+- No GitHub credentials in environment (no gh/SSH/helper) → https push blocked; prepared credential-free path
+- Repo hygiene for deploy: untracked upload/ (101MB old-site source + dossier), tool-results/, examples/, mini-services/ via .gitignore (files remain safe in workspace); fixed earlier silent rm failure (skills pathspec aborted chain); untracked .env + db/custom.db removed from tracking earlier retained
+- Squashed 7 auto-commits into single orphan commit 9afbacb "Three Thai Textile website — production (Next.js 16, 10-locale, Vercel-ready)" on main; reflog expired + aggressive gc → .git 84MB→13MB
+- Built download/threethai-website-deploy.zip (26MB): .git + tracked tree, remote origin pre-set to dylanliu2002/threethai-website; verified in /tmp: log/remote/status clean, zip integrity OK
+- Push blocked pending owner action: EITHER unzip locally + `git push -u origin main` (browser auth), OR fine-grained PAT (this repo only, Contents RW) pasted in chat for workspace push
+
+Stage Summary:
+- Deploy repo: 246 files, single clean commit, no reference assets, no env/db files
+- Awaiting owner push or PAT to proceed to Vercel import step
