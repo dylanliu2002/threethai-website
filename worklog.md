@@ -252,3 +252,19 @@ Work Log:
 Stage Summary:
 - Email feature code-complete + tested locally; awaiting (a) fresh GitHub token to push, (b) RESEND_API_KEY in Vercel env (user dashboard or Vercel token), (c) live send verification
 - Drift warning: if Vercel CLI deploy used without git sync, next GitHub-triggered deploy would revert email feature — keep remote main synced
+
+---
+Task ID: 14
+Agent: Super Z (main)
+Task: Switch inquiry notification from Resend to owner-mailbox SMTP per user preference
+
+Work Log:
+- User challenged Resend choice ("why not my own mailbox") -> explained receiving was already direct, sending via own SMTP is viable and has real-sender advantage
+- Replaced deliverInquiry Resend fetch with nodemailer: smtp.exmail.qq.com:465, auth SMTP_USER/SMTP_PASS, from=SMTP_USER, replyTo=buyer, 8/6/12s timeouts; env docs updated in inquiry-email.ts
+- npm i nodemailer@7 + @types/nodemailer
+- Local tests: path A no creds -> skip + form success (RF-260831-E9FE); path B fake creds -> Tencent replied 535 auth failed (proves outbound SMTP path works end-to-end) + form success (RF-260831-BB0D)
+- Committed b1c7fc3; remote main still 64a53d5 (push blocked — both chat-shared PATs auto-revoked by GitHub secret scanning)
+
+Stage Summary:
+- SMTP notification code-complete and locally verified; user to generate Tencent client-specific password + add SMTP_USER/SMTP_PASS in Vercel (better they never paste the password to chat), fresh GitHub token for push
+- Resend remains a documented upgrade path (rendering layer reusable)
