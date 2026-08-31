@@ -1,0 +1,41 @@
+// Postgres variant of prisma/schema.prisma — used for Vercel (serverless) deploys,
+// where SQLite has no persistent filesystem. The Inquiry model is identical.
+//
+// - Local/dev keeps prisma/schema.prisma (SQLite, file: db/custom.db)
+// - Vercel build runs: prisma generate --schema prisma/schema.postgres.prisma
+//   (see "vercel-build" in package.json) and reads DATABASE_URL (postgresql://…)
+//
+// First-time provisioning on a fresh database:
+//   npm run db:push:pg          (with DATABASE_URL set to the Postgres URL)
+// or paste scripts/inquiry-postgres.sql into the provider's SQL editor.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Inquiry {
+  id            String   @id @default(cuid())
+  reference     String   @unique
+  kind          String // "quote" | "sample" | "contact"
+  locale        String   @default("en")
+  name          String
+  company       String?
+  country       String?
+  email         String
+  phone         String?
+  product       String?
+  application   String?
+  specification String?
+  temperature   String?
+  quantity      String?
+  destination   String?
+  message       String
+  createdAt     DateTime @default(now())
+
+  @@map("Inquiry")
+}

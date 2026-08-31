@@ -1,0 +1,30 @@
+// B2B inquiry store — quote requests, sample requests and contact messages.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Inquiry {
+  id            String   @id @default(cuid())
+  reference     String   @unique
+  kind          String // "quote" | "sample" | "contact"
+  locale        String   @default("en")
+  name          String
+  company       String?
+  country       String?
+  email         String
+  phone         String?
+  product       String?
+  application   String?
+  specification String?
+  temperature   String?
+  quantity      String?
+  destination   String?
+  message       String
+  createdAt     DateTime @default(now())
+}
