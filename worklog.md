@@ -178,3 +178,20 @@ Stage Summary:
 - Deployment blocked at "no production deployment" stage; DNS/domains step already DONE
 - Awaiting either Vercel token (route A) or new GitHub PAT (route B) from user
 - Pre-deploy checklist for user: Neon connected to project (DATABASE_URL injected), NEXT_PUBLIC_SITE_URL set, Inquiry table created
+
+---
+Task ID: 10
+Agent: Super Z (main)
+Task: Fix Vercel "Deployment Blocked — commit author email (z@container) is not valid"
+
+Work Log:
+- Root cause: all 4 commits (9afbacb/96c6cba/9180e2d/42af8c5) authored as sandbox placeholder "Z User <z@container>"; user self-pushed them; Vercel blocks deployments from unresolvable author emails
+- Fetched GitHub user: dylanliu2002, ID 110671153
+- Set local git config user.name=dylanliu2002, user.email=110671153+dylanliu2002@users.noreply.github.com — all future commits valid
+- Chose fix path for user: create README.md via GitHub web UI (Add file -> Create new file -> commit) — web commit authored by their GitHub identity becomes new HEAD, triggers unblocked deployment; avoids force-push complexity
+- Confirmed no README.md exists locally, so web-created one adds value and no conflict planned
+- Skipped history rewrite (would require user-side force-push; not worth complexity)
+
+Stage Summary:
+- User action pending: create README.md on GitHub web -> auto-deploy starts -> watch Deployments turn green
+- Local git identity fixed for all future work; old commits remain in history (harmless once HEAD is valid)
