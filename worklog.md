@@ -235,3 +235,20 @@ Stage Summary:
 - PRODUCTION INQUIRY PIPELINE IS LIVE AND VERIFIED end-to-end
 - User follow-ups: DELETE FROM "Inquiry" WHERE email LIKE '%@example.com'; revoke old tokens in GitHub settings
 - Next per todo.md: P0 done -> P1 business data (user), P3 email notification (highest value)
+
+---
+Task ID: 13
+Agent: Super Z (main)
+Task: Implement inquiry email notification (Resend) — code done, push blocked by revoked token
+
+Work Log:
+- Created src/lib/inquiry-email.ts: buildInquiryEmail -> branded HTML (navy header, field table, message block, reply hint) + plain-text; escapes all buyer input; omits empty fields; subject "[RF-xxx] Kind — Name · Company"
+- inquiry.ts deliverInquiry: POST api.resend.com/emails, Bearer auth, 8s AbortSignal timeout, reply_to=buyer email, from/to via INQUIRY_EMAIL_FROM/INQUIRY_EMAIL_TO env (defaults onboarding@resend.dev / salesmanager@threethai.com); missing key -> skip+warn; non-OK -> log error; never throws to form
+- Build passed; local E2E path A (no key): form success RF-260831-7015 + "notification skipped" logged
+- Local E2E path B (fake key): Resend returned 401 (proves request contract correct), form STILL success RF-260831-4E57
+- Committed b498fe7 (+ todo 31dc4e6) as dylanliu2002 <dylanliu@umich.edu>
+- Push FAILED: the PAT used 30min ago is now rejected — GitHub secret scanning auto-revokes chat-exposed tokens; treat chat tokens as single-use, push immediately on receipt
+
+Stage Summary:
+- Email feature code-complete + tested locally; awaiting (a) fresh GitHub token to push, (b) RESEND_API_KEY in Vercel env (user dashboard or Vercel token), (c) live send verification
+- Drift warning: if Vercel CLI deploy used without git sync, next GitHub-triggered deploy would revert email feature — keep remote main synced
