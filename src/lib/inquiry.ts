@@ -34,6 +34,48 @@ function makeReference(): string {
   return `RF-${stamp}-${randomBytes(2).toString("hex").toUpperCase()}`;
 }
 
+/**
+ * Idempotent schema bootstrap for serverless (Neon) deployments where the
+ * manual table-creation step may have been missed. Runs at most once per
+ * runtime instance; `IF NOT EXISTS` keeps it safe when the table already
+ * exists. The statements are static (no user input); the Postgres syntax is
+ * also accepted by SQLite (no-op locally, where the table already exists).
+ */
+const INQUIRY_DDL = `CREATE TABLE IF NOT EXISTS "Inquiry" (
+  "id" TEXT NOT NULL,
+  "reference" TEXT NOT NULL,
+  "kind" TEXT NOT NULL,
+  "locale" TEXT NOT NULL DEFAULT 'en',
+  "name" TEXT NOT NULL,
+  "company" TEXT,
+  "country" TEXT,
+  "email" TEXT NOT NULL,
+  "phone" TEXT,
+  "product" TEXT,
+  "application" TEXT,
+  "specification" TEXT,
+  "temperature" TEXT,
+  "quantity" TEXT,
+  "destination" TEXT,
+  "message" TEXT NOT NULL,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "Inquiry_pkey" PRIMARY KEY ("id")
+)`;
+
+let schemaReady = false;
+async function ensureSchema(): Promise<void> {
+  if (schemaReady) return;
+  try {
+    await db.$executeRawUnsafe(INQUIRY_DDL);
+    await db.$executeRawUnsafe(
+      `CREATE UNIQUE INDEX IF NOT EXISTS "Inquiry_reference_key" ON "Inquiry"("reference")`
+    );
+    schemaReady = true;
+  } catch {
+    // Bootstrap is best-effort; the insert below surfaces the real error.
+  }
+}
+
 async function deliverInquiry(payload: {
   reference: string;
   kind: InquiryKind;
@@ -83,6 +125,7 @@ export async function submitInquiry(_prev: InquiryState, formData: FormData): Pr
 
   const reference = makeReference();
   try {
+    await ensureSchema();
     await db.inquiry.create({
       data: {
         reference,
