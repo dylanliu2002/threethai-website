@@ -1,6 +1,7 @@
 "use server";
 
 import { randomBytes } from "crypto";
+import nodemailer from "nodemailer";
 import { db } from "@/lib/db";
 import { buildInquiryEmail, type InquiryPayload } from "@/lib/inquiry-email";
 
@@ -78,42 +79,39 @@ async function ensureSchema(): Promise<void> {
 }
 
 /**
- * Sales notification via Resend (see lib/inquiry-email.ts for env vars).
- * Fire-safe: any failure is logged but never blocks the inquiry response.
- * To switch providers (SMTP / CRM webhook), swap the fetch call below —
- * rendering lives in buildInquiryEmail.
+ * Sales notification via the company's own mailbox (Tencent Exmail SMTP).
+ * See lib/inquiry-email.ts for env vars. Fire-safe: any failure is logged
+ * but never blocks the inquiry response. To switch providers (Resend / CRM
+ * webhook), swap the transport below — rendering lives in buildInquiryEmail.
  */
 async function deliverInquiry(payload: InquiryPayload) {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    console.warn("[inquiry] notification skipped: RESEND_API_KEY is not set");
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!user || !pass) {
+    console.warn("[inquiry] notification skipped: SMTP_USER/SMTP_PASS is not set");
     return;
   }
 
   const { subject, html, text } = buildInquiryEmail(payload);
   try {
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: process.env.INQUIRY_EMAIL_FROM ?? "Three Thai Textile <onboarding@resend.dev>",
-        to: [process.env.INQUIRY_EMAIL_TO ?? "salesmanager@threethai.com"],
-        reply_to: payload.fields.email || undefined,
-        subject,
-        html,
-        text,
-      }),
-      signal: AbortSignal.timeout(8000),
+    const transport = nodemailer.createTransport({
+      host: process.env.SMTP_HOST ?? "smtp.exmail.qq.com",
+      port: Number(process.env.SMTP_PORT ?? 465),
+      secure: true,
+      auth: { user, pass },
+      connectionTimeout: 8000,
+      greetingTimeout: 6000,
+      socketTimeout: 12000,
     });
-    if (!response.ok) {
-      console.error("[inquiry] notification failed:", response.status, (await response.text()).slice(0, 300));
-      return;
-    }
-    const sent = (await response.json()) as { id?: string };
-    console.info("[inquiry] notification sent", sent.id ?? "");
+    const info = await transport.sendMail({
+      from: process.env.INQUIRY_EMAIL_FROM ?? user,
+      to: process.env.INQUIRY_EMAIL_TO ?? "salesmanager@threethai.com",
+      replyTo: payload.fields.email || undefined,
+      subject,
+      html,
+      text,
+    });
+    console.info("[inquiry] notification sent", info.messageId);
   } catch (error) {
     console.error("[inquiry] notification error", error);
   }

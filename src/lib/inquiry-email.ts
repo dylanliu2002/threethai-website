@@ -7,13 +7,12 @@
  * success regardless; errors are only logged for ops).
  *
  * Environment variables (all server-side only):
- *  - RESEND_API_KEY      required to actually send; without it delivery is
+ *  - SMTP_USER / SMTP_PASS  required to send (Tencent Exmail mailbox or its
+ *                        client-specific "安全密码"); without them delivery is
  *                        skipped gracefully (site keeps working)
- *  - INQUIRY_EMAIL_FROM  default "Three Thai Textile <onboarding@resend.dev>".
- *                        Resend's test sender may only deliver to the address
- *                        that owns the Resend account. After verifying
- *                        threethai.com in Resend, set this to e.g.
- *                        "Three Thai Textile <notifications@threethai.com>".
+ *  - SMTP_HOST / SMTP_PORT  default smtp.exmail.qq.com:465 (implicit TLS)
+ *  - INQUIRY_EMAIL_FROM  default = SMTP_USER; the sending mailbox should be
+ *                        @threethai.com so SPF/DKIM stay aligned
  *  - INQUIRY_EMAIL_TO    default "salesmanager@threethai.com"
  */
 
