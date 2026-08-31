@@ -215,3 +215,23 @@ Work Log:
 Stage Summary:
 - Fix committed locally, blocked on push (old PAT dead); asked user for new Contents:RW token
 - After deploy: I re-run browser E2E on live site, then user deletes test rows via provided SQL
+
+---
+Task ID: 12
+Agent: Super Z (main)
+Task: Ship inquiry fix to production with verified author identity, verify live E2E
+
+Work Log:
+- User constraint: commit author must be dylanliu2002 <dylanliu@umich.edu>; provided fresh fine-grained PAT
+- Set git identity to umich.edu email, amended fix commit (--reset-author)
+- Token verified via ls-remote; remote main was 7c0d7ee (user's web-created README)
+- fetch + rebase (6 local commits replayed cleanly, incl. auto-sync worklog commits) -> pushed 7c0d7ee..64a53d5 HEAD:main
+- Vercel auto-deployed; polled 200 after ~3 min
+- Live browser E2E on /request-quote: SUCCESS — reference RF-260831-CBB6 returned (screenshot: download/inquiry-live-test-success.png); inquiry pipeline form->server action->Prisma->Neon confirmed working in production
+- todo.md updated: P0 items marked done; remaining: delete test rows (SQL provided), revoke shared tokens
+- Committed todo.md update (571b9a1, local only — will ride with next push)
+
+Stage Summary:
+- PRODUCTION INQUIRY PIPELINE IS LIVE AND VERIFIED end-to-end
+- User follow-ups: DELETE FROM "Inquiry" WHERE email LIKE '%@example.com'; revoke old tokens in GitHub settings
+- Next per todo.md: P0 done -> P1 business data (user), P3 email notification (highest value)
