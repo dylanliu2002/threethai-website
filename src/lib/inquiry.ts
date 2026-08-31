@@ -2,6 +2,7 @@
 
 import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
+import { buildInquiryEmail, type InquiryPayload } from "@/lib/inquiry-email";
 
 /**
  * B2B inquiry submission — server-side validation + storage.
@@ -76,15 +77,46 @@ async function ensureSchema(): Promise<void> {
   }
 }
 
-async function deliverInquiry(payload: {
-  reference: string;
-  kind: InquiryKind;
-  locale: string;
-  fields: Record<string, string>;
-}) {
-  // TODO(owner): connect the company mailbox / CRM here.
-  // The record is already persisted (see below); this hook is for notification.
-  console.info("[inquiry]", JSON.stringify({ ...payload }));
+/**
+ * Sales notification via Resend (see lib/inquiry-email.ts for env vars).
+ * Fire-safe: any failure is logged but never blocks the inquiry response.
+ * To switch providers (SMTP / CRM webhook), swap the fetch call below —
+ * rendering lives in buildInquiryEmail.
+ */
+async function deliverInquiry(payload: InquiryPayload) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn("[inquiry] notification skipped: RESEND_API_KEY is not set");
+    return;
+  }
+
+  const { subject, html, text } = buildInquiryEmail(payload);
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: process.env.INQUIRY_EMAIL_FROM ?? "Three Thai Textile <onboarding@resend.dev>",
+        to: [process.env.INQUIRY_EMAIL_TO ?? "salesmanager@threethai.com"],
+        reply_to: payload.fields.email || undefined,
+        subject,
+        html,
+        text,
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) {
+      console.error("[inquiry] notification failed:", response.status, (await response.text()).slice(0, 300));
+      return;
+    }
+    const sent = (await response.json()) as { id?: string };
+    console.info("[inquiry] notification sent", sent.id ?? "");
+  } catch (error) {
+    console.error("[inquiry] notification error", error);
+  }
 }
 
 export async function submitInquiry(_prev: InquiryState, formData: FormData): Promise<InquiryState> {
