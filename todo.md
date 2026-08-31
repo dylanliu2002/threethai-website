@@ -48,9 +48,10 @@
 
 ## P3 — 体验与转化优化
 
-- [x] **询盘邮件通知 · 代码完成（待推送上线）**
-  Resend REST 直调（零依赖），品牌化 HTML 通知邮件（海军蓝表头 + 全部字段 + UTC 时间），reply-to 直达买家邮箱；无 key/失败时优雅跳过，绝不影响询盘入库（两种路径均已本地验证）。
-  待办：① resend.com 注册（用 salesmanager@threethai.com 收件）→ 建 API key ② Vercel 添加环境变量 RESEND_API_KEY ③ 推送部署 ④ 线上实测收信 ⑤（可选）Resend 验证 threethai.com 域名，发件地址升级为 notifications@threethai.com。
+- [x] **询盘邮件通知 · 代码完成（待推送上线）— 按您的选择改为自有邮箱 SMTP 直发**
+  用腾讯企业邮 salesmanager@threethai.com 直接发信（发件人就是您自己，无需任何第三方账号）；品牌化 HTML 通知邮件 + reply-to 直达买家；无凭证/密码错误时优雅跳过，绝不影响询盘入库（已本地验证，且实测腾讯 SMTP 链路畅通）。
+  待办：① 腾讯企业邮生成「客户端专用密码」 ② Vercel 添加 SMTP_USER / SMTP_PASS 两个环境变量 ③ 推送部署 ④ 线上实测收信。
+  备注：若日后量大或需要送达率报表，可再切 Resend（渲染层已复用，改动仅一个函数）。
 - [ ] **流量与转化分析**
   接入分析工具（`lib/analytics` 已预留），跟踪：询盘提交率、选型工具完成率、语言分布。
 - [ ] **产品页规格增强**
