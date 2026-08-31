@@ -48,8 +48,9 @@
 
 ## P3 — 体验与转化优化
 
-- [ ] **询盘邮件通知**（价值最高的单项）
-  询盘已入库并预留了通知钩子（`lib/inquiry.ts → deliverInquiry`）。接入邮件服务（Resend / SMTP），实时推送到 salesmanager@threethai.com，避免漏单——尤其买家分布在不同时区时。
+- [x] **询盘邮件通知 · 代码完成（待推送上线）**
+  Resend REST 直调（零依赖），品牌化 HTML 通知邮件（海军蓝表头 + 全部字段 + UTC 时间），reply-to 直达买家邮箱；无 key/失败时优雅跳过，绝不影响询盘入库（两种路径均已本地验证）。
+  待办：① resend.com 注册（用 salesmanager@threethai.com 收件）→ 建 API key ② Vercel 添加环境变量 RESEND_API_KEY ③ 推送部署 ④ 线上实测收信 ⑤（可选）Resend 验证 threethai.com 域名，发件地址升级为 notifications@threethai.com。
 - [ ] **流量与转化分析**
   接入分析工具（`lib/analytics` 已预留），跟踪：询盘提交率、选型工具完成率、语言分布。
 - [ ] **产品页规格增强**
