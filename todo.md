@@ -8,18 +8,18 @@
 
 ## 🔥 P0 — 上线后紧急处理（当前最高优先级）
 
-- [x] **询盘入库失败 · 已定位并修复（待部署）**
+- [x] **询盘入库失败 · 已修复并部署上线（2026-09-01 完成）**
   线上表单提交返回错误——校验通过但数据库写入失败。原因：Vercel Neon 集成注入的是 PgBouncer 连接池地址，与 Prisma 预编译语句不兼容；且建表 SQL 若漏跑会导致同样的静默失败。
   修复（已提交 ab06758，待推送到 GitHub 触发自动部署）：
   ① `db.ts` 优先使用 Neon 直连地址，池化地址自动附加 `pgbouncer=true`；
   ② 询盘提交前自愈建表（幂等 `CREATE TABLE IF NOT EXISTS`），漏跑 SQL 也不再坏单；
   ③ 生产日志不再打印 SQL（避免买家个人信息进入日志）。
-  本地已通过端到端验证（提交 → 入库 → 返回参考编号）。
-- [ ] **推送修复并部署 → 线上复测** ⏳ 等待推送权限
-  需要新的 GitHub Token（旧 token 已失效）：GitHub → Settings → Developer settings → Fine-grained tokens → 仅选 threethai-website 仓库 → Permissions: Contents = Read and write。
-  部署完成后由我复测：表单提交 → Neon Tables 出现记录 → 全链路闭环。
-- [ ] **删除线上测试数据**
-  复测通过后，在 Neon SQL Editor 执行：
+  已推送 GitHub（提交 da8cdf3，作者 dylanliu2002 <dylanliu@umich.edu>），Vercel 自动部署成功。
+  本地与线上均通过端到端验证：表单提交 → Neon 入库 → 返回参考编号（线上测试记录 RF-260831-CBB6，见 download/inquiry-live-test-success.png）。
+- [x] **推送修复并部署 → 线上复测（已完成）**
+  远程历史已合并（含网页创建的 README），main = 64a53d5；线上复测通过。
+- [ ] **删除线上测试数据**（建议今天顺手做）
+  在 Neon Console → SQL Editor 执行：
   `DELETE FROM "Inquiry" WHERE email LIKE '%@example.com';`
 - [ ] **GitHub 安全清理**
   Settings → Developer settings → 检查并删除所有曾分享到聊天中的 token（含已自动吊销的旧 PAT）。
@@ -78,4 +78,4 @@
 
 ---
 
-**建议启动顺序**：🔥 P0 推送部署 + 线上复测（打通询盘链路，今天完成）→ P1 四项信息收集（您提供）→ P3 邮件通知（防漏单）→ P2 搜索引擎收录 → P4 分批翻译。
+**建议启动顺序**：P0 剩余两件小事（删测试数据 + 删旧 token，各 1 分钟）→ P1 四项信息收集（您提供）→ P3 邮件通知（防漏单，价值最高）→ P2 搜索引擎收录 → P4 分批翻译。
