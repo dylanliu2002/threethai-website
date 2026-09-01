@@ -268,3 +268,19 @@ Work Log:
 Stage Summary:
 - SMTP notification code-complete and locally verified; user to generate Tencent client-specific password + add SMTP_USER/SMTP_PASS in Vercel (better they never paste the password to chat), fresh GitHub token for push
 - Resend remains a documented upgrade path (rendering layer reusable)
+
+---
+Task ID: 15
+Agent: Super Z (main)
+Task: Deploy SMTP notification, run live E2E
+
+Work Log:
+- User provided fresh PAT (3rd) + confirmed SMTP_USER/SMTP_PASS added in Vercel
+- Pushed immediately: 64a53d5..8ca8c92 (SMTP feature + docs); Vercel auto-deployed
+- Live E2E on /request-quote: submitted real test inquiry, reference RF-260901-4D9F, screenshot download/inquiry-smtp-live-test.png
+- SMTP attempt executed server-side between DB insert and success response; outcome visible only in sales inbox / Vercel logs
+- todo.md updated: awaiting inbox confirmation as final step
+
+Stage Summary:
+- All code live; final human check = inbox confirmation. Cleanup SQL ready: DELETE FROM "Inquiry" WHERE email LIKE '%@example.com';
+- Reminder issued: revoke 3rd PAT after this push (chat-exposed tokens die fast anyway)
