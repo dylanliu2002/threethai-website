@@ -8,6 +8,11 @@
 
 ## 🔥 P0 — 上线后紧急处理（当前最高优先级）
 
+- [x] **旧站 URL 迁移收口 · Legacy Redirect Map 已上线（2026-09-01，SEO P0 第一名）**
+  搜索引擎仍收录大量 .html 世代旧 URL（/product_detail_en/id/73.html、/product_e.html、/wap_index.html 等）且打开 404。
+  已按 Google 官方迁移指南在 next.config.ts 铺设 60+ 条 308 永久跳转：产品详情→/products、产品列表→/products、新闻→/knowledge、关于→/about、荣誉→/quality、联络→/contact、询盘表单→/request-quote、wap 系列逐项映射（非一刀切跳首页，规避 soft 404）。
+  ⏳ 升级路径（约 5 分钟，需您操作）：GSC → 索引 → 页面 → 「未找到(404)」导出完整 URL 清单发我 → 我把旧产品详情升级为「id → 具体产品」的精确 308 映射。
+  ⏳ 旧域名收口（可选）：threethailc.xyz 仍在响应（WAF 403）。若把该域 DNS 也指向 Vercel 并加入项目域名（重定向模式），旧域名的存量索引流量同样吃这套跳转图。
 - [x] **询盘入库失败 · 已修复并部署上线（2026-09-01 完成）**
   线上表单提交返回错误——校验通过但数据库写入失败。原因：Vercel Neon 集成注入的是 PgBouncer 连接池地址，与 Prisma 预编译语句不兼容；且建表 SQL 若漏跑会导致同样的静默失败。
   修复（已提交 ab06758，待推送到 GitHub 触发自动部署）：

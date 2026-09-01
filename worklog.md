@@ -356,3 +356,19 @@ Work Log:
 Stage Summary:
 - Bing SEO 报告问题类别已系统性消除；OG/favicon 品牌资产全套更新上线
 - 「不安全」结论已向 owner 说明（网络路径干扰，非站点问题）；建议买家/自己都用 www + https 访问
+
+---
+Task ID: 20
+Agent: Super Z (main)
+Task: P0 — Legacy URL Redirect Map（旧站迁移 SEO 收口）
+
+Work Log:
+- 盘点镜像：upload/current-site 是上一代 vinext 源码（/answers /knowledge 已同构保留，无需跳转）；更老 .html 世代（product_detail_en/wap_*）不在任何本地源中
+- 清单获取尝试全记录：全库搜索 0 命中；Wayback CDX 两域均空且 API 在沙箱不可用；threethailc.xyz 直连被 WAF 拦（403→000）；Bing 反爬污染返回随机结果、DDG 不通
+- 落地方案：next.config.ts redirects() 铺 60+ 条家族级 308（用户 3 个示例全中）：产品详情/列表→/products，zh 详情→/zh/products，新闻→/knowledge，关于→/about，荣誉/证书→/quality，工厂→/manufacturing，联络→/contact，feedback/message/inquiry→/request-quote，wap_ 系列显式枚举（path-to-regexp 不支持段内前缀重复参数 /wap_:rest*，已改显式文件名）
+- 验证：本地 13 条用例全过（含正常页面 200 不受影响）；部署后线上实测用户报告 URL 全部 308 到正确目的地
+- 升级路径已写入 todo.md：待用户从 GSC「页面→未找到(404)」导出精确 URL 清单后升级为 id→具体产品映射
+
+Stage Summary:
+- 旧 URL 404 时代结束：全部家族级 308 上线（保留至少一年，符合 Google 迁移指南）
+- 剩余：① 用户导出 GSC 404 清单做精确映射 ② 可选：threethailc.xyz DNS 指向 Vercel 复用跳转图
