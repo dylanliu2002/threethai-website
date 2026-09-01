@@ -100,7 +100,7 @@ export default function SiteHeader({ locale, dict }: { locale: Locale; dict: Dic
           {navItems.map((item) => (
             <Link
               key={item.href}
-              href={item.href}
+              href={localePath(item.href, locale)}
               aria-current={isActive(item.href) ? "page" : undefined}
               className={`rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                 isActive(item.href) ? "text-primary" : "text-foreground/80 hover:text-primary"
@@ -178,7 +178,7 @@ export default function SiteHeader({ locale, dict }: { locale: Locale; dict: Dic
           {navItems.map((item) => (
             <Link
               key={item.href}
-              href={item.href}
+              href={localePath(item.href, locale)}
               aria-current={isActive(item.href) ? "page" : undefined}
               className={`rounded-md px-3 py-3 text-base font-medium ${
                 isActive(item.href) ? "bg-secondary text-primary" : "text-foreground"

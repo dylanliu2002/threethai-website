@@ -42,7 +42,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const entry = (path: string, priority: number, changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"]): MetadataRoute.Sitemap[number] => {
     const languages: Record<string, string> = {};
-    for (const l of ["en", "zh", ...dynamicLocales] as Locale[]) {
+    for (const l of ["en", ...dynamicLocales] as Locale[]) {
       languages[htmlLang[l]] = `${siteUrl}${localePath(path, l)}`;
     }
     languages["x-default"] = `${siteUrl}${localePath(path, "en")}`;

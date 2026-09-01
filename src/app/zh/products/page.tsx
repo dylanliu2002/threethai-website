@@ -96,7 +96,7 @@ export default function ZhProductsPage() {
           </div>
           <p className="mt-4 max-w-3xl text-xs leading-relaxed text-muted-foreground">
             温度标签只是选型起点——请先阅读
-            <Link href="/knowledge/pva-yarn-dissolution-temperature-guide" className="font-semibold text-primary hover:underline">溶解温度指南</Link>
+            <Link href="/zh/knowledge/pva-yarn-dissolution-temperature-guide" className="font-semibold text-primary hover:underline">溶解温度指南</Link>
             （英文）再对比样品。
           </p>
         </div>

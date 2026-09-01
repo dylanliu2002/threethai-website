@@ -204,14 +204,14 @@ export default function ProductView({ product, locale, dict }: { product: Produc
             <ul className="mt-4 space-y-3">
               {relatedArticles.map((article) => (
                 <li key={article.slug}>
-                  <Link href={`/knowledge/${article.slug}`} className="text-sm font-medium text-primary hover:underline">
+                  <Link href={lp(`/knowledge/${article.slug}`)} className="text-sm font-medium text-primary hover:underline">
                     {article.title}
                   </Link>
                 </li>
               ))}
               {relatedAnswers.map((answer) => (
                 <li key={answer.slug}>
-                  <Link href={`/answers/${answer.slug}`} className="text-sm text-muted-foreground hover:text-primary">
+                  <Link href={lp(`/answers/${answer.slug}`)} className="text-sm text-muted-foreground hover:text-primary">
                     {answer.question}
                   </Link>
                 </li>

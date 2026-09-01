@@ -54,8 +54,14 @@ export type Locale = ContentLocale | "es" | "pt" | "ru" | "ar" | "tr" | "vi" | "
 
 export const locales: Locale[] = ["en", "zh", "es", "pt", "ru", "ar", "tr", "vi", "id", "de"];
 
-/** Locales served by the dynamic /[lang] routes (everything except en at root and zh at /zh). */
-export const dynamicLocales: readonly Exclude<Locale, "en" | "zh">[] = ["es", "pt", "ru", "ar", "tr", "vi", "id", "de"];
+/**
+ * Locales served by the dynamic /[lang] routes (everything except en at root).
+ * zh is served here too: the hand-translated static /zh pages keep precedence
+ * for their routes, while any /zh path without a static override (knowledge,
+ * answers, product-finder, request-sample, article detail pages) is rendered
+ * by /[lang] with the zh dictionary — this keeps the hreflang graph honest.
+ */
+export const dynamicLocales: readonly Exclude<Locale, "en">[] = ["zh", "es", "pt", "ru", "ar", "tr", "vi", "id", "de"];
 
 /** Deep-content language used to render Record<ContentLocale> data. */
 export function contentLocaleOf(locale: Locale): ContentLocale {

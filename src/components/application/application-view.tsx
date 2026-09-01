@@ -129,7 +129,7 @@ export default function ApplicationView({ application, locale, dict }: { applica
           <Reveal>
             <h2 className="display-3">{application.testing[cl].heading}</h2>
             <p className="mt-3 text-base leading-relaxed text-muted-foreground">{application.testing[cl].body}</p>
-            <Link href="/knowledge" className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
+            <Link href={lp("/knowledge")} className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
               {dict.nav.knowledge}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
             </Link>

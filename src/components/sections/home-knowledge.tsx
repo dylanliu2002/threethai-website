@@ -2,10 +2,11 @@ import Link from "next/link";
 import Reveal from "@/components/layout/reveal";
 import { articles } from "@/content/articles";
 import type { Dictionary } from "@/content/i18n";
-import type { Locale } from "@/content/company";
+import { localePath, type Locale } from "@/content/company";
 
 export default function HomeKnowledge({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const t = dict.home.knowledge;
+  const lp = (path: string) => localePath(path, locale);
   const featured = articles.slice(0, 3);
   return (
     <section className="bg-paper py-16 sm:py-20" aria-labelledby="home-knowledge-title">
@@ -17,7 +18,7 @@ export default function HomeKnowledge({ locale, dict }: { locale: Locale; dict: 
               <h2 id="home-knowledge-title" className="display-2 mt-3">{t.title}</h2>
               <p className="lede mt-4">{t.body}</p>
             </div>
-            <Link href="/knowledge" className="btn-ghost !min-h-10 !px-4 text-sm">
+            <Link href={lp("/knowledge")} className="btn-ghost !min-h-10 !px-4 text-sm">
               {dict.actions.allArticles}
             </Link>
           </div>
@@ -26,7 +27,7 @@ export default function HomeKnowledge({ locale, dict }: { locale: Locale; dict: 
           {featured.map((article, index) => (
             <Reveal as="li" key={article.slug} delay={index * 70} className="h-full">
               <Link
-                href={`/knowledge/${article.slug}`}
+                href={lp(`/knowledge/${article.slug}`)}
                 className="card-line group flex h-full flex-col p-6 transition-all duration-200 hover:border-primary/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-deep">{article.category}</p>
