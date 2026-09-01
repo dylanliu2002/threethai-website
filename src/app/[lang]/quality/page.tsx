@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return buildMetadata({
     title: "Quality & Certification — ISO 9001, OEKO-TEX Class I, Patents",
     description:
-      "Verifiable quality evidence: ISO 9001:2015 certificate (valid to Aug 2029), OEKO-TEX Standard 100 Class I certification for raw-white PVA yarn (valid to Jan 2027), published TESTEX report, and 9 invention patents, 25 utility models plus Nigeria & Malta patents.",
+      "ISO 9001:2015 (to Aug 2029), OEKO-TEX Standard 100 Class I (to Jan 2027), TESTEX report and 34 granted patents - evidence you can verify, document by document.",
     path: "/quality",
     locale,
   });

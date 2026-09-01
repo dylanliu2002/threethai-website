@@ -23,8 +23,17 @@ type MetaInput = {
   noindex?: boolean;
 };
 
+/**
+ * Clamp a meta description to search-engine-safe length. Bing/Google show only
+ * the first ~150-160 characters; long descriptions are cut at a word boundary
+ * with an ellipsis so no page ships an over-length description.
+ */
+export const clampMetaDescription = (d: string): string =>
+  d.length <= 158 ? d : `${d.slice(0, 155).replace(/\s+\S*$/, "").replace(/[,;:\-–—]$/, "")}...`;
+
 export function buildMetadata(input: MetaInput): Metadata {
-  const { title, description, path, locale } = input;
+  const { title, path, locale } = input;
+  const description = clampMetaDescription(input.description);
   const canonical = `${siteUrl}${localePath(path, locale)}`;
   // Full hreflang graph across all ten locales (EN at the root, /{lang} prefixes).
   const languages: Record<string, string> = {};
@@ -78,7 +87,7 @@ export const organizationSchema = () => ({
   name: company.nameExportEn,
   alternateName: [company.nameLegalZh, "Three Thai", "threethai", company.brandMark],
   url: siteUrl,
-  logo: `${siteUrl}/images/brand/threethai-logo.png`,
+  logo: `${siteUrl}/favicon-256.png`, // square brand mark (Google publisher-logo preference)
   email: company.email,
   telephone: company.phoneDisplay,
   foundingDate: String(company.establishedYear),

@@ -1,7 +1,7 @@
 // Keep the public origin in one place. During the threethai.com cutover, the
 // deployment can switch every canonical, sitemap and structured-data URL by
 // setting NEXT_PUBLIC_SITE_URL without rewriting individual pages.
-export const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://threethailc.xyz").replace(/\/$/, "");
+export const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.threethai.com").replace(/\/$/, "");
 export const letterOfCreditUrl = (process.env.NEXT_PUBLIC_LC_URL || "https://lc.threethailc.xyz").replace(/\/$/, "");
 
 export const products = [

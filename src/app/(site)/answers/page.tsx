@@ -33,7 +33,7 @@ export default function AnswersPage() {
           hasPart: buyerAnswers.map((answer) => ({
             "@type": "Article",
             headline: answer.question,
-            url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://threethailc.xyz"}/answers/${answer.slug}`,
+            url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.threethai.com"}/answers/${answer.slug}`,
           })),
         },
       ])}

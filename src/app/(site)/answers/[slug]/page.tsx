@@ -5,7 +5,7 @@ import Breadcrumbs from "@/components/layout/breadcrumbs";
 import { buyerAnswers, answerBySlug, expandedEnglishAnswers } from "@/content/answers";
 import { productBySlug } from "@/content/products";
 import { en } from "@/content/i18n";
-import { articleSchema, breadcrumbSchema, faqSchema, jsonLd } from "@/lib/seo";
+import { articleSchema, breadcrumbSchema, clampMetaDescription, faqSchema, jsonLd } from "@/lib/seo";
 
 type AnswerPageProps = { params: Promise<{ slug: string }> };
 
@@ -18,11 +18,12 @@ export async function generateMetadata({ params }: AnswerPageProps): Promise<Met
   const answer = answerBySlug(slug);
   if (!answer) return {};
   const expanded = expandedEnglishAnswers[slug];
+  const description = clampMetaDescription(expanded?.metaDescription ?? answer.shortAnswer);
   return {
     title: `${answer.question} | Buyer Answer`,
-    description: expanded?.metaDescription ?? answer.shortAnswer,
-    alternates: { canonical: `${process.env.NEXT_PUBLIC_SITE_URL || "https://threethailc.xyz"}/answers/${answer.slug}` },
-    openGraph: { title: answer.question, description: expanded?.metaDescription ?? answer.shortAnswer, type: "article" },
+    description,
+    alternates: { canonical: `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.threethai.com"}/answers/${answer.slug}` },
+    openGraph: { title: answer.question, description, type: "article" },
   };
 }
 
@@ -180,7 +181,7 @@ export default async function AnswerPage({ params }: AnswerPageProps) {
   if (!answer) notFound();
   const expanded = expandedEnglishAnswers[slug];
   const faqs = expanded?.faqs ?? ([[answer.question, answer.shortAnswer]] as const);
-  const siteUrlEnv = process.env.NEXT_PUBLIC_SITE_URL || "https://threethailc.xyz";
+  const siteUrlEnv = process.env.NEXT_PUBLIC_SITE_URL || "https://www.threethai.com";
 
   return (
     <>

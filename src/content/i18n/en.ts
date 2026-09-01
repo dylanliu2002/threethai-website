@@ -4,7 +4,7 @@ const dict = {
     siteName: "Three Thai Textile",
     defaultTitle: "Water-Soluble PVA Yarn Manufacturer China | Three Thai Textile",
     defaultDescription:
-      "Three Thai Textile (山东荣沣纺织有限公司) manufactures water-soluble PVA yarn, sewing thread, staple fiber and filament yarn in Shandong, China for textile and industrial applications.",
+      "Three Thai Textile (山东荣沣纺织有限公司) manufactures water-soluble PVA yarn, sewing thread, staple fiber and filament in Shandong, China for global textile buyers.",
   },
   nav: {
     home: "Home",

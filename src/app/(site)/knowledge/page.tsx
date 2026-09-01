@@ -32,7 +32,7 @@ export default function KnowledgePage() {
           hasPart: articles.map((a) => ({
             "@type": "Article",
             headline: a.title,
-            url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://threethailc.xyz"}/knowledge/${a.slug}`,
+            url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.threethai.com"}/knowledge/${a.slug}`,
           })),
         },
       ])}

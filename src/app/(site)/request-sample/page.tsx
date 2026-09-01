@@ -23,7 +23,7 @@ export default function RequestSamplePage() {
         "@context": "https://schema.org",
         "@type": "ContactPage",
         name: dict.form.sampleTitle,
-        url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://threethailc.xyz"}/request-sample`,
+        url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.threethai.com"}/request-sample`,
       })}
       <section className="border-b border-border bg-primary text-primary-foreground">
         <div className="container-site py-12 sm:py-16">

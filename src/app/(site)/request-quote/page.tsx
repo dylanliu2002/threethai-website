@@ -25,7 +25,7 @@ export default function RequestQuotePage() {
         "@context": "https://schema.org",
         "@type": "ContactPage",
         name: dict.form.quoteTitle,
-        url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://threethailc.xyz"}/request-quote`,
+        url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.threethai.com"}/request-quote`,
       })}
       <section className="border-b border-border bg-primary text-primary-foreground">
         <div className="container-site py-12 sm:py-16">
