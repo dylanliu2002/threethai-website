@@ -284,3 +284,22 @@ Work Log:
 Stage Summary:
 - All code live; final human check = inbox confirmation. Cleanup SQL ready: DELETE FROM "Inquiry" WHERE email LIKE '%@example.com';
 - Reminder issued: revoke 3rd PAT after this push (chat-exposed tokens die fast anyway)
+
+---
+Task ID: 16
+Agent: Super Z (main)
+Task: Google/Bing 收录提交 — IndexNow 批量提交 + 验证钩子 + canonical 域名统一
+
+Work Log:
+- 体检发现收录隐患：线上 canonical/sitemap/robots 全指向裸域 threethai.com，但实际服务域为 www（裸域 308→www），canonical 指向跳转 URL 属反模式
+- 修复：company.ts + root layout 的 NEXT_PUBLIC_SITE_URL fallback 统一改为 https://www.threethai.com（Vercel env 仍为 apex，待用户改 env 后全站切换）
+- 站长平台验证钩子：root layout 新增 verification 元数据，GOOGLE_SITE_VERIFICATION / BING_SITE_VERIFICATION(msvalidate.01) / YANDEX_SITE_VERIFICATION 环境变量即插即用；本地构建期注入实测 meta 标签正确渲染
+- IndexNow：生成密钥 7cdcdd0e1c069300b1b153d7d7e9e672 → public/<key>.txt；scripts/indexnow-submit.mjs 解析线上 sitemap（<loc> + xhtml:link，apex→www 归一化，244 URL）批量 POST api.indexnow.org
+- 推送 8ca8c92..cadd5bf（第 4 个 PAT 推送时仍存活），Vercel ~90s 部署完成，key 文件线上 200
+- 首提 403 SiteVerificationNotCompleted（IndexNow 密钥异步验证的已知首提行为），90s 后重试 HTTP 200 OK — 244 条 URL 提交成功
+- 用户粘贴的山东荣沣官方档案文本已核对：与线上站点存在事实冲突（成立 2016 vs 站点 2006；员工 300+ vs 206；荣誉/高校合作/设备品牌为新增可核事实），未贸然上站，待 owner 裁决
+
+Stage Summary:
+- Bing/Seznam/Yandex/Naver 收录通道已打通（IndexNow 200 OK）；Google 因无 OAuth 凭证走 Search Console 手动路径（验证 meta 钩子已备好）
+- 用户侧剩余 3 步：Vercel 改 NEXT_PUBLIC_SITE_URL → www；注册 GSC 验证 + 提交 sitemap；注册 Bing WMT（可从 GSC 导入）
+- 档案文本新事实（荣誉资质/产学研/设备品牌/市占率）可充实 /about，等冲突项确认后开工

@@ -39,8 +39,11 @@
 
 ## P2 — 收录与分享（上线后立即可做）
 
-- [ ] **搜索引擎收录**
-  Google Search Console + Bing Webmaster 提交 sitemap.xml（72 URL）；验证 hreflang 图谱与 canonical；提交旧站改版地址变更。
+- [x] **搜索引擎收录 · 技术侧已完成（2026-09-01）**
+  ① IndexNow 批量提交成功（HTTP 200）：244 条 URL（55 条 EN canonical + 全部多语言 alternates）已提交 Bing/Seznam/Yandex/Naver 联盟；密钥文件 `/7cdcdd0e1c069300b1b153d7d7e9e672.txt` 已上线。
+  ② canonical 域名统一：代码 fallback 已改 `www.threethai.com`（提交 cadd5bf，已部署）；sitemap/robots 随 env 切换。
+  ③ 站长平台验证钩子：`GOOGLE_SITE_VERIFICATION` / `BING_SITE_VERIFICATION` / `YANDEX_SITE_VERIFICATION` 三个 Vercel 环境变量即插即用，无需再改代码。
+  ⏳ 剩余需您操作（约 10 分钟）：Vercel 里把 `NEXT_PUBLIC_SITE_URL` 改为 `https://www.threethai.com`（对齐 canonical 与实际服务域）；注册 Google Search Console + Bing Webmaster 并提交 sitemap（步骤见会话摘要）。
 - [ ] **OG 分享图更新**（可选）
   用新主视觉横幅裁切 1200×630 替换现有 og.jpg，社交/WhatsApp 分享更统一。
 - [ ] **favicon 方形图标**
