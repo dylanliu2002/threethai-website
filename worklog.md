@@ -338,3 +338,21 @@ Stage Summary:
 - 收录技术链路全部就绪且域名口径统一为 www.threethai.com
 - 等待期预期管理：GSC/Bing 收录需数天至数周；建议用户在 GSC 对首页做一次「网址检查→请求编入索引」加速
 - 备忘：GSC meta 验证标签未启用（HTML 文件路径足够）；BING_SITE_VERIFICATION env 钩子保留备用
+
+---
+Task ID: 19
+Agent: Super Z (main)
+Task: 「不安全」提示排查 + Bing 描述长度问题修复 + OG/favicon 资产更新
+
+Work Log:
+- 「不安全」排查结论：服务器侧全绿（裸域+www 双证书有效 Let's Encrypt 2026-08-31 签发、http→https→www 308 链正确、HSTS max-age=63072000、5 个页面混合内容扫描 0 个 http 资源）→ 间歇性「不安全」为主流网络到 Vercel 边缘的 TLS 干扰（大陆访问 Vercel 常见），非站点配置问题；海外买家路径不受影响
+- Bing「Meta Description 过长/过短」：自写审计脚本爬全站，发现 42 页超长（25-160 规则），Bing 报的 1 处仅是抽查
+- 修复：seo.tsx 新增 clampMetaDescription（≤158 词边界截断）注入 buildMetadata 全局生效；首页默认描述手工精修至 155；/quality 手工重写至 159；(site)/answers/[slug] 是唯一绕过 buildMetadata 的页面，已单独接钳制并修掉 threethailc.xyz 陈旧 fallback ×6 处
+- 踩坑记录：EN 根路径实际由 (site) 路由组服务而非 [lang]；.next 构建缓存导致新旧混出，审计必须 rm -rf .next 干净重建后进行
+- OG 分享图：hero 2560×1120 中央裁切 1200×630（97KB progressive），og.jpg 全站引用自动更新
+- favicon 方形套装：从 logo 列投影+连通域分析提取椭圆徽标（剔除 ® 残留），白底圆角 512 母版 → favicon.ico(16/32/48) + favicon.svg(base64 内嵌) + apple-touch-icon 180 + favicon-256.png；Organization JSON-LD logo 换用方形 favicon-256.png（Google publisher logo 偏好）
+- 验证：eslint/tsc/build 全过；本地+线上全站审计 0 违规；资产线上 200；IndexNow 三次提交 HTTP 200
+
+Stage Summary:
+- Bing SEO 报告问题类别已系统性消除；OG/favicon 品牌资产全套更新上线
+- 「不安全」结论已向 owner 说明（网络路径干扰，非站点问题）；建议买家/自己都用 www + https 访问
