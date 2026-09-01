@@ -372,3 +372,19 @@ Work Log:
 Stage Summary:
 - 旧 URL 404 时代结束：全部家族级 308 上线（保留至少一年，符合 Google 迁移指南）
 - 剩余：① 用户导出 GSC 404 清单做精确映射 ② 可选：threethailc.xyz DNS 指向 Vercel 复用跳转图
+
+---
+Task ID: 21
+Agent: Super Z (main)
+Task: 中文版路由 404 修复 + 语言切换不持久修复（用户报告：resources 页切中文找不到网页、选中文后跳页变回英文）
+
+Work Log:
+- 根因 1（404）：/zh 由静态 src/app/zh/ 服务但只覆盖 8 个页面，knowledge(Resources)/answers/product-finder/request-sample 四个区块无 zh 路由；[lang] 动态路由的 resolveLang 又拒绝 zh（dynamicLocales 不含 zh）→ 404。而 sitemap hreflang 早已声明 /zh/knowledge 等存在（死链）
+- 根因 2（跳页回英文）：site-header.tsx 主导航 7 个链接写死英文根路径（href="/products"），未走 localePath()；另有 4 处组件硬链接（application-view /knowledge、home-knowledge ×2、product-view /knowledge+/answers、zh/products 页文章链接）
+- 修复：dynamicLocales 加入 zh（静态 zh 页保持优先，缺的区块由 [lang] 用 zh 词典渲染，深度内容按站点策略回退 EN）；header 桌面+移动导航接 localePath；4 处组件硬链接全部 localePath 化；sitemap 去重 zh
+- 踩坑记录：首次构建出现 __next_error__ 预渲染页（/zh/knowledge 等），排查为残留旧 next start 进程干扰；pkill 全部 next 进程后干净重建，216 个非英文页面扫描 0 错误
+- 验证（本地 next start）：原 404 的 6 条 zh 路由全 200；静态 zh 页/EN/(es|de) 回归全 200；/zh/knowledge 的 lang=zh-CN、中文 UI、canonical=/zh/knowledge、header 导航全 /zh 前缀、语言切换 en→/knowledge es→/es/knowledge 正确；sitemap /knowledge 的 zh-CN alternate 指向真实页面
+
+Stage Summary:
+- zh 语言图补全：sitemap/hreflang 声明的 /zh/* 全部真实存在；中文用户全程不再掉回英文
+- 提交 14bd0a6 推送部署；遗留小优化：[lang] 页 meta title/description 仍为 EN 回退（含 zh knowledge），后续可用 zh 词典 meta 精修
