@@ -321,3 +321,20 @@ Work Log:
 Stage Summary:
 - GSC 验证文件已上线待用户点击验证；档案可信事实已全部上站且无事实冲突
 - 待用户：GSC 验证 + 提交 sitemap；Vercel env 改 www；Bing WMT 导入
+
+---
+Task ID: 18
+Agent: Super Z (main)
+Task: 收录复验 — GSC 验证/sitemap 提交/Vercel env 对齐/Bing 导入后的全链路核验
+
+Work Log:
+- Owner 已完成：GSC HTML 文件验证通过、sitemap 提交 Success（55 页）、Vercel NEXT_PUBLIC_SITE_URL 改 www、Bing WMT 从 GSC 导入
+- 复验全过：canonical=www ✓ / robots Host+Sitemap=www ✓ / sitemap 55 loc 全 www ✓ / apex 308→www ✓ / GSC 验证文件 200 ✓ / IndexNow key 200 ✓
+- JSON-LD Organization url=www ✓；about/manufacturing 档案内容线上在位 ✓；核心路由 10 条全 200 ✓
+- hreflang 疑似异常排查：HTML 中为 React SSR 驼峰序列化 hrefLang（属性大小写不敏感，引擎解析等价），图谱完整 10 语言+x-default，head 元素与 RSC 载荷重复计数非问题
+- IndexNow 二次提交（canonical 切换+内容更新后刷新）：HTTP 200 OK，244 URL 全部原生 www
+
+Stage Summary:
+- 收录技术链路全部就绪且域名口径统一为 www.threethai.com
+- 等待期预期管理：GSC/Bing 收录需数天至数周；建议用户在 GSC 对首页做一次「网址检查→请求编入索引」加速
+- 备忘：GSC meta 验证标签未启用（HTML 文件路径足够）；BING_SITE_VERIFICATION env 钩子保留备用
