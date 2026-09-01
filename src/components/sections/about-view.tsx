@@ -82,6 +82,43 @@ export default function AboutView({ locale, dict }: { locale: Locale; dict: Dict
         </div>
       </section>
 
+      {/* Recognition & research partnerships */}
+      <section className="border-y border-border py-14 sm:py-16">
+        <div className="container-site">
+          <Reveal>
+            <h2 className="display-2 !text-2xl sm:!text-3xl">{t.recognitionTitle}</h2>
+          </Reveal>
+          <Reveal delay={60}>
+            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground">{t.recognitionIntro}</p>
+          </Reveal>
+          <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {t.recognition.map((item, i) => (
+              <Reveal as="li" key={item} delay={i * 40}>
+                <div className="card-line flex h-full items-start gap-2.5 p-4">
+                  <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" />
+                  <p className="text-sm leading-snug text-ink">{item}</p>
+                </div>
+              </Reveal>
+            ))}
+          </ul>
+          <div className="mt-16 grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+            <Reveal>
+              <h2 className="display-3">{t.researchTitle}</h2>
+              <p className="mt-3 text-base leading-relaxed text-muted-foreground">{t.researchIntro}</p>
+            </Reveal>
+            <ul className="space-y-4">
+              {t.research.map((item, i) => (
+                <Reveal as="li" key={item} delay={i * 50}>
+                  <div className="h-full border-l-2 border-gold/60 pl-4">
+                    <p className="text-sm leading-relaxed text-muted-foreground">{item}</p>
+                  </div>
+                </Reveal>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
       {/* Stats + CTA */}
       <section className="py-14 sm:py-16">
         <div className="container-site">

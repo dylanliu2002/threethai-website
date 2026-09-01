@@ -303,3 +303,21 @@ Stage Summary:
 - Bing/Seznam/Yandex/Naver 收录通道已打通（IndexNow 200 OK）；Google 因无 OAuth 凭证走 Search Console 手动路径（验证 meta 钩子已备好）
 - 用户侧剩余 3 步：Vercel 改 NEXT_PUBLIC_SITE_URL → www；注册 GSC 验证 + 提交 sitemap；注册 Bing WMT（可从 GSC 导入）
 - 档案文本新事实（荣誉资质/产学研/设备品牌/市占率）可充实 /about，等冲突项确认后开工
+
+---
+Task ID: 17
+Agent: Super Z (main)
+Task: 部署 GSC HTML 验证文件 + 按档案裁决充实 about/manufacturing 内容
+
+Work Log:
+- 上传文件 upload/google1ae3b874a9bd10b8.html → public/，提交 1d6e10c 推送，~75s 部署后线上 200 内容核验通过（用户可立即在 Search Console 点验证）
+- Owner 事实裁决执行：成立年份 2006、员工 300+ 保持站点现状（档案中 2016/206 弃用）
+- 档案新事实上站（/about EN+ZH）：新增「资质与荣誉」8 项（高新技术企业/专精特新/晨星工厂/数字化车间/瞪羚企业/市级三大中心/一企业一技术/纺织先进集体）+「产学研合作」4 条（武汉纺织大学硕士工作站/江南大学马丕波团队/27 人研发团队/国标 20213126-T-608 起草参与）
+- 覆盖市场句更新：补入档案出口国列表（印巴越土孟乌秘）
+- /manufacturing 设备卡新增品牌行：并条=瑞士立达，自动络筒=德国赐来福+意大利萨维奥（factory.ts brand 字段，8 语言自动回退 EN）
+- 有意省略：国内市占 24.2%/国际 15.6%（公司自述口径，B2B 站无第三方佐证，待 owner 定夺）
+- 验证：eslint 0 / tsc 0 / build 成功；EN/ZH/ES 内容冒烟通过（ES 等回退 EN）；Schlafhorst/赐来福渲染确认
+
+Stage Summary:
+- GSC 验证文件已上线待用户点击验证；档案可信事实已全部上站且无事实冲突
+- 待用户：GSC 验证 + 提交 sitemap；Vercel env 改 www；Bing WMT 导入

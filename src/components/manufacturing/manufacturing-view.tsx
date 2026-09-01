@@ -106,6 +106,7 @@ export default function ManufacturingView({ locale, dict }: { locale: Locale; di
                     <figcaption className="p-5">
                       <p className="text-xs font-bold tracking-widest text-gold-deep">{equipment.step}</p>
                       <h3 className="mt-1 font-semibold text-ink">{step.title[cl]}</h3>
+                      {equipment.brand ? <p className="mt-1 text-xs font-medium text-gold-deep">{equipment.brand[cl]}</p> : null}
                       <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{step.body[cl]}</p>
                     </figcaption>
                   </figure>

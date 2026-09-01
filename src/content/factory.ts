@@ -19,13 +19,25 @@ export const factoryEquipment: readonly {
   image: string;
   name: Record<ContentLocale, string>;
   step: string;
+  /** Named machine brands as listed in official company filings. */
+  brand?: Record<ContentLocale, string>;
 }[] = [
   { image: "/images/factory-live/blow-room.webp", step: "01", name: { en: "Blow room", zh: "清花设备" } },
   { image: "/images/factory-live/blowing-carding.webp", step: "02", name: { en: "Blowing-carding", zh: "清梳联系统" } },
-  { image: "/images/factory-live/drawing.webp", step: "03", name: { en: "Drawing", zh: "并条工序" } },
+  {
+    image: "/images/factory-live/drawing.webp",
+    step: "03",
+    name: { en: "Drawing", zh: "并条工序" },
+    brand: { en: "Rieter drawing frames (Switzerland)", zh: "瑞士立达并条机" },
+  },
   { image: "/images/factory-live/speed-frame.webp", step: "04", name: { en: "Speed frame", zh: "粗纱工序" } },
   { image: "/images/factory-live/ring-spinning.webp", step: "05", name: { en: "Ring spinning", zh: "环锭细纱" } },
-  { image: "/images/factory-live/automatic-winding.webp", step: "06", name: { en: "Automatic winding", zh: "自动络筒" } },
+  {
+    image: "/images/factory-live/automatic-winding.webp",
+    step: "06",
+    name: { en: "Automatic winding", zh: "自动络筒" },
+    brand: { en: "Schlafhorst (Germany) & Savio (Italy) autoconers", zh: "德国赐来福 · 意大利萨维奥自动络筒机" },
+  },
 ];
 
 /** Spinning flow described in legacy copy, ordered as the equipment above. */
