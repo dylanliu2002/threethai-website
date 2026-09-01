@@ -22,7 +22,16 @@ export const metadata: Metadata = {
   },
   description: en.meta.defaultDescription,
   applicationName: company.shortBrandEn,
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://threethailc.xyz"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://www.threethai.com"),
+  // Search-console ownership verification (set once in Vercel env, no code edits):
+  //   GOOGLE_SITE_VERIFICATION  -> <meta name="google-site-verification">  (Google Search Console)
+  //   BING_SITE_VERIFICATION    -> <meta name="msvalidate.01">             (Bing Webmaster Tools)
+  //   YANDEX_SITE_VERIFICATION  -> <meta name="yandex-verification">      (Yandex Webmaster)
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
+    yandex: process.env.YANDEX_SITE_VERIFICATION || undefined,
+    other: process.env.BING_SITE_VERIFICATION ? { "msvalidate.01": process.env.BING_SITE_VERIFICATION } : undefined,
+  },
   authors: [{ name: company.nameLegalZh }],
   creator: company.nameLegalZh,
   publisher: company.nameExportEn,

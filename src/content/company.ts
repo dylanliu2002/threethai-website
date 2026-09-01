@@ -34,7 +34,7 @@ export const company = {
 } as const;
 
 /** Public origin — drives canonicals, sitemap and structured data. */
-export const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://threethailc.xyz").replace(/\/$/, "");
+export const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.threethai.com").replace(/\/$/, "");
 
 /** Internal export-operations tool. Kept out of primary navigation. */
 export const letterOfCreditUrl = (process.env.NEXT_PUBLIC_LC_URL || "https://lc.threethailc.xyz").replace(/\/$/, "");
