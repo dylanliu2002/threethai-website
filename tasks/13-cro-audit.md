@@ -1,31 +1,87 @@
-# Task 13 — Conversion and Lead Generation Audit
+# Task 13 — CRO Audit
+
+- **Task ID:** `13`
+- **Title:** CRO Audit
+- **Mode:** `AUDIT`
+- **Role:** `CRO`
+- **Priority:** `P1`
+- **Status:** `READY`
+- **Risk:** `HIGH`
+- **Branch:** `codex/13-cro-audit`
+- **Worktree:** `worktrees/agent-13-cro`
+- **Owner:** Unassigned
+- **Reviewer:** Unassigned (independent)
+- **depends_on:** None
+- **blocks:** Follow-up conversion implementation tasks
 
 ## Goal
 
-Improve the path from discovery to qualified sample, quote, or technical inquiry.
+Identify evidence-backed friction and trust risks from discovery through sample,
+quote, or technical inquiry without submitting forms or altering the funnel.
 
-## Mode
+## Success Criteria
 
-Read-only audit. Do not edit files, start a browser, submit forms, or commit.
+- The report maps primary user journeys, CTA hierarchy, and form friction.
+- Recommendations distinguish quick wins from owner decisions and high-risk work.
 
-## Inspect
+## In Scope
 
-- Home, product, application, knowledge, answer, contact, sample, quote, and finder flows.
-- CTA hierarchy, message continuity, form friction, qualification, trust, and failure states.
-- Inquiry form and product-finder code without sending external messages.
+- Read home, product, application, knowledge, answer, contact, sample, quote,
+  finder, CTA, form, and inquiry sources; inspect public flows without submission.
+- Evaluate message continuity, qualification, trust, error/failure states, and
+  measurement hypotheses.
 
-## Deliverable
+## Out of Scope
 
-Return:
+- Editing UI, forms, inquiry pipeline, analytics, email, or production data.
+- Sending a form, inventing conversion rates, or claiming customer behavior.
 
-1. Primary user journeys and friction points.
-2. Page-type CTA matrix with primary, secondary, and optional tertiary actions.
-3. Form and qualification recommendations.
-4. Measurement hypotheses and event taxonomy recommendations.
-5. Prioritized implementation tasks and dependencies.
+## File Allowlist
 
-## Acceptance criteria
+```text
+docs/audits/13-cro.md
+```
 
-- Do not invent conversion rates or customer behavior.
-- Separate quick wins from changes requiring product-owner decisions.
-- Identify shared header, footer, and inquiry-system coordination items.
+## Forbidden / Shared Files
+
+All files other than the allowlist, especially headers, footers, forms,
+`src/lib/inquiry.ts`, analytics, and deployment settings.
+
+## Inputs / Evidence
+
+- Source, publicly observable routes, non-submitting test observations, and
+  documented business evidence supplied by the owner.
+
+## Acceptance Criteria
+
+- Provide journeys, CTA matrix, friction points, and prioritized follow-up tasks.
+- Identify any shared header, footer, inquiry, analytics, or tracking request.
+- Separate observed behavior from untested or unmeasured hypotheses.
+
+## Validation
+
+```bash
+git diff --check
+git diff --name-only
+```
+
+- [ ] Diff is limited to the dedicated report.
+- [ ] No form or external message was submitted.
+
+## Coordination Items
+
+- None.
+
+## Review Status
+
+- Outcome: Pending
+
+## Completion Record
+
+- Commit:
+- Evidence checked:
+- Report path: `docs/audits/13-cro.md`
+
+## Rollback
+
+Revert the report-only commit if needed; no website behavior is changed.

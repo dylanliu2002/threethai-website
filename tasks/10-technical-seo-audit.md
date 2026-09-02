@@ -1,33 +1,86 @@
 # Task 10 — Technical SEO Audit
 
+- **Task ID:** `10`
+- **Title:** Technical SEO Audit
+- **Mode:** `AUDIT`
+- **Role:** `TECHNICAL_SEO`
+- **Priority:** `P1`
+- **Status:** `READY`
+- **Risk:** `HIGH`
+- **Branch:** `codex/10-technical-seo-audit`
+- **Worktree:** `worktrees/agent-10-technical-seo`
+- **Owner:** Unassigned
+- **Reviewer:** Unassigned (independent)
+- **depends_on:** None
+- **blocks:** Follow-up technical SEO implementation tasks
+
 ## Goal
 
-Determine whether search engines can crawl, index, understand, and present every
-important English and localized route correctly.
+Establish evidence for crawlability, indexability, metadata, canonical,
+hreflang, structured-data, robots, sitemap, and localized-route risks.
 
-## Mode
+## Success Criteria
 
-Read-only audit. Do not edit files, install packages, start a browser, or commit.
+- A prioritized, evidence-backed report distinguishes defects from hypotheses.
+- Every recommendation can be converted into a scoped follow-up task.
 
-## Inspect
+## In Scope
 
-- App Router layouts, pages, metadata, route generation, and not-found behavior.
-- `src/app/robots.ts`, `src/app/sitemap.ts`, `src/lib/seo.tsx`.
-- Canonical, hreflang, Open Graph, X metadata, structured data, headings, alt text.
-- Redirect and duplicate-route risks across `(site)`, `zh`, and `[lang]` trees.
+- Read route, metadata, redirect, robots, sitemap, schema, headings, and image
+  alternatives in source; inspect public pages or non-mutating checks when useful.
+- Assess canonical and hreflang consistency across English and localized routes.
 
-## Deliverable
+## Out of Scope
 
-Return an evidence-backed report with:
+- Changing `src/`, metadata, redirects, schema, configuration, or production.
+- Keyword research, content writing, or implementation of findings.
 
-1. Executive summary.
-2. P0–P3 findings with exact file/route evidence.
-3. Coverage matrix for metadata, canonical, hreflang, schema, robots, and sitemap.
-4. Recommended implementation tasks and dependencies.
-5. Shared-file coordination items.
+## File Allowlist
 
-## Acceptance criteria
+```text
+docs/audits/10-technical-seo.md
+```
 
-- Separate confirmed defects from hypotheses.
-- Flag unsupported or risky structured-data claims.
-- Do not rewrite marketing content or redesign UI.
+## Forbidden / Shared Files
+
+All files other than the allowlist, including every shared file in `AGENTS.md`.
+
+## Inputs / Evidence
+
+- Repository source, public production pages, reproducible command output, and
+  existing historical audit reports when clearly labelled as prior evidence.
+
+## Acceptance Criteria
+
+- Include P0–P3 findings with exact file, route, or reproducible evidence.
+- Cover metadata, canonical, hreflang, schema, robots, sitemap, and redirect risk.
+- Separate confirmed defects, source-backed risks, runtime unknowns, and hypotheses.
+
+## Validation
+
+```bash
+git diff --check
+git diff --name-only
+```
+
+- [ ] Diff is limited to the dedicated report.
+- [ ] No unmeasured browser or search-engine behavior is presented as fact.
+
+## Coordination Items
+
+- None.
+
+## Review Status
+
+- Outcome: Pending
+
+## Completion Record
+
+- Commit:
+- Evidence checked:
+- Report path: `docs/audits/10-technical-seo.md`
+
+## Rollback
+
+Revert the report-only commit if the audit record must be withdrawn; no runtime
+behavior is changed by this task.

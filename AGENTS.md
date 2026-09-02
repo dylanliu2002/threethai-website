@@ -1,93 +1,200 @@
-# AGENTS.md — threethai-website 多 Agent 并行开发纪律
+# Three Thai Website Agent Rules
 
-本仓库支持多个 AI agent（Codex / Claude / GLM 等）并行开发。
-**main 是唯一真相源，受保护：只有合并管理员能推 main。** 所有并行 agent 只在自己的分支上工作。
-开工前先读完本文件，再读你的任务卡 `tasks/<NN>-<slug>.md`。违反任何一条铁律，你的分支将被拒绝合并。
+These rules govern work inside `threethai-website/`. Read this file completely,
+then the assigned `tasks/NN-short-task-name.md` card; `../AGENTS.md` supplies the wider collaboration rules.
 
----
+## 1. Scope & Source of Truth
 
-## 1. 分支模型
+- `main` is the protected integration branch and the only production source of
+  truth. Only the authorized merge owner integrates approved work.
+- Task cards, the task-owned branch and worktree, review records, audit reports,
+  worklogs, and Git history are the durable source of coordination truth.
+- A chat conversation is not a handoff. Record decisions, evidence, blockers,
+  and scope changes in the assigned task artifact.
 
-```
-main（管理员独占，每次合并触发 Vercel 生产部署）
- ├── codex/01-meta-zh              ← Agent A（任务卡 tasks/01-meta-zh.md）
- ├── codex/02-inquiry-admin        ← Agent B（任务卡 tasks/02-inquiry-admin.md）
- └── codex/03-knowledge-expansion  ← Agent C（任务卡 tasks/03-knowledge-expansion.md）
-```
+## 2. Read Before Acting
 
-- 每个 agent **只 push 自己的 `codex/NN-<名字>` 分支**。
-- 管理员按合并窗口串行合并：merge → 构建门禁 → push main → 通知全员 rebase。
+Before changing anything, read this file, the whole task card, relevant source
+and tests, and `git status --short --branch`. Check `git worktree list` when
+creating or locating a worktree. Preserve all pre-existing user changes; never
+reset, stash, overwrite, or delete them to make a task easier.
 
-## 2. 铁律（禁止事项）
+For a new task, fetch `origin`, base the task branch on current `origin/main`,
+and create a separate worktree. A task may not start on an inherited or stale
+working directory without recording the reason in its coordination items.
 
-1. **禁止 push / merge main**；禁止合并、rebase、push 别人的分支；禁止改动别人的任务卡和别人的 worklog。
-2. **只允许修改任务卡「文件白名单」内列出的文件。** 白名单外一律不碰——多 agent 并行不冲突的第一道防线就是文件所有权分区。
-3. **公共文件由管理员／编排代理统一修改，普通 agent 禁改：**
-   - `src/content/company.ts` —— localePath / siteUrl / htmlLang 等全站工具
-   - `src/components/layout/site-header.tsx`、`site-footer.tsx` —— 全站导航（10 语言链接图）
-   - `next.config.ts` —— 内含 60+ 条旧站 308 跳转图，动错一条 = SEO 事故
-   - `middleware.ts`、`prisma/schema*.prisma`、`src/lib/inquiry.ts`（询盘主链路）
-   - `package.json` / lock 文件 —— 依赖变更走任务卡「协调事项」，由管理员统一落 main
-   - `.github/`、`vercel.json`、`.env*`、`.gitignore`、`AGENTS.md` 本身
-4. 公共文件若必须变更：在任务卡「协调事项」段落写清楚（改什么、为什么、影响面），**停手等管理员处理**，不要自己动手。管理员仅在暂停所有重叠工作后统一修改。
-5. 禁止在代码中硬编码任何密钥 / PAT / 密码；环境变量由管理员在 Vercel 后台配置。
+## 3. Git Commit Identity
 
-## 3. 开工仪式（每次会话开始必做）
+Set and verify this identity in every task worktree before committing:
 
 ```bash
-git fetch origin
-git rebase origin/main          # 从最新 main 出发，杜绝旧起点
+git config user.name "dylanliu2002"
+git config user.email "dylanliu2002@gmail.com"
+git log -1 --format='%an <%ae>'
 ```
 
-worktree 环境下若还没有 node_modules（节省磁盘与安装时间）：
+The final verification must be exactly:
 
-```bash
-# 把 node_modules 软链到主 checkout（兄弟目录示例）：
-ln -s ../threethai-website/node_modules node_modules
-# ⚠️ 需要新增/升级依赖时：先解除软链（rm node_modules && npm install）独立验证，
-#    并把依赖变更写进任务卡「协调事项」。
+```text
+dylanliu2002 <dylanliu2002@gmail.com>
 ```
 
-## 4. 提交纪律
+If it is not exact: **DO NOT PUSH** and **DO NOT DELIVER**.
 
-- 每个 worktree 必须设置仓库级 Git 作者为 `dylanliu2002 <dylanliu2002@gmail.com>`；交付前必须核验最新提交作者完全一致。
-- 小步提交：一个逻辑单元一个 commit；前缀 `feat:` / `fix:` / `content:` / `chore:` / `seo:`。
-- 每完成一个单元就 push 自己的分支：`git push origin codex/NN-<名字>`（分支被 Vercel 自动 preview 部署，可在线验证）。
-- 提交信息用英文或中文均可，但必须能看懂改了什么。
-- **push 只推自己的分支** —— 这从物理上杜绝了「agent1 提交时发现 agent2 刚推了新版本导致 push 被拒」的问题：你的分支只有你一个人在推，永远不会和别人撞车。
+## 4. Task / Branch / Worktree Model
 
-## 5. 完成门禁（缺一不可，门禁不过禁止报告"完成"）
+One Task = One Branch = One Worktree. Branches are task-owned, not permanently owned by an Agent or role. Name every new branch `codex/NN-short-task-name` and
+use one matching card in `tasks/`. Do not change, rebase, merge, push, or
+force-push another task's branch. Do not move or delete a registered worktree
+outside Git worktree commands.
 
-```bash
-pkill -f "next start"; pkill -f "next-server"   # 清残留进程（否则构建产物污染）
-rm -rf .next                                     # 必须干净重建
-npm run lint && npm run build
-npx next start -p <任务卡指定端口> &              # 端口见任务卡，禁用 3000/3001
-# 按任务卡「验收清单」逐条 curl 验证（状态码 + 内容 rg 检查）
-rg -l "__next_error__" .next/server/app 2>/dev/null   # 必须无输出（有输出 = 预渲染错误页，禁止交付）
+Use `worktrees/agent-NN-short-name/` for task worktrees. The existing
+`backlink-agent-worktree/` is a registered legacy worktree; treat it as
+read-only coordination state until its owner has finished and Git metadata has
+been safely cleaned up.
+
+## 5. Agent Modes
+
+### AUDIT
+
+May read code and public pages, run non-mutating checks, inspect production,
+research public sources, and write only the report explicitly allowed by its
+task card. It must not modify `src/`, application behavior, shared files, or
+perform a "quick fix". It may not expand scope.
+
+### IMPLEMENT
+
+May implement only the task's stated goal and file allowlist. No drive-by
+refactors, unlisted files, dependencies, ownership changes, or scope expansion.
+
+### REVIEW
+
+Is read-only by default. It independently checks diff scope, validation,
+SEO/UI regressions, factual integrity, and risk. It records one outcome:
+`APPROVED`, `CHANGES_REQUESTED`, or `BLOCKED`; it does not broadly rewrite the
+implementer's code.
+
+## 6. Role Model
+
+Use roles as specialist responsibilities: `ORCHESTRATOR`, `TECHNICAL_SEO`,
+`SEO_CONTENT`, `GEO_AI_SEARCH`, `CRO`, `BRAND_UX`, `QA_PERFORMANCE`, and
+`BACKLINK`. A role can own many separate tasks over time. Do not use a numbered
+Agent identity as a standing organizational model.
+
+## 7. File Ownership
+
+The task card's file allowlist is the exclusive edit boundary. An Agent may edit
+only its own task card, its allowed task output, and its task-owned worklog when
+the card explicitly permits it. Never alter another task card, report, or
+worklog history. Append-only worklogs never have their existing entries edited.
+
+AUDIT cards normally allow exactly one report under `docs/audits/`. Existing
+reports are evidence, not permission to overwrite another task's output.
+
+## 8. Shared Files
+
+Specialists may not directly change these shared surfaces:
+
+```text
+AGENTS.md
+package.json
+package-lock.json
+bun.lock
+next.config.ts
+src/app/globals.css
+src/app/layout.tsx
+src/content/company.ts
+src/components/layout/site-header.tsx
+src/components/layout/site-footer.tsx
+src/lib/inquiry.ts
+middleware.ts
+prisma/schema.prisma
+prisma/schema.postgres.prisma
+.github/
+vercel.json
+.gitignore
+.env*
 ```
 
-## 6. 完成流程（防止版本不匹配的关键三步）
+Add related global configuration or deployment files to the same protection
+unless an ORCHESTRATOR explicitly grants ownership in the task card.
 
-1. **同步最新 main：**
-   ```bash
-   git fetch origin && git rebase origin/main
-   ```
-   - 冲突落在**你白名单内**的文件 → 你自己解决，继续 rebase。
-   - 冲突落在**白名单外**（别人动了你要依赖的文件）→ 停手：`git rebase --abort`，在任务卡「协调事项」记录冲突详情，报告管理员裁决。
-2. **重跑第 5 节完整门禁**（rebase 之后代码变了，必须重新验证）。
-3. **交付：**
-   - `git push origin codex/NN-<名字>`
-   - 任务卡状态改为 `REVIEW`（tasks/README.md 看板同步更新）
-   - 在 `worklog/agent-<名字>.md` 追加本次工作记录（格式见 `worklog/README.md`）
+## 9. Git & Worktree Discipline
 
-## 7. 工作日志
+Never commit, push, merge, or force-push `main`. Never modify another task's
+branch or worktree. Keep commits focused and understandable. Before review,
+fetch `origin` and rebase only the current task branch onto `origin/main`.
 
-- 每个 agent 一个文件：`worklog/agent-<名字>.md`，**append-only**，禁止改别人已写入的内容。
-- 仓库根的 `worklog.md` 是主会话（管理员）的历史归档，**agent 禁止写入**。
+If a rebase conflict is outside the allowlist, abort the rebase, record the
+conflict in the task card, and ask the ORCHESTRATOR to coordinate. Do not solve
+it by expanding scope. Push only the current task branch after the identity and
+validation gates pass.
 
-## 8. 环境约定
+## 10. Quality & Factual Integrity
 
-- 本地验证端口按任务卡分配（从 3101 起递增）；3000/3001 留给主 checkout 与 dev。
-- 数据库：本地验证使用 worktree 内独立的 db 文件（已 gitignore），禁止触碰生产数据库连接串。
-- 生产站点 https://www.threethai.com 由 main 分支驱动，agent 的一切验证都在本地端口或 Vercel preview URL 上进行。
+Claims about customers, partners, certifications, capacity, factories, testing,
+product performance, market share, patents, countries served, and case studies
+need verifiable evidence. Do not use unsupported superlatives such as "No. 1",
+"best", or "leading". Never create keyword stuffing, doorway pages, low-value
+near-duplicate pages, fake reviews, or fake schema.
+
+Keep assertions separate from hypotheses and label unmeasured runtime behavior
+as unverified. Never expose secrets in code, documentation, worklogs, commits,
+or Git history.
+
+## 11. High-Risk Surfaces
+
+The following require independent REVIEW, local or Preview validation, and a
+recorded rollback approach before merge: canonical URLs, hreflang, redirects,
+robots, sitemap, middleware, forms, inquiry pipeline, databases,
+authentication, analytics, email, dependencies, deployment configuration, and
+global locale routing. Do not run production experiments directly.
+
+## 12. Validation Gates
+
+Run the task card's validation commands and record results. Source or
+configuration changes normally require the relevant lint, type/build, focused
+test, and local or Preview checks. Document-only tasks need `git diff --check`
+and a scope review unless their card asks for more.
+
+Confirm that the diff contains no secret, binary artifact, generated output, or
+unlisted application change. A validation failure, unverified high-risk change,
+or factual uncertainty is a blocker, not a reason to weaken the record.
+
+## 13. Review & Approval
+
+The implementer never approves their own task. Move task status through:
+
+```text
+DRAFT -> READY -> IN_PROGRESS -> REVIEW -> APPROVED -> MERGED
+                         ^             |
+                         |             v
+                  CHANGES_REQUESTED <-+
+```
+
+`BLOCKED` and `ON_HOLD` are explicit states, not silent inactivity. An
+independent reviewer records `APPROVED`, `CHANGES_REQUESTED`, or `BLOCKED` with
+evidence. Only an authorized integrator merges approved work.
+
+## 14. Delivery Requirements
+
+Before reporting completion: update the task card's completion record, record
+all validation results, state the exact base/rebase commit, add a permitted
+append-only worklog entry, and provide a rollback note. Verify identity using
+the latest commit, then push only the task-owned branch. Deliver the branch,
+commit, changed files, validation, review status, remaining risks, and
+coordination items.
+
+For a shared-file need, stop and add this exact request to the task card:
+
+```text
+SHARED FILE CHANGE REQUEST
+File:
+Task:
+Reason:
+Exact proposed change:
+Evidence:
+Tasks affected:
+Risk:
+Validation:
+```

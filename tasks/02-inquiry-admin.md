@@ -1,6 +1,6 @@
 # 02-inquiry-admin：询单管理后台（只读列表 + 认证保护）
 
-- **分支**：`agent/inquiry-admin`
+- **分支**：`codex/02-inquiry-admin`（重启前须重新确认状态与 allowlist）
 - **状态**：READY
 - **本地端口**：3102
 - **预计规模**：中

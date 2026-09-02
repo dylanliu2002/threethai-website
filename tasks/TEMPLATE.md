@@ -1,45 +1,98 @@
-# [NN]-<slug>：<一句话标题>
+# Task [NN] — [Title]
 
-- **分支**：`agent/<slug>`
-- **状态**：READY
-- **本地端口**：310N
-- **预计规模**：小 / 中 / 大
+- **Task ID:** `NN`
+- **Title:** [short, outcome-oriented title]
+- **Mode:** `AUDIT` | `IMPLEMENT` | `REVIEW`
+- **Role:** `ORCHESTRATOR` | `TECHNICAL_SEO` | `SEO_CONTENT` | `GEO_AI_SEARCH` | `CRO` | `BRAND_UX` | `QA_PERFORMANCE` | `BACKLINK`
+- **Priority:** `P0` | `P1` | `P2` | `P3`
+- **Status:** `DRAFT`
+- **Risk:** `LOW` | `MEDIUM` | `HIGH`
+- **Branch:** `codex/NN-short-task-name`
+- **Worktree:** `worktrees/agent-NN-short-name`
+- **Owner:** Unassigned
+- **Reviewer:** Unassigned (must be independent)
+- **depends_on:** None
+- **blocks:** None
 
-## 1. 目标（What & Why）
+## Goal
 
-<描述要做什么、解决什么问题、对站点有什么价值。3-6 句。>
+[What outcome is needed and why it matters.]
 
-## 2. 背景与上下文
+## Success Criteria
 
-<相关历史任务、涉及文件现状、旧站参照（local-old-site-mirror/）等。agent 开工前必读。>
+- [Measurable result 1]
+- [Measurable result 2]
 
-## 3. 文件白名单（只能改这些）
+## In Scope
 
+- [Allowed behavior, route, evidence, or decision.]
+
+## Out of Scope
+
+- [Explicitly excluded work and non-goals.]
+
+## File Allowlist
+
+```text
+[Only files this task may modify]
 ```
-src/...
-```
 
-## 4. 禁碰文件（黑名单见根目录 AGENTS.md 第 2 节，此外本任务特别禁碰）
+## Forbidden / Shared Files
 
-<列出与本任务相邻但禁止修改的文件，防止 agent "顺手优化" 引发并行冲突。>
+List task-specific exclusions. Repository shared files remain forbidden unless
+the ORCHESTRATOR adds an explicit authorization to this card.
 
-## 5. 验收清单（完成门禁之外，逐条 curl/rg 验证并在方框打钩）
+## Inputs / Evidence
+
+- [Source, existing report, route, data owner, or reproducible evidence.]
+- [Mark assumptions and unverified runtime behavior clearly.]
+
+## Acceptance Criteria
+
+- [Objective acceptance condition]
+- [Factual-integrity or scope condition]
+
+## Validation
 
 ```bash
-npx next start -p 310N &
-curl -s -o /dev/null -w "%{http_code}" http://localhost:310N/<path>   # 期望 200
-curl -s http://localhost:310N/<path> | rg "<期望内容>"                 # 期望命中
+# Exact commands, environments, and expected results
 ```
 
-- [ ]
-- [ ]
+- [ ] Diff scope reviewed
+- [ ] Validation recorded
 
-## 6. 协调事项（跨任务变更在此登记，等管理员处理）
+## Coordination Items
 
-- （暂无）
+- None
 
-## 7. 完成记录（REVIEW 时由 agent 填写）
+For a shared-file need, use:
 
-- rebase 到的 main commit：
-- 门禁结果（lint / build / __next_error__ 扫描）：
-- worklog 记录：worklog/agent-<slug>.md
+```text
+SHARED FILE CHANGE REQUEST
+File:
+Task:
+Reason:
+Exact proposed change:
+Evidence:
+Tasks affected:
+Risk:
+Validation:
+```
+
+## Review Status
+
+- Outcome: Pending (`APPROVED` | `CHANGES_REQUESTED` | `BLOCKED`)
+- Independent reviewer evidence:
+
+## Completion Record
+
+- Commit:
+- Base / rebase commit:
+- Changed files:
+- Validation results:
+- Worklog (if permitted):
+- Remaining risks:
+
+## Rollback
+
+[Revert commit, disable safe configuration, or state why no runtime rollback is needed.]

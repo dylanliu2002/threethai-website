@@ -1,29 +1,35 @@
-# worklog/ — 多 Agent 工作日志目录
+# Worklogs
 
-每个 agent 一个文件：`worklog/agent-<分支名 slug>.md`，**append-only**。
+Worklogs are durable, append-only task handoffs. A task may write a worklog only
+when its card includes that path in the allowlist; do not create or edit another
+task's log. The repository-root `worklog.md` is historical ORCHESTRATOR context
+and must not be edited by Specialists.
 
-- 禁止写入别人已追加的内容；禁止改历史段落。
-- 仓库根的 `worklog.md` 是管理员（主会话）的历史归档，agent 禁止写。
+Use one file per role/task stream, for example:
 
-## 文件格式（沿用仓库既有 worklog 格式）
+```text
+worklog/agent-10-technical-seo.md
+worklog/agent-11-seo-content.md
+worklog/agent-12-geo-ai-search.md
+worklog/agent-13-cro.md
+worklog/agent-14-brand-ux.md
+worklog/agent-15-qa-performance.md
+worklog/agent-16-backlink.md
+```
+
+New entries are appended in this form:
 
 ```markdown
 ---
-Task ID: <任务卡编号，如 01 / 02>
-Agent: <你的名字，如 codex-agent-1>
-Task: <任务卡标题>
+Task ID: <NN>
+Role: <ROLE>
+Task: <title>
+Branch: <codex/NN-short-task-name>
+Commit: <hash or not committed>
 
 Work Log:
-- <具体步骤 1>
-- <具体步骤 2>
+- <action and evidence>
 
 Stage Summary:
-- <关键结果 / 重要决策 / 产出物>
-- <遇到的问题与解决方式>
+- <result, decision, blocker, or handoff>
 ```
-
-## 现有文件
-
-- `agent-meta-zh.md` —— Task 01（meta-zh）日志
-- `agent-inquiry-admin.md` —— Task 02（inquiry-admin）日志
-- `agent-knowledge-expansion.md` —— Task 03（knowledge-expansion）日志

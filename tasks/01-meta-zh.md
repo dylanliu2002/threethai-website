@@ -1,6 +1,6 @@
 # 01-meta-zh：非英文页 meta title/description 中文化精修 + EN 认证名清理
 
-- **分支**：`agent/meta-zh`
+- **分支**：`codex/01-meta-zh`（重启前须重新确认状态与 allowlist）
 - **状态**：READY
 - **本地端口**：3101
 - **预计规模**：中
@@ -38,7 +38,7 @@ src/lib/seo.tsx                   （仅当 meta 键取词逻辑需扩展时；c
 ## 4. 本任务特别禁碰
 
 - `src/content/company.ts`、`src/app/(site)/**` 的正文渲染、`next.config.ts`
-- `src/content/articles.ts`、`answers*.ts`、`products.ts` —— agent/knowledge-expansion 正在并行编辑这些文件
+- `src/content/articles.ts`、`answers*.ts`、`products.ts` —— Task 03（重启时为 `codex/03-knowledge-expansion`）可能拥有这些文件
 
 ## 5. 验收清单
 

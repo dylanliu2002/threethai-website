@@ -1,6 +1,6 @@
 # Task 50 — Fix merge-resolution deployment failure
 
-Status: REVIEW
+Status: MERGED
 
 ## Goal
 
