@@ -1,38 +1,50 @@
-# 任务看板（管理员维护，agent 只改自己的行）
+# Task Cards
 
-状态流：`READY → IN_PROGRESS → REVIEW → MERGED`
+Each card is the durable contract for one task. The card owns its branch,
+worktree, mode, scope, evidence, validation, review, and completion record.
+Read the repository `AGENTS.md` before creating, updating, or accepting a card.
 
-| 任务卡 | 分支 | 状态 | Owner | 本地端口 |
-|---|---|---|---|---|
-| tasks/01-meta-zh.md | agent/meta-zh | ON_HOLD（分支已撤，方案验证完毕待重启） | 待分配 | 3101 |
-| tasks/02-inquiry-admin.md | agent/inquiry-admin | ON_HOLD（分支已撤，方案验证完毕待重启） | 待分配 | 3102 |
-| tasks/03-knowledge-expansion.md | agent/knowledge-expansion | ON_HOLD（分支已撤，方案验证完毕待重启） | 待分配 | 3103 |
-| tasks/50-fix-merge-deploy.md | codex/50-fix-merge-deploy | REVIEW | Agent 0 | 3150 |
+## Status Model
 
-> 2026-09-02：owner 完成方案验证后暂停，agent/* 分支与 worktree 已全部撤除。
-> 重启流程：按 README「新增任务流程」从最新 main 重建分支即可，任务卡无需改动。
+```text
+DRAFT -> READY -> IN_PROGRESS -> REVIEW -> APPROVED -> MERGED
+                         ^             |
+                         |             v
+                  CHANGES_REQUESTED <-+
+```
 
-## 网站优化计划
+The complete status vocabulary is `DRAFT`, `READY`, `IN_PROGRESS`, `BLOCKED`,
+`ON_HOLD`, `REVIEW`, `CHANGES_REQUESTED`, `APPROVED`, and `MERGED`. A blocked
+or held task must name its reason in **Coordination items**; it is never silent.
 
-- 审计任务 10–15 已完成，报告位于 `docs/audits/`。
-- 总体方案位于 `docs/agent-team/MASTER-OPTIMIZATION-PLAN.md`。
-- 实施依赖、状态和模型分配以 `IMPLEMENTATION-BACKLOG.md` 为准。
-- 审计 agent 仅返回分析结果，由编排代理统一写入站点源码。
+## Creating a Task
 
-## 管理员合并窗口记录（append-only）
+1. Copy `TEMPLATE.md` to `NN-short-task-name.md` and complete every field.
+2. Check that its file allowlist does not overlap active tasks. Send any shared
+   file request to the ORCHESTRATOR instead of widening the allowlist.
+3. Fetch `origin`, create `codex/NN-short-task-name` from `origin/main`, and
+   add one worktree beneath workspace `worktrees/`.
+4. Set the required Git identity, record the branch and worktree on the card,
+   and move the card to `IN_PROGRESS` only when the owner starts.
 
-| 日期 | 合并 | 结果 |
-|---|---|---|
-| （暂无） | | |
+## Ready Audit Tasks
 
-## 新增任务流程
+| ID | Task card | Role | Branch | Dedicated report |
+| --- | --- | --- | --- | --- |
+| 10 | `10-technical-seo-audit.md` | TECHNICAL_SEO | `codex/10-technical-seo-audit` | `docs/audits/10-technical-seo.md` |
+| 11 | `11-seo-content-audit.md` | SEO_CONTENT | `codex/11-seo-content-audit` | `docs/audits/11-seo-content.md` |
+| 12 | `12-geo-ai-search-audit.md` | GEO_AI_SEARCH | `codex/12-geo-ai-search-audit` | `docs/audits/12-geo-ai-search.md` |
+| 13 | `13-cro-audit.md` | CRO | `codex/13-cro-audit` | `docs/audits/13-cro.md` |
+| 14 | `14-brand-ux-audit.md` | BRAND_UX | `codex/14-brand-ux-audit` | `docs/audits/14-brand-ux.md` |
+| 15 | `15-qa-performance-audit.md` | QA_PERFORMANCE | `codex/15-qa-performance-audit` | `docs/audits/15-qa-performance.md` |
+| 16 | `16-backlink-audit.md` | BACKLINK | `codex/16-backlink-audit` | `docs/audits/16-backlink.md` |
 
-1. 复制 `TEMPLATE.md` 为 `tasks/NN-<slug>.md`，填全目标 / 白名单 / 验收清单 / 端口。
-2. 检查新任务卡的白名单与现有任务卡**互不重叠**（重叠 = 并行冲突源）。
-3. 从最新 main 建分支并推送：
-   ```bash
-   git fetch origin
-   git branch codex/NN-<slug> origin/main
-   git push origin codex/NN-<slug>
-   ```
-4. 在本看板登记一行。
+All seven are `AUDIT`, `P1`, and `READY`. Their allowlist contains only their
+dedicated report path; creating a card does not authorize performing its audit.
+
+## Historical Records
+
+Older cards and reports remain as historical evidence. Their former `agent/*`
+branch references are retired: a restarted task must be given a newly reviewed
+card and a `codex/NN-short-task-name` branch. Task 50 was merged into
+`origin/main`; its card is retained only as a completion record.
