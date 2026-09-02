@@ -4,6 +4,11 @@
 - **Title:** SEO Content Audit
 - **Mode:** `AUDIT`
 - **Role:** `SEO_CONTENT`
+- **Execution Profile:** `RESEARCH`
+- **Executor Platform:** `Hermes`
+- **Current Provider:** Alibaba Token Plan
+- **Current Model Family:** Qwen
+- **Execution Assignment Recorded:** Yes — 2026-09-03
 - **Priority:** `P1`
 - **Status:** `READY`
 - **Risk:** `MEDIUM`

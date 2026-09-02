@@ -62,6 +62,9 @@ use one matching card in `tasks/`. Do not change, rebase, merge, push, or
 force-push another task's branch. Do not move or delete a registered worktree
 outside Git worktree commands.
 
+The `codex/NN-*` prefix is a repository branch namespace. It does not identify
+or restrict the Executor Platform, Provider, or Model Family used by the task.
+
 Use `worktrees/agent-NN-short-name/` for task worktrees. The existing
 `backlink-agent-worktree/` is a registered legacy worktree; treat it as
 read-only coordination state until its owner has finished and Git metadata has
@@ -94,6 +97,52 @@ Use roles as specialist responsibilities: `ORCHESTRATOR`, `TECHNICAL_SEO`,
 `SEO_CONTENT`, `GEO_AI_SEARCH`, `CRO`, `BRAND_UX`, `QA_PERFORMANCE`, and
 `BACKLINK`. A role can own many separate tasks over time. Do not use a numbered
 Agent identity as a standing organizational model.
+
+Workers are independent, sibling Specialist workers operating through approved
+execution platforms. The ORCHESTRATOR coordinates Tasks; it does not own or
+spawn a permanent hierarchy of Specialist workers.
+
+### Execution Architecture
+
+Repository-governed work uses this separation:
+
+```text
+Task
+  -> Role
+  -> Execution Profile
+  -> Executor Platform
+  -> Provider
+  -> Model Family
+```
+
+- **Task** is the durable work unit and owns its card, branch, worktree,
+  allowlist, worklog, review, and delivery record.
+- **Role** is a durable professional responsibility. Role is not an Executor
+  Platform, Provider, or Model.
+- **Execution Profile** is the durable, platform-independent capability class:
+  `HIGH_RISK_CODE`, `STRATEGIC_REASONING`, `RESEARCH`, or `BULK_EXTRACTION`.
+- **Executor Platform** is the approved runtime used for a task. Current
+  platforms are Codex and Hermes; future platforms require approval.
+- **Provider** and **Model Family** are replaceable task execution metadata, not
+  permanent role definitions.
+
+All platforms and providers obey the same Task Card, branch/worktree discipline,
+file ownership, review independence, Git identity, factual integrity, validation,
+and secret-handling rules. Changing platform, provider, or model never expands
+task scope or file ownership.
+
+Private platform chats and session context are not shared state. Cross-platform
+coordination must be recorded in Task Cards, reports, worklogs, branches, pull
+requests, Coordination Items, or the Master Plan.
+
+Provider credentials and API keys must never enter the repository, Task Cards,
+reports, worklogs, prompts committed to Git, or Git history. Do not silently
+switch Provider or Model Family during an active task. Record any material
+change and its reason in the task-owned append-only worklog and, when it affects
+coordination or reproducibility, in a Coordination Item.
+
+Repository-governed tasks must not use automatic cross-provider fallback unless
+the user explicitly authorizes it for that task.
 
 ## 7. File Ownership
 
