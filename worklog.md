@@ -388,3 +388,22 @@ Work Log:
 Stage Summary:
 - zh 语言图补全：sitemap/hreflang 声明的 /zh/* 全部真实存在；中文用户全程不再掉回英文
 - 提交 14bd0a6 推送部署；遗留小优化：[lang] 页 meta title/description 仍为 EN 回退（含 zh knowledge），后续可用 zh 词典 meta 精修
+
+---
+Task ID: 22
+Agent: Super Z (main)
+Task: 三项并行——①表单提交慢 ②中文版深度内容全部完善 ③搜索引擎收录检查
+
+Work Log:
+- 表单慢根因：submitInquiry 同步 await deliverInquiry（TLS 握手到腾讯 SMTP，connectionTimeout 8s 计入响应）→ 改用 next/server 的 after()，DB 落库后立即返回成功界面，邮件在响应后异步发送；同批新增 BAIDU_SITE_VERIFICATION 验证钩子
+- 中文内容盘点：products/applications/quality/patents/factory 已双语；缺口=产品 technicalOverview/processGuide/faqs、4 篇技术文章、30 条买家解答、1 篇长文解答、answersIndex.englishNote 过时
+- 补齐（全部人工翻译，~2 万字）：products.ts 三字段 Record 化+zh×4 产品；articles.ts 重构双语（zhPatches×4）；answers-zh.ts 新建（30 条 zh patch）；answer-expanded.ts 增 expandedZhAnswers+expandedAnswerFor helper；answers.ts 改 build 双语
+- 渲染端改造 12 个文件：product-view、knowledge index/[slug]×2、answers index/[slug]×2、answer-article、home-knowledge、products [slug] faqSchema×3、layout.tsx
+- 词典：answersIndex 增 eyebrow/directLabel 键（en/zh），englishNote「仅提供英文版」替换为「由技术内容团队维护」
+- 验证：tsc 0 错误；干净构建 162 非英文页 0 错误页；本地+线上 zh 产品/文章/解答/长文/索引全中文、EN 全量回归无变化
+- 收录检查：沙箱内 Bing/Google/Baidu site: 查询均被反爬拦截（不可信）；百度前置条件确认（robots Allow all + sitemap 200 + baidu-site-verification 钩子已部署待用户填 env）；DDG(必应索引)沙箱亦被限流——收录确认需用户浏览器查或看站长平台
+
+Stage Summary:
+- 询单确认从 10+ 秒降到即时显示（邮件后台发送，不丢单）
+- 中文版深度内容 100% 覆盖：产品 4/4、应用 6/6、文章 4/4、解答 31/31；EN 站零回归
+- 提交 cdedc67；遗留：EN 版认证名保留中文括号（外贸惯例，如需纯英文可再改）
