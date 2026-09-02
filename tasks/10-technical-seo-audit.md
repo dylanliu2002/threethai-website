@@ -5,11 +5,11 @@
 - **Mode:** `AUDIT`
 - **Role:** `TECHNICAL_SEO`
 - **Priority:** `P1`
-- **Status:** `READY`
+- **Status:** `IN_PROGRESS`
 - **Risk:** `HIGH`
 - **Branch:** `codex/10-technical-seo-audit`
 - **Worktree:** `worktrees/agent-10-technical-seo`
-- **Owner:** Unassigned
+- **Owner:** `TECHNICAL_SEO`
 - **Reviewer:** Unassigned (independent)
 - **depends_on:** None
 - **blocks:** Follow-up technical SEO implementation tasks
