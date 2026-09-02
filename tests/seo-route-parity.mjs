@@ -102,8 +102,12 @@ test("explicit Chinese overrides remain valid shared-route subsets", () => {
 
 test("English buyer-answer metadata uses the shared contract", () => {
   const source = read("src/app/(site)/answers/[slug]/page.tsx");
+  assert.equal((source.match(/return buildMetadata\(\{/g) ?? []).length, 1);
   assert.match(source, /return buildMetadata\(\{/);
+  assert.match(source, /answer\.question\.en/);
+  assert.match(source, /answer\.shortAnswer\.en/);
   assert.match(source, /path:\s*`\/answers\/\$\{answer\.slug\}`/);
   assert.match(source, /locale:\s*["']en["']/);
   assert.match(source, /type:\s*["']article["']/);
+  assert.doesNotMatch(source, /clampMetaDescription/);
 });
