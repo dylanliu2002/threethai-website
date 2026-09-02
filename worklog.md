@@ -426,3 +426,18 @@ Stage Summary:
 - 用户可在 3 个终端分别 cd worktrees/<slug> 启动 codex，各 agent 自动受 AGENTS.md 约束
 - 版本不匹配问题的答案：agent 永不推 main（物理隔离）+ 完成时 rebase（时间收敛）+ 白名单分区（语义预防）+ 管理员串行合并窗口（每合一个推一次 main 并通知全员 rebase）
 - Vercel 每个分支 push 自动出 preview URL，agent 在 preview 验证、不抢生产；提醒：SMTP 等 env 需在 Vercel 后台确认 Preview 作用域可见
+
+---
+Task ID: 24
+Agent: Super Z (main, 协调者)
+Task: 撤除多 Agent 并行环境（owner 完成方案验证，暂不开工，具体 agent 数量待定）
+
+Work Log:
+- git worktree remove --force ×3（meta-zh / inquiry-admin / knowledge-expansion）+ prune；worktrees/ 已空
+- git branch -d ×3 本地分支；git push origin --delete ×3 远程分支；现在仓库仅剩 main
+- tasks/README.md 看板三条任务卡状态 READY → ON_HOLD，注明分支已撤、重启流程不变
+- AGENTS.md / tasks/ 任务卡 / worklog/ 目录保留在 main（对单 agent 开发无副作用，重启时直接建分支即可复用）
+
+Stage Summary:
+- 并行开发环境已完全撤除，仓库回到单 main 状态（9802b47 → 本次看板更新提交）
+- 方案资产保留：AGENTS.md 纪律 + 3 张任务卡 + worklog 拆分规则 + TEMPLATE；重启成本 ≈ 3 条命令
