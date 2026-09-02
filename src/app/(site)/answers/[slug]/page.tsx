@@ -19,19 +19,12 @@ export async function generateMetadata({ params }: AnswerPageProps): Promise<Met
   if (!answer) return {};
   const expanded = expandedEnglishAnswers[slug];
   return buildMetadata({
-    title: `${answer.question} | Buyer Answer`,
-    description: expanded?.metaDescription ?? answer.shortAnswer,
+    title: `${answer.question.en} | Buyer Answer`,
+    description: expanded?.metaDescription ?? answer.shortAnswer.en,
     path: `/answers/${answer.slug}`,
     locale: "en",
     type: "article",
   });
-  const description = clampMetaDescription(expanded?.metaDescription ?? answer.shortAnswer.en);
-  return {
-    title: `${answer.question.en} | Buyer Answer`,
-    description,
-    alternates: { canonical: `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.threethai.com"}/answers/${answer.slug}` },
-    openGraph: { title: answer.question.en, description, type: "article" },
-  };
 }
 
 function ArticleFooterCta() {
