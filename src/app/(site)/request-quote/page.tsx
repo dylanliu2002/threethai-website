@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import Breadcrumbs from "@/components/layout/breadcrumbs";
 import Reveal from "@/components/layout/reveal";
 import InquiryForm from "@/components/forms/inquiry-form";
 import { en } from "@/content/i18n";
 import { buildMetadata, jsonLd } from "@/lib/seo";
-import { company } from "@/content/company";
+import { company, localePath } from "@/content/company";
 
 export const metadata: Metadata = buildMetadata({
   title: "Request a Quote — Water-Soluble PVA Yarn, Thread & Fiber",
@@ -60,6 +61,9 @@ export default function RequestQuotePage() {
               <div className="card-line p-6">
                 <h2 className="font-semibold text-ink">{dict.actions.productFinder}</h2>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{dict.finder.intro}</p>
+                <Link href={localePath("/product-finder", "en")} className="btn-ghost mt-4 !min-h-10 !px-4 text-sm">
+                  {dict.actions.productFinder}
+                </Link>
               </div>
               <div className="card-line p-6">
                 <h2 className="font-semibold text-ink">{dict.form.contactDirect}</h2>

@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";import type { Dictionary } from "@/content/i18n";
+import { useRef, useState } from "react";
+import type { Dictionary } from "@/content/i18n";
 import { company, htmlLang, localeLabels, localePath, locales, type Locale } from "@/content/company";
 
 const UI_PREFIXES = locales.filter((l) => l !== "en");
@@ -48,32 +50,25 @@ function Wordmark({ locale }: { locale: Locale }) {
 export default function SiteHeader({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const firstMobileLinkRef = useRef<HTMLAnchorElement>(null);
+  const { path: currentPath } = splitLocalePath(pathname);
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
-
-  // Escape closes the panel; lock scroll while open.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [open]);
+  const isActive = (href: string) =>
+    href === "/"
+      ? currentPath === "/"
+      : currentPath === href || currentPath.startsWith(`${href}/`);
 
   const switchHref = (target: Locale) => {
     const { path } = splitLocalePath(pathname);
-    return localePath(path, target);
+    const href = localePath(path, target);
+    return `${href}${target === "en" ? "?_locale=en" : ""}`;
   };
 
   const currentLabel = localeLabels[locale];
 
   return (
-    <>
+    <DialogPrimitive.Root open={open} onOpenChange={setOpen} modal>
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
       {/* Utility strip */}
       <div className="hidden bg-primary text-primary-foreground md:block">
@@ -150,18 +145,19 @@ export default function SiteHeader({ locale, dict }: { locale: Locale; dict: Dic
             {dict.actions.requestQuote}
           </Link>
 
-          <button
-            type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-input text-ink lg:hidden"
-            aria-expanded={open}
-            aria-controls="mobile-nav"
-            aria-label={open ? dict.actions.close : dict.actions.menu}
-            onClick={() => setOpen((v) => !v)}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
-            </svg>
-          </button>
+          <DialogPrimitive.Trigger asChild>
+            <button
+              ref={triggerRef}
+              type="button"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-input text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:hidden"
+              aria-controls="mobile-nav"
+              aria-label={open ? dict.actions.close : dict.actions.menu}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+              </svg>
+            </button>
+          </DialogPrimitive.Trigger>
         </div>
       </div>
 
@@ -172,12 +168,36 @@ export default function SiteHeader({ locale, dict }: { locale: Locale; dict: Dic
       backdrop-filter makes it the containing block for `fixed` descendants
       (which would collapse the panel to zero height).
     */}
-    {open && (
-      <div id="mobile-nav" className="fixed inset-x-0 bottom-0 top-16 z-40 overflow-y-auto bg-background md:top-[100px] lg:hidden">
-        <nav aria-label="Mobile" className="container-site flex flex-col gap-1 py-6">
-          {navItems.map((item) => (
+    <DialogPrimitive.Portal>
+      <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-transparent lg:hidden" />
+      <DialogPrimitive.Content
+        id="mobile-nav"
+        aria-describedby={undefined}
+        className="fixed inset-x-0 bottom-0 top-16 z-50 overflow-y-auto bg-background md:top-[100px] lg:hidden"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          firstMobileLinkRef.current?.focus();
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          triggerRef.current?.focus();
+        }}
+      >
+        <DialogPrimitive.Title className="sr-only">{dict.actions.menu}</DialogPrimitive.Title>
+        <DialogPrimitive.Close
+          type="button"
+          aria-label={dict.actions.close}
+          className="absolute end-5 top-4 inline-flex h-10 w-10 items-center justify-center rounded-md border border-input text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </DialogPrimitive.Close>
+        <nav aria-label="Mobile" className="container-site flex flex-col gap-1 pb-6 pt-16">
+          {navItems.map((item, index) => (
             <Link
               key={item.href}
+              ref={index === 0 ? firstMobileLinkRef : undefined}
               href={localePath(item.href, locale)}
               aria-current={isActive(item.href) ? "page" : undefined}
               className={`rounded-md px-3 py-3 text-base font-medium ${
@@ -220,8 +240,8 @@ export default function SiteHeader({ locale, dict }: { locale: Locale; dict: Dic
             </details>
           </div>
         </nav>
-      </div>
-    )}
-    </>
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }

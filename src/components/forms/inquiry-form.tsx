@@ -6,7 +6,7 @@ import { submitInquiry, type InquiryState } from "@/lib/inquiry";
 import type { Dictionary } from "@/content/i18n";
 import { productBySlug } from "@/content/products";
 import { applicationBySlug } from "@/content/applications";
-import { contentLocaleOf, type Locale } from "@/content/company";
+import { company, contentLocaleOf, type Locale } from "@/content/company";
 
 const initialState: InquiryState = { status: "idle" };
 
@@ -26,7 +26,7 @@ function Field({
   type?: string;
   required?: boolean;
   optionalLabel?: string;
-  error?: boolean;
+  error?: string;
   defaultValue?: string;
   placeholder?: string;
   autoComplete?: string;
@@ -45,15 +45,15 @@ function Field({
         defaultValue={defaultValue}
         placeholder={placeholder}
         autoComplete={autoComplete}
-        aria-invalid={error || undefined}
+        aria-invalid={Boolean(error) || undefined}
         aria-describedby={error ? `${name}-error` : undefined}
         className={`mt-1.5 w-full rounded-md border bg-background px-3 py-2.5 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground/60 focus:outline-2 focus:outline-offset-0 focus:outline-primary ${
           error ? "border-destructive" : "border-input"
         }`}
       />
       {error && (
-        <p id={`${name}-error`} className="mt-1 text-xs text-destructive">
-          {typeof error === "string" ? error : ""}
+        <p id={`${name}-error`} role="alert" className="mt-1 text-xs text-destructive">
+          {error}
         </p>
       )}
     </div>
@@ -106,11 +106,23 @@ function InquiryFormInner({
   const f = dict.form.fields;
   const isContact = kind === "contact";
 
-  const productParam = search.get("product") ?? "";
-  const applicationParam = search.get("application") ?? "";
-  const temperatureParam = search.get("temperature") ?? "";
-  const productName = productBySlug(productParam)?.name[cl] ?? productParam;
-  const applicationName = applicationBySlug(applicationParam)?.name[cl] ?? applicationParam;
+  const productRecord = productBySlug(search.get("product") ?? "");
+  const applicationRaw = search.get("application") ?? "";
+  const applicationRecord = applicationBySlug(applicationRaw);
+  const temperatureRaw = search.get("temperature") ?? "";
+  const specificationParam = (search.get("specification") ?? "").slice(0, 200);
+  const specStatusRaw = search.get("spec") ?? "";
+  const validTemperatures = new Set(["20°C", "40°C", "55°C", "60°C", "80°C", "90°C", "40-55°C", "60-70°C", "80-90°C"]);
+  const validSpecStatuses = new Set(["known", "partial", "none"]);
+  const productParam = productRecord?.slug ?? "";
+  const applicationParam = applicationRecord?.slug ?? (applicationRaw === "other" ? "other" : "");
+  const temperatureParam = validTemperatures.has(temperatureRaw) ? temperatureRaw : "";
+  const specStatus = validSpecStatuses.has(specStatusRaw)
+    ? (specStatusRaw as keyof typeof dict.finder.specOptions)
+    : undefined;
+  const specificationDefaultValue = specificationParam || (specStatus ? dict.finder.specOptions[specStatus] : "");
+  const productName = productRecord?.name[cl] ?? "";
+  const applicationName = applicationRecord?.name[cl] ?? (applicationParam === "other" ? dict.finder.applicationOptions.other : "");
 
   if (state.status === "success") {
     return (
@@ -142,15 +154,23 @@ function InquiryFormInner({
 
       {state.status === "error" && !state.fieldErrors && (
         <p role="alert" className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {dict.form.errors.generic} {dict.form.errorBody} salesmanager@threethai.com
+          {state.message === "persist" ? (
+            <>
+              {dict.form.errorBody}{" "}
+              <a className="font-semibold underline underline-offset-2" href={`mailto:${company.email}`}>
+                {company.email}
+              </a>
+              .
+            </>
+          ) : dict.form.errors.generic}
         </p>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label={f.name} name="name" required autoComplete="name" error={!!state.fieldErrors?.name} />
+        <Field label={f.name} name="name" required autoComplete="name" error={fieldError("name")} />
         <Field label={f.company} name="company" autoComplete="organization" optionalLabel={dict.form.optional} />
         <Field label={f.country} name="country" autoComplete="country-name" optionalLabel={dict.form.optional} />
-        <Field label={f.email} name="email" type="email" required autoComplete="email" error={!!state.fieldErrors?.email} />
+        <Field label={f.email} name="email" type="email" required autoComplete="email" error={fieldError("email")} />
         <Field label={f.phone} name="phone" type="tel" autoComplete="tel" optionalLabel={dict.form.optional} />
         {!isContact && (
           <Field label={f.destination} name="destination" optionalLabel={dict.form.optional} placeholder={locale === "zh" ? "如：印度／土耳其" : "e.g. India / Türkiye"} />
@@ -193,7 +213,7 @@ function InquiryFormInner({
                 <option value="other">{dict.finder.applicationOptions.other}</option>
               </select>
             </div>
-            <Field label={f.specification} name="specification" optionalLabel={dict.form.optional} placeholder={locale === "zh" ? "如：40S/2 · 1.50 dtex × 38 mm" : "e.g. 40S/2 · 1.50 dtex × 38 mm"} />
+            <Field label={f.specification} name="specification" optionalLabel={dict.form.optional} defaultValue={specificationDefaultValue} placeholder={locale === "zh" ? "如：40S/2 · 1.50 dtex × 38 mm" : "e.g. 40S/2 · 1.50 dtex × 38 mm"} />
             <Field label={f.temperature} name="temperature" optionalLabel={dict.form.optional} defaultValue={temperatureParam} placeholder="20°C / 40°C / 90°C…" />
             <Field label={f.quantity} name="quantity" optionalLabel={dict.form.optional} placeholder={locale === "zh" ? "样品／试单／年用量" : "sample / pilot / annual"} />
           </div>
@@ -201,6 +221,7 @@ function InquiryFormInner({
             <p className="mt-3 rounded-md bg-secondary px-3 py-2 text-xs text-muted-foreground">
               {f.product}: <strong className="text-ink">{productName}</strong>
               {applicationName && <> · {f.application}: <strong className="text-ink">{applicationName}</strong></>}
+              {specStatus && <> · {f.specification}: <strong className="text-ink">{dict.finder.specOptions[specStatus]}</strong></>}
             </p>
           )}
         </>
@@ -225,12 +246,13 @@ function InquiryFormInner({
           }
           placeholder={f.messagePlaceholder}
           aria-invalid={!!state.fieldErrors?.message || undefined}
+          aria-describedby={state.fieldErrors?.message ? "message-error" : undefined}
           className={`mt-1.5 w-full rounded-md border bg-background px-3 py-2.5 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground/60 focus:outline-2 focus:outline-offset-0 focus:outline-primary ${
             state.fieldErrors?.message ? "border-destructive" : "border-input"
           }`}
         />
         {state.fieldErrors?.message && (
-          <p id="message-error" className="mt-1 text-xs text-destructive">{dict.form.errors.message}</p>
+          <p id="message-error" role="alert" className="mt-1 text-xs text-destructive">{dict.form.errors.message}</p>
         )}
       </div>
 
