@@ -57,7 +57,7 @@ docs/agent-team/MASTER-OPTIMIZATION-PLAN.md
 docs/agent-team/UNIFIED-AGENT-PROMPT.md
 tasks/TEMPLATE.md
 tasks/IMPLEMENTATION-BACKLOG.md
-tasks/10-technical-seo-audit.md
+tasks/README.md
 tasks/11-seo-content-audit.md
 tasks/12-geo-ai-search-audit.md
 tasks/13-cro-audit.md
@@ -106,15 +106,14 @@ git diff
 - `tasks/01-meta-zh.md` is a retired historical card with the same numeric ID.
   It remains untouched; this user-authorized task is identified by its full slug,
   branch, and worktree.
-- Task 10 is already on `codex/10-technical-seo-audit` in `REVIEW`. Integration
-  must preserve its Task-owned status, owner, reviewer, completion, and audit
-  evidence together with the new execution metadata. Do not overwrite its branch.
+- Task 10 is already active and in `REVIEW` on its own task-owned branch. Task 01
+  intentionally does not modify the Task 10 card. Its execution metadata may be
+  reconciled by the Task 10 owner during rebase/handoff or by a later
+  ORCHESTRATOR-owned administrative update after Task 10 integration.
 - The workspace-level `../AGENTS.md` adjustment is local workspace governance and
   must remain outside this repository commit.
-- `tasks/README.md` is outside this Task's user-approved allowlist and still
-  summarizes Tasks 10–16 as `READY`. The Task 16 card is the authoritative task
-  state after this migration; a follow-up ORCHESTRATOR change should align the
-  summary without expanding this Task's scope.
+- `tasks/README.md` was explicitly added to this Task's allowlist for the minimal
+  Task 16 `ON_HOLD` alignment; the Task 16 card remains authoritative.
 
 ## Review Status
 
@@ -128,10 +127,11 @@ git diff
 - Changed files: Allowlisted governance, execution-policy, Audit Wave metadata,
   Task Card, and task-owned worklog files only.
 - Validation results: `git diff --check`, allowlist, website-code exclusion,
-  exact-model-version, credential-value, Task 16 state, and full diff review passed.
+  exact-model-version, credential-value, Task 10 exclusion, Task 16/README state,
+  and full diff review passed.
 - Worklog: `worklog/agent-01-execution-policy.md`
-- Remaining risks: Task 10 card integration ordering; `tasks/README.md` summary
-  follow-up; legacy Task 48 remains unresolved.
+- Remaining risks: Legacy Task 48 remains unresolved; Task 10 execution metadata
+  reconciliation is intentionally delegated to its owner or later administration.
 
 ## Rollback
 

@@ -27,7 +27,7 @@ or held task must name its reason in **Coordination items**; it is never silent.
 4. Set the required Git identity, record the branch and worktree on the card,
    and move the card to `IN_PROGRESS` only when the owner starts.
 
-## Ready Audit Tasks
+## Current Audit Wave
 
 | ID | Task card | Role | Branch | Dedicated report |
 | --- | --- | --- | --- | --- |
@@ -39,10 +39,18 @@ or held task must name its reason in **Coordination items**; it is never silent.
 | 15 | `15-qa-performance-audit.md` | QA_PERFORMANCE | `codex/15-qa-performance-audit` | `docs/audits/15-qa-performance.md` |
 | 16 | `16-backlink-audit.md` | BACKLINK | `codex/16-backlink-audit` | `docs/audits/16-backlink.md` |
 
-All seven are `AUDIT`, `P1`, and `READY`. Their output allowlist contains only
-their dedicated report path; each task also automatically owns its own task card
-and append-only matching worklog under the model in `AGENTS.md`. Creating a card
-does not authorize performing its audit.
+Tasks 10–15 are the current Audit Wave. Read each task-owned card and branch for
+its live status; this table records the durable task, Role, branch, and report
+mapping and does not override task-owned state.
+
+Task 16 is `AUDIT`, `P1`, and `ON_HOLD` because legacy Task 48 overlaps backlink
+research and retains a dirty worktree. Its resume condition is authoritative in
+`tasks/16-backlink-audit.md`; do not launch it while that hold remains.
+
+Each Audit Task's output allowlist contains only its dedicated report path. Each
+task also automatically owns its own task card and append-only matching worklog
+under the model in `AGENTS.md`. Creating a card does not authorize performing
+its audit.
 
 ## Historical Records
 
