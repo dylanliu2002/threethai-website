@@ -25,6 +25,13 @@ export async function generateMetadata({ params }: AnswerPageProps): Promise<Met
     locale: "en",
     type: "article",
   });
+  const description = clampMetaDescription(expanded?.metaDescription ?? answer.shortAnswer.en);
+  return {
+    title: `${answer.question.en} | Buyer Answer`,
+    description,
+    alternates: { canonical: `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.threethai.com"}/answers/${answer.slug}` },
+    openGraph: { title: answer.question.en, description, type: "article" },
+  };
 }
 
 function ArticleFooterCta() {
@@ -138,12 +145,12 @@ function StandardAnswerBody({ slug }: { slug: string }) {
   return (
     <article className="mt-8">
       <p className="eyebrow">Buyer answer · Water-soluble PVA materials</p>
-      <h1 className="mt-3 text-2xl font-semibold leading-tight tracking-tight text-ink sm:text-3xl">{answer.question}</h1>
+      <h1 className="mt-3 text-2xl font-semibold leading-tight tracking-tight text-ink sm:text-3xl">{answer.question.en}</h1>
       <div className="mt-6 rounded-lg border border-gold/40 bg-accent/40 p-5">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-deep">Direct answer</p>
-        <p className="mt-2 leading-relaxed text-foreground/90">{answer.shortAnswer}</p>
+        <p className="mt-2 leading-relaxed text-foreground/90">{answer.shortAnswer.en}</p>
       </div>
-      {answer.details.map(([heading, body]) => (
+      {answer.details.en.map(([heading, body]) => (
         <section key={heading} className="mt-8">
           <h2 className="text-xl font-semibold tracking-tight text-ink">{heading}</h2>
           <p className="mt-3 text-base leading-relaxed text-muted-foreground">{body}</p>
@@ -152,7 +159,7 @@ function StandardAnswerBody({ slug }: { slug: string }) {
       <section className="mt-8">
         <h2 className="text-xl font-semibold tracking-tight text-ink">{en.answersIndex.askHeading}</h2>
         <ul className="mt-4 space-y-2">
-          {answer.askFor.map((item) => (
+          {answer.askFor.en.map((item) => (
             <li key={item} className="flex items-start gap-3 text-sm leading-relaxed text-foreground/85">
               <span aria-hidden="true" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" />
               {item}
@@ -180,15 +187,15 @@ export default async function AnswerPage({ params }: AnswerPageProps) {
   const answer = answerBySlug(slug);
   if (!answer) notFound();
   const expanded = expandedEnglishAnswers[slug];
-  const faqs = expanded?.faqs ?? ([[answer.question, answer.shortAnswer]] as const);
+  const faqs = expanded?.faqs ?? ([[answer.question.en, answer.shortAnswer.en]] as const);
   const siteUrlEnv = process.env.NEXT_PUBLIC_SITE_URL || "https://www.threethai.com";
 
   return (
     <>
       {jsonLd([
         articleSchema({
-          headline: answer.question,
-          description: expanded?.metaDescription ?? answer.shortAnswer,
+          headline: answer.question.en,
+          description: expanded?.metaDescription ?? answer.shortAnswer.en,
           slug: answer.slug,
           datePublished: "2026-08-15",
           dateModified: "2026-08-29",
@@ -198,7 +205,7 @@ export default async function AnswerPage({ params }: AnswerPageProps) {
         breadcrumbSchema([
           { name: en.breadcrumbs.home, path: "/" },
           { name: en.breadcrumbs.answers, path: "/answers" },
-          { name: answer.question, path: `/answers/${answer.slug}` },
+          { name: answer.question.en, path: `/answers/${answer.slug}` },
         ]),
         {
           "@context": "https://schema.org",
@@ -213,7 +220,7 @@ export default async function AnswerPage({ params }: AnswerPageProps) {
           trail={[
             { name: en.breadcrumbs.home, path: "/" },
             { name: en.breadcrumbs.answers, path: "/answers" },
-            { name: answer.question, path: `/answers/${answer.slug}` },
+            { name: answer.question.en, path: `/answers/${answer.slug}` },
           ]}
         />
         {expanded ? <ExpandedAnswerBody slug={slug} /> : <StandardAnswerBody slug={slug} />}

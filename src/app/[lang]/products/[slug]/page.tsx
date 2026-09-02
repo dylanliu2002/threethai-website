@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import ProductView from "@/components/product/product-view";
 import { products, productBySlug } from "@/content/products";
 import { buildMetadata, breadcrumbSchema, faqSchema, jsonLd, productSchema } from "@/lib/seo";
-import { localePath } from "@/content/company";
+import { localePath, contentLocaleOf } from "@/content/company";
 import { langParams, resolveLang } from "../../_lang";
 
 type Props = { params: Promise<{ lang: string; slug: string }> };
@@ -19,9 +19,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const product = productBySlug(slug);
   if (!product) return {};
   const { locale } = await resolveLang(params, notFound);
+  const cl = contentLocaleOf(locale);
   return buildMetadata({
-    title: `${product.name.en} Manufacturer & Supplier`,
-    description: product.metaDescription.en,
+    title: `${product.name[cl]} Manufacturer & Supplier`,
+    description: product.metaDescription[cl],
     path: `/products/${product.slug}`,
     locale,
     image: product.image,
@@ -34,15 +35,16 @@ export default async function LangProductPage({ params }: Props) {
   const product = productBySlug(slug);
   if (!product) notFound();
   const { dict, locale } = await resolveLang(params, notFound);
+  const cl = contentLocaleOf(locale);
   return (
     <>
       {jsonLd([
-        productSchema({ name: product.name.en, description: product.metaDescription.en, image: product.image, slug: product.slug }),
-        faqSchema(product.faqs),
+        productSchema({ name: product.name[cl], description: product.metaDescription[cl], image: product.image, slug: product.slug }),
+        faqSchema(product.faqs[cl]),
         breadcrumbSchema([
           { name: dict.breadcrumbs.home, path: localePath("/", locale) },
           { name: dict.breadcrumbs.products, path: localePath("/products", locale) },
-          { name: product.name.en, path: localePath(`/products/${product.slug}`, locale) },
+          { name: product.name[cl], path: localePath(`/products/${product.slug}`, locale) },
         ]),
       ])}
       <ProductView product={product} locale={locale} dict={dict} />

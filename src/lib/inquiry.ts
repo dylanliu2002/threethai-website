@@ -2,6 +2,7 @@
 
 import { randomBytes } from "crypto";
 import nodemailer from "nodemailer";
+import { after } from "next/server";
 import { db } from "@/lib/db";
 import { buildInquiryEmail, type InquiryPayload } from "@/lib/inquiry-email";
 
@@ -180,6 +181,11 @@ export async function submitInquiry(_prev: InquiryState, formData: FormData): Pr
     return { status: "error", message: "persist" };
   }
 
-  await deliverInquiry({ reference, kind, locale, fields });
+  // Send the sales notification AFTER the response is flushed so the buyer
+  // sees the confirmation instantly instead of waiting on the SMTP round-trip
+  // to Tencent Exmail (which can take seconds across regions).
+  after(async () => {
+    await deliverInquiry({ reference, kind, locale, fields });
+  });
   return { status: "success", reference };
 }

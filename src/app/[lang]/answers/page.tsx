@@ -5,7 +5,7 @@ import Breadcrumbs from "@/components/layout/breadcrumbs";
 import Reveal from "@/components/layout/reveal";
 import { buyerAnswers } from "@/content/answers";
 import { buildMetadata, breadcrumbSchema, jsonLd } from "@/lib/seo";
-import { localePath, siteUrl } from "@/content/company";
+import { localePath, siteUrl, contentLocaleOf } from "@/content/company";
 import { resolveLang } from "../_lang";
 
 type Props = { params: Promise<{ lang: string }> };
@@ -23,6 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function LangAnswersPage({ params }: Props) {
   const { dict, locale } = await resolveLang(params, notFound);
+  const cl = contentLocaleOf(locale);
   const t = dict.answersIndex;
   const lp = (p: string) => localePath(p, locale);
   return (
@@ -39,7 +40,7 @@ export default async function LangAnswersPage({ params }: Props) {
           description: t.lead,
           hasPart: buyerAnswers.map((answer) => ({
             "@type": "Article",
-            headline: answer.question,
+            headline: answer.question[cl],
             url: `${siteUrl}${lp(`/answers/${answer.slug}`)}`,
           })),
         },
@@ -76,8 +77,8 @@ export default async function LangAnswersPage({ params }: Props) {
                   <div className="flex items-start gap-4">
                     <span aria-hidden="true" className="text-sm font-bold text-gold-deep">{String(index + 1).padStart(2, "0")}</span>
                     <div>
-                      <h2 className="font-semibold leading-snug text-ink group-hover:text-primary">{answer.question}</h2>
-                      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{answer.shortAnswer}</p>
+                      <h2 className="font-semibold leading-snug text-ink group-hover:text-primary">{answer.question[cl]}</h2>
+                      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{answer.shortAnswer[cl]}</p>
                     </div>
                   </div>
                   <span className="mt-4 pl-9 text-sm font-semibold text-primary">{dict.actions.readAnswer} →</span>

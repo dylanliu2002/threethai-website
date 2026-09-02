@@ -83,7 +83,7 @@ export default function ProductView({ product, locale, dict }: { product: Produc
             <p className="eyebrow">{t.overviewTitle}</p>
             <div className="mt-4 space-y-4 text-base leading-relaxed text-foreground/90">
               <p>{product.intro[cl]}</p>
-              {product.technicalOverview.map((paragraph) => (
+              {product.technicalOverview[cl].map((paragraph) => (
                 <p key={paragraph.slice(0, 32)}>{paragraph}</p>
               ))}
             </div>
@@ -175,7 +175,7 @@ export default function ProductView({ product, locale, dict }: { product: Produc
             </h2>
           </Reveal>
           <ol className="mt-8 grid gap-5 md:grid-cols-3">
-            {product.processGuide.map(([heading, body], i) => (
+            {product.processGuide[cl].map(([heading, body], i) => (
               <Reveal as="li" key={heading} delay={i * 70}>
                 <div className="card-line h-full p-6">
                   <p aria-hidden="true" className="text-sm font-bold text-gold-deep">{String(i + 1).padStart(2, "0")}</p>
@@ -205,14 +205,14 @@ export default function ProductView({ product, locale, dict }: { product: Produc
               {relatedArticles.map((article) => (
                 <li key={article.slug}>
                   <Link href={lp(`/knowledge/${article.slug}`)} className="text-sm font-medium text-primary hover:underline">
-                    {article.title}
+                    {article.title[cl]}
                   </Link>
                 </li>
               ))}
               {relatedAnswers.map((answer) => (
                 <li key={answer.slug}>
                   <Link href={lp(`/answers/${answer.slug}`)} className="text-sm text-muted-foreground hover:text-primary">
-                    {answer.question}
+                    {answer.question[cl]}
                   </Link>
                 </li>
               ))}
@@ -228,7 +228,7 @@ export default function ProductView({ product, locale, dict }: { product: Produc
             <h2 className="display-2 !text-2xl sm:!text-3xl">{t.faqTitle}</h2>
           </Reveal>
           <div className="mt-6 space-y-3">
-            {product.faqs.map(([question, answer], i) => (
+            {product.faqs[cl].map(([question, answer], i) => (
               <Reveal key={question} delay={i * 60}>
                 <details className="card-line group px-5 py-4 open:border-primary/30">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold text-ink [&::-webkit-details-marker]:hidden">

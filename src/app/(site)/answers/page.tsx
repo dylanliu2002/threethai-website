@@ -32,7 +32,7 @@ export default function AnswersPage() {
           description: t.lead,
           hasPart: buyerAnswers.map((answer) => ({
             "@type": "Article",
-            headline: answer.question,
+            headline: answer.question.en,
             url: `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.threethai.com"}/answers/${answer.slug}`,
           })),
         },
@@ -69,8 +69,8 @@ export default function AnswersPage() {
                   <div className="flex items-start gap-4">
                     <span aria-hidden="true" className="text-sm font-bold text-gold-deep">{String(index + 1).padStart(2, "0")}</span>
                     <div>
-                      <h2 className="font-semibold leading-snug text-ink group-hover:text-primary">{answer.question}</h2>
-                      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{answer.shortAnswer}</p>
+                      <h2 className="font-semibold leading-snug text-ink group-hover:text-primary">{answer.question.en}</h2>
+                      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{answer.shortAnswer.en}</p>
                     </div>
                   </div>
                   <span className="mt-4 pl-9 text-sm font-semibold text-primary">{dict.actions.readAnswer} →</span>

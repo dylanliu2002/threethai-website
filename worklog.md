@@ -372,3 +372,90 @@ Work Log:
 Stage Summary:
 - 旧 URL 404 时代结束：全部家族级 308 上线（保留至少一年，符合 Google 迁移指南）
 - 剩余：① 用户导出 GSC 404 清单做精确映射 ② 可选：threethailc.xyz DNS 指向 Vercel 复用跳转图
+
+---
+Task ID: 21
+Agent: Super Z (main)
+Task: 中文版路由 404 修复 + 语言切换不持久修复（用户报告：resources 页切中文找不到网页、选中文后跳页变回英文）
+
+Work Log:
+- 根因 1（404）：/zh 由静态 src/app/zh/ 服务但只覆盖 8 个页面，knowledge(Resources)/answers/product-finder/request-sample 四个区块无 zh 路由；[lang] 动态路由的 resolveLang 又拒绝 zh（dynamicLocales 不含 zh）→ 404。而 sitemap hreflang 早已声明 /zh/knowledge 等存在（死链）
+- 根因 2（跳页回英文）：site-header.tsx 主导航 7 个链接写死英文根路径（href="/products"），未走 localePath()；另有 4 处组件硬链接（application-view /knowledge、home-knowledge ×2、product-view /knowledge+/answers、zh/products 页文章链接）
+- 修复：dynamicLocales 加入 zh（静态 zh 页保持优先，缺的区块由 [lang] 用 zh 词典渲染，深度内容按站点策略回退 EN）；header 桌面+移动导航接 localePath；4 处组件硬链接全部 localePath 化；sitemap 去重 zh
+- 踩坑记录：首次构建出现 __next_error__ 预渲染页（/zh/knowledge 等），排查为残留旧 next start 进程干扰；pkill 全部 next 进程后干净重建，216 个非英文页面扫描 0 错误
+- 验证（本地 next start）：原 404 的 6 条 zh 路由全 200；静态 zh 页/EN/(es|de) 回归全 200；/zh/knowledge 的 lang=zh-CN、中文 UI、canonical=/zh/knowledge、header 导航全 /zh 前缀、语言切换 en→/knowledge es→/es/knowledge 正确；sitemap /knowledge 的 zh-CN alternate 指向真实页面
+
+Stage Summary:
+- zh 语言图补全：sitemap/hreflang 声明的 /zh/* 全部真实存在；中文用户全程不再掉回英文
+- 提交 14bd0a6 推送部署；遗留小优化：[lang] 页 meta title/description 仍为 EN 回退（含 zh knowledge），后续可用 zh 词典 meta 精修
+
+---
+Task ID: 22
+Agent: Super Z (main)
+Task: 三项并行——①表单提交慢 ②中文版深度内容全部完善 ③搜索引擎收录检查
+
+Work Log:
+- 表单慢根因：submitInquiry 同步 await deliverInquiry（TLS 握手到腾讯 SMTP，connectionTimeout 8s 计入响应）→ 改用 next/server 的 after()，DB 落库后立即返回成功界面，邮件在响应后异步发送；同批新增 BAIDU_SITE_VERIFICATION 验证钩子
+- 中文内容盘点：products/applications/quality/patents/factory 已双语；缺口=产品 technicalOverview/processGuide/faqs、4 篇技术文章、30 条买家解答、1 篇长文解答、answersIndex.englishNote 过时
+- 补齐（全部人工翻译，~2 万字）：products.ts 三字段 Record 化+zh×4 产品；articles.ts 重构双语（zhPatches×4）；answers-zh.ts 新建（30 条 zh patch）；answer-expanded.ts 增 expandedZhAnswers+expandedAnswerFor helper；answers.ts 改 build 双语
+- 渲染端改造 12 个文件：product-view、knowledge index/[slug]×2、answers index/[slug]×2、answer-article、home-knowledge、products [slug] faqSchema×3、layout.tsx
+- 词典：answersIndex 增 eyebrow/directLabel 键（en/zh），englishNote「仅提供英文版」替换为「由技术内容团队维护」
+- 验证：tsc 0 错误；干净构建 162 非英文页 0 错误页；本地+线上 zh 产品/文章/解答/长文/索引全中文、EN 全量回归无变化
+- 收录检查：沙箱内 Bing/Google/Baidu site: 查询均被反爬拦截（不可信）；百度前置条件确认（robots Allow all + sitemap 200 + baidu-site-verification 钩子已部署待用户填 env）；DDG(必应索引)沙箱亦被限流——收录确认需用户浏览器查或看站长平台
+
+Stage Summary:
+- 询单确认从 10+ 秒降到即时显示（邮件后台发送，不丢单）
+- 中文版深度内容 100% 覆盖：产品 4/4、应用 6/6、文章 4/4、解答 31/31；EN 站零回归
+- 提交 cdedc67；遗留：EN 版认证名保留中文括号（外贸惯例，如需纯英文可再改）
+
+---
+Task ID: 23
+Agent: Super Z (main, 协调者)
+Task: 多 Agent 并行开发基础设施（用户需求：在 Codex 上开多个 agent 并行开发，解决并行提交版本冲突）
+
+Work Log:
+- 摸底：Task 22 产物已在 main（cdedc67：表单 after() 异步化 / 中文深度内容 100% / 百度验证钩子）；worklog.md 已进 git；无任何协作基础设施
+- 设计三层防冲突架构：①分支物理隔离（agent 只推 agent/* 分支，永不推 main → push 永不撞车）②完成时 rebase origin/main 收敛（冲突按白名单裁决）③任务卡文件白名单互不重叠（语义层预防，rebase 时根本无冲突可解）
+- AGENTS.md（仓库根，Codex 原生自动读取）：分支模型 / 8 条铁律（黑名单文件：company.ts、site-header/footer、next.config.ts 308 图、inquiry.ts、schema、package.json 等）/ 开工仪式 / 小步提交纪律 / 完成门禁（pkill+rm -rf .next+lint+build+__next_error__ 扫描）/ 完成流程 / worklog 拆分规则
+- tasks/：README 看板（READY→IN_PROGRESS→REVIEW→MERGED + 合并窗口记录表）+ TEMPLATE + 3 张真实任务卡：01-meta-zh（[lang] meta zh 精修+EN 认证名清理，Task21/22 遗留）、02-inquiry-admin（询单管理后台，Basic Auth+只读+noindex，天然新目录零冲突）、03-knowledge-expansion（新增 2 文章+6 解答双语扩容）
+- worklog/ 目录拆分：每 agent 一个 append-only 文件，根 worklog.md 改为管理员专属归档（消除单文件并发写冲突）
+- git：main 推 10930cf；建 3 条分支 agent/meta-zh、agent/inquiry-admin、agent/knowledge-expansion 并推 origin（起点均含 AGENTS.md+任务卡）
+- worktrees/：3 个 worktree 就绪（.gitignore 已加 /worktrees/），node_modules 软链主 checkout，冒烟验证 next 16.1.3 可解析、worktree 状态干净
+
+Stage Summary:
+- 用户可在 3 个终端分别 cd worktrees/<slug> 启动 codex，各 agent 自动受 AGENTS.md 约束
+- 版本不匹配问题的答案：agent 永不推 main（物理隔离）+ 完成时 rebase（时间收敛）+ 白名单分区（语义预防）+ 管理员串行合并窗口（每合一个推一次 main 并通知全员 rebase）
+- Vercel 每个分支 push 自动出 preview URL，agent 在 preview 验证、不抢生产；提醒：SMTP 等 env 需在 Vercel 后台确认 Preview 作用域可见
+
+---
+Task ID: 24
+Agent: Super Z (main, 协调者)
+Task: 撤除多 Agent 并行环境（owner 完成方案验证，暂不开工，具体 agent 数量待定）
+
+Work Log:
+- git worktree remove --force ×3（meta-zh / inquiry-admin / knowledge-expansion）+ prune；worktrees/ 已空
+- git branch -d ×3 本地分支；git push origin --delete ×3 远程分支；现在仓库仅剩 main
+- tasks/README.md 看板三条任务卡状态 READY → ON_HOLD，注明分支已撤、重启流程不变
+- AGENTS.md / tasks/ 任务卡 / worklog/ 目录保留在 main（对单 agent 开发无副作用，重启时直接建分支即可复用）
+
+Stage Summary:
+- 并行开发环境已完全撤除，仓库回到单 main 状态（9802b47 → 本次看板更新提交）
+- 方案资产保留：AGENTS.md 纪律 + 3 张任务卡 + worklog 拆分规则 + TEMPLATE；重启成本 ≈ 3 条命令
+
+---
+Task ID: 25
+Agent: Super Z (main)
+Task: salesmanager@ 邮件进 Gmail 垃圾箱——根因诊断 + 六阶段测试方案 PDF（用户确认：开发信+询盘两类都有 / Gmail 为主 / 日发 5-20 封 / 后台 DKIM 已开启 / 交付 PDF / 刚发现一两例）
+
+Work Log:
+- dig @1.1.1.1 实测四件套：SPF 通过、MX 通过、DKIM 未生效（s1._domainkey 及 s1/s2/dkim/dkim1024/dkim2048/qqmail/mail 七个 selector 的 CNAME+TXT 全空）、DMARC 缺失
+- 关键结论：用户"后台已开启 DKIM"仅是腾讯侧开始贴签名，签名公钥 DNS 记录未加到 Cloudflare，对方验签必然失败——与"后台开了"表述不矛盾但必须点破
+- 根因排序：DKIM 未生效（高）+ DMARC 缺失（高）+ 换发信源后域名信誉冷启动（中）+ 内容变量（中低）；"刚一两例"= Gmail 观察期早期信号，是修复窗口
+- PDF 按 report 路线产出：palette.cascade(seed 42) → TocDocTemplate+multiBuild 正文（11 章、9 表、4 code 块、bullet/callout）→ Template 01 封面（poster_validate+cover_validate 双过）→ html2poster 794px → pypdf 归一 A4 合并 14 页 → meta.brand/pages.clean/font.check/toc.check/pdf_qa 全绿（13 PASS）
+- 踩坑：①本机无 NotoSansSC 静态字体仅可变字体，ReportLab 不支持 fvar → 移除 Noto Sans SC 注册（正文全 NotoSerifSC）②bulletText 默认走 Helvetica → S_BULLET 显式 bulletFontName=NotoSerifSC ③html2poster 封面尺寸与 A4 差 0.6-1pt，normalize 容差需从 2pt 收紧到 0.4pt 才触发归一 ④CJK 标点行首 4 处通过改写文本绕开
+- 内容结构：背景现象→四件套实测→根因排序→总览依赖→阶段 0 DNS 修复（DKIM 取值/Cloudflare 添加/dig 复验 + DMARC p=none 起步记录值）→阶段 1 Gmail Show original 三绿取证+IP 黑名单自查→阶段 2 mail-tester（≥9/10）→阶段 3 收件箱矩阵（Gmail/Outlook/QQ/163 × A/B/C 变体）→阶段 4 开发信高风险要素表→阶段 5 四周预热+Postmaster+Gmail 批量发件人规范→验收标准（5 条）+命令速查+工具清单
+
+Stage Summary:
+- 交付：/home/z/my-project/download/企业邮箱送达率诊断与测试方案.pdf（14 页，574KB，QA 全绿）
+- 用户侧立即动作：腾讯后台抄 s1._domainkey 记录值 → Cloudflare 加 CNAME（仅 DNS 灰云）+ _dmarc TXT（v=DMARC1; p=none; rua=mailto:salesmanager@threethai.com; fo=1）→ 告知我复验
+- 遗留：DKIM/DMARC 加好后我做 dig 复验；24h 后邮件头三绿复测；两周观察期后 DMARC 升级评估

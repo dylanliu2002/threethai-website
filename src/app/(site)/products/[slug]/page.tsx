@@ -34,7 +34,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     <>
       {jsonLd([
         productSchema({ name: product.name.en, description: product.metaDescription.en, image: product.image, slug: product.slug }),
-        faqSchema(product.faqs),
+        faqSchema(product.faqs.en),
         breadcrumbSchema([
           { name: en.breadcrumbs.home, path: "/" },
           { name: en.breadcrumbs.products, path: "/products" },

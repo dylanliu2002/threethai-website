@@ -1,30 +1,31 @@
 import Link from "next/link";
-import { answerBySlug, expandedEnglishAnswers } from "@/content/answers";
+import { answerBySlug, expandedAnswerFor } from "@/content/answers";
 import { productBySlug } from "@/content/products";
 import type { Dictionary } from "@/content/i18n";
-import { localePath, type Locale } from "@/content/company";
+import { contentLocaleOf, localePath, type Locale } from "@/content/company";
 
 /**
  * Full buyer-answer article for the /[lang] routes. Deep content is
- * English-only; UI strings come from the resolved dictionary and internal
- * links are locale-prefixed.
+ * bilingual (en + zh); UI strings come from the resolved dictionary and
+ * internal links are locale-prefixed.
  */
 export default function AnswerArticle({ slug, locale, dict }: { slug: string; locale: Locale; dict: Dictionary }) {
   const answer = answerBySlug(slug)!;
-  const expanded = expandedEnglishAnswers[slug];
+  const cl = contentLocaleOf(locale);
+  const expanded = expandedAnswerFor(slug, cl);
   const lp = (p: string) => localePath(p, locale);
   const related = answer.relatedProduct ? productBySlug(answer.relatedProduct) : undefined;
 
   return (
     <article className="mt-8">
-      <p className="eyebrow">Buyer answer · Water-soluble PVA materials</p>
-      <h1 className="mt-3 text-2xl font-semibold leading-tight tracking-tight text-ink sm:text-3xl">{answer.question}</h1>
+      <p className="eyebrow">{expanded?.eyebrow ?? dict.answersIndex.eyebrow}</p>
+      <h1 className="mt-3 text-2xl font-semibold leading-tight tracking-tight text-ink sm:text-3xl">{answer.question[cl]}</h1>
       <div className="mt-6 rounded-lg border border-gold/40 bg-accent/40 p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-deep">Direct answer</p>
-        <p className="mt-2 leading-relaxed text-foreground/90">{answer.shortAnswer}</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-deep">{expanded?.directLabel ?? dict.answersIndex.directLabel}</p>
+        <p className="mt-2 leading-relaxed text-foreground/90">{answer.shortAnswer[cl]}</p>
       </div>
 
-      {answer.details.map(([heading, body]) => (
+      {answer.details[cl].map(([heading, body]) => (
         <section key={heading} className="mt-8">
           <h2 className="text-xl font-semibold tracking-tight text-ink">{heading}</h2>
           <p className="mt-3 text-base leading-relaxed text-muted-foreground">{body}</p>
@@ -89,7 +90,7 @@ export default function AnswerArticle({ slug, locale, dict }: { slug: string; lo
       <section className="mt-8">
         <h2 className="text-xl font-semibold tracking-tight text-ink">{dict.answersIndex.askHeading}</h2>
         <ul className="mt-4 space-y-2">
-          {answer.askFor.map((item) => (
+          {answer.askFor[cl].map((item) => (
             <li key={item} className="flex items-start gap-3 text-sm leading-relaxed text-foreground/85">
               <span aria-hidden="true" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" />
               {item}
@@ -104,7 +105,7 @@ export default function AnswerArticle({ slug, locale, dict }: { slug: string; lo
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{dict.answersIndex.aboutBody}</p>
         {related && (
           <Link href={lp(`/products/${related.slug}`)} className="btn-primary mt-5 !min-h-10 !px-4 text-sm">
-            {related.name.en} →
+            {related.name[cl]} →
           </Link>
         )}
       </aside>
