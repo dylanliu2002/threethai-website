@@ -441,3 +441,21 @@ Work Log:
 Stage Summary:
 - 并行开发环境已完全撤除，仓库回到单 main 状态（9802b47 → 本次看板更新提交）
 - 方案资产保留：AGENTS.md 纪律 + 3 张任务卡 + worklog 拆分规则 + TEMPLATE；重启成本 ≈ 3 条命令
+
+---
+Task ID: 25
+Agent: Super Z (main)
+Task: salesmanager@ 邮件进 Gmail 垃圾箱——根因诊断 + 六阶段测试方案 PDF（用户确认：开发信+询盘两类都有 / Gmail 为主 / 日发 5-20 封 / 后台 DKIM 已开启 / 交付 PDF / 刚发现一两例）
+
+Work Log:
+- dig @1.1.1.1 实测四件套：SPF 通过、MX 通过、DKIM 未生效（s1._domainkey 及 s1/s2/dkim/dkim1024/dkim2048/qqmail/mail 七个 selector 的 CNAME+TXT 全空）、DMARC 缺失
+- 关键结论：用户"后台已开启 DKIM"仅是腾讯侧开始贴签名，签名公钥 DNS 记录未加到 Cloudflare，对方验签必然失败——与"后台开了"表述不矛盾但必须点破
+- 根因排序：DKIM 未生效（高）+ DMARC 缺失（高）+ 换发信源后域名信誉冷启动（中）+ 内容变量（中低）；"刚一两例"= Gmail 观察期早期信号，是修复窗口
+- PDF 按 report 路线产出：palette.cascade(seed 42) → TocDocTemplate+multiBuild 正文（11 章、9 表、4 code 块、bullet/callout）→ Template 01 封面（poster_validate+cover_validate 双过）→ html2poster 794px → pypdf 归一 A4 合并 14 页 → meta.brand/pages.clean/font.check/toc.check/pdf_qa 全绿（13 PASS）
+- 踩坑：①本机无 NotoSansSC 静态字体仅可变字体，ReportLab 不支持 fvar → 移除 Noto Sans SC 注册（正文全 NotoSerifSC）②bulletText 默认走 Helvetica → S_BULLET 显式 bulletFontName=NotoSerifSC ③html2poster 封面尺寸与 A4 差 0.6-1pt，normalize 容差需从 2pt 收紧到 0.4pt 才触发归一 ④CJK 标点行首 4 处通过改写文本绕开
+- 内容结构：背景现象→四件套实测→根因排序→总览依赖→阶段 0 DNS 修复（DKIM 取值/Cloudflare 添加/dig 复验 + DMARC p=none 起步记录值）→阶段 1 Gmail Show original 三绿取证+IP 黑名单自查→阶段 2 mail-tester（≥9/10）→阶段 3 收件箱矩阵（Gmail/Outlook/QQ/163 × A/B/C 变体）→阶段 4 开发信高风险要素表→阶段 5 四周预热+Postmaster+Gmail 批量发件人规范→验收标准（5 条）+命令速查+工具清单
+
+Stage Summary:
+- 交付：/home/z/my-project/download/企业邮箱送达率诊断与测试方案.pdf（14 页，574KB，QA 全绿）
+- 用户侧立即动作：腾讯后台抄 s1._domainkey 记录值 → Cloudflare 加 CNAME（仅 DNS 灰云）+ _dmarc TXT（v=DMARC1; p=none; rua=mailto:salesmanager@threethai.com; fo=1）→ 告知我复验
+- 遗留：DKIM/DMARC 加好后我做 dig 复验；24h 后邮件头三绿复测；两周观察期后 DMARC 升级评估
