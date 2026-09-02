@@ -4,6 +4,11 @@
 - **Title:** QA / Performance Audit
 - **Mode:** `AUDIT`
 - **Role:** `QA_PERFORMANCE`
+- **Execution Profile:** `HIGH_RISK_CODE`
+- **Executor Platform:** `Codex`
+- **Current Provider:** Not pinned
+- **Current Model Family:** Not pinned
+- **Execution Assignment Recorded:** Yes — 2026-09-03
 - **Priority:** `P1`
 - **Status:** `READY`
 - **Risk:** `HIGH`

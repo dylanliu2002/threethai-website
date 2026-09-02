@@ -120,19 +120,18 @@ Run build/type/lint, route and schema checks, keyboard/screen-reader tests, and
 responsive verification at 390, 768, 1440, and 1920 px across representative
 English, Chinese, Arabic, and German routes. Measure LCP, CLS, and INP only here.
 
-## Model strategy
+## Historical execution recommendation
 
-- **Luna** owns bounded fixes, inventories, content mapping, parity tests, and
-  regression execution. It is the default for most tasks.
-- **Terra** owns UX/IA, evidence/content models, brand taxonomy application, and
-  tasks combining product judgment with code.
-- **Sol** owns locale/indexing architecture, shared metadata/schema, inquiry
-  reliability, and the final release gate.
-- Strong-model tasks should hand mechanical follow-up to Luna once architecture
-  and acceptance criteria are fixed.
+The original plan recommended Luna for bounded fixes and inventories, Terra for
+UX/IA and work combining product judgment with code, and Sol for locale/indexing
+architecture, shared metadata, inquiry reliability, and release gating. That
+guidance is retained as historical context; it is not current Role governance
+and does not bind future Tasks to a model family or executor platform.
 
-The 24-task implementation DAG, dependencies, model choices, and initial file
-ownership are recorded in `tasks/IMPLEMENTATION-BACKLOG.md`.
+Current Tasks use the platform- and model-agnostic policy in
+`docs/agent-team/EXECUTION-POLICY.md`. The implementation DAG, dependencies,
+Execution Profiles, historical execution records, and initial file ownership are
+recorded in `tasks/IMPLEMENTATION-BACKLOG.md`.
 
 ## Release gates
 

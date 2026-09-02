@@ -4,6 +4,11 @@
 - **Title:** Technical SEO Audit
 - **Mode:** `AUDIT`
 - **Role:** `TECHNICAL_SEO`
+- **Execution Profile:** `HIGH_RISK_CODE`
+- **Executor Platform:** `Codex`
+- **Current Provider:** Not pinned
+- **Current Model Family:** Not pinned
+- **Execution Assignment Recorded:** Yes — 2026-09-03
 - **Priority:** `P1`
 - **Status:** `READY`
 - **Risk:** `HIGH`

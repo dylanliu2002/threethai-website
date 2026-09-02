@@ -4,6 +4,11 @@
 - **Title:** GEO / AI Search Audit
 - **Mode:** `AUDIT`
 - **Role:** `GEO_AI_SEARCH`
+- **Execution Profile:** `STRATEGIC_REASONING`
+- **Executor Platform:** `Codex`
+- **Current Provider:** Not pinned
+- **Current Model Family:** Not pinned
+- **Execution Assignment Recorded:** Yes — 2026-09-03
 - **Priority:** `P1`
 - **Status:** `READY`
 - **Risk:** `MEDIUM`

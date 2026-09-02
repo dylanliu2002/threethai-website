@@ -4,14 +4,19 @@
 - **Title:** Backlink Audit
 - **Mode:** `AUDIT`
 - **Role:** `BACKLINK`
+- **Execution Profile:** `RESEARCH`
+- **Executor Platform:** `Hermes`
+- **Current Provider:** Alibaba Token Plan
+- **Current Model Family:** Qwen
+- **Execution Assignment Recorded:** Yes — 2026-09-03
 - **Priority:** `P1`
-- **Status:** `READY`
+- **Status:** `ON_HOLD`
 - **Risk:** `MEDIUM`
 - **Branch:** `codex/16-backlink-audit`
 - **Worktree:** `worktrees/agent-16-backlink`
 - **Owner:** Unassigned
 - **Reviewer:** Unassigned (independent)
-- **depends_on:** None
+- **depends_on:** Legacy Task 48 resolution
 - **blocks:** Follow-up outreach and authority-building tasks
 
 ## Goal
@@ -71,7 +76,14 @@ git diff --name-only
 
 ## Coordination Items
 
-- None.
+- **Reason:** Legacy Task 48 overlaps backlink research and retains uncommitted
+  work on `codex/48-backlink-agent` in `backlink-agent-worktree/`.
+- **Resume condition:** Task 48 is completed, independently reviewed, and merged,
+  or explicitly and safely retired by its owner/user.
+- Do not reset, stash, overwrite, move, delete, or otherwise modify the legacy
+  worktree as part of this Task.
+- Task 48's Qwen-specific tooling is legacy implementation metadata. It does not
+  permanently bind the `BACKLINK` Role or Hermes to Qwen.
 
 ## Review Status
 

@@ -4,6 +4,11 @@
 - **Title:** CRO Audit
 - **Mode:** `AUDIT`
 - **Role:** `CRO`
+- **Execution Profile:** `STRATEGIC_REASONING`
+- **Executor Platform:** `Codex`
+- **Current Provider:** Not pinned
+- **Current Model Family:** Not pinned
+- **Execution Assignment Recorded:** Yes — 2026-09-03
 - **Priority:** `P1`
 - **Status:** `READY`
 - **Risk:** `HIGH`
