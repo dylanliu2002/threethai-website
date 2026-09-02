@@ -407,3 +407,22 @@ Stage Summary:
 - 询单确认从 10+ 秒降到即时显示（邮件后台发送，不丢单）
 - 中文版深度内容 100% 覆盖：产品 4/4、应用 6/6、文章 4/4、解答 31/31；EN 站零回归
 - 提交 cdedc67；遗留：EN 版认证名保留中文括号（外贸惯例，如需纯英文可再改）
+
+---
+Task ID: 23
+Agent: Super Z (main, 协调者)
+Task: 多 Agent 并行开发基础设施（用户需求：在 Codex 上开多个 agent 并行开发，解决并行提交版本冲突）
+
+Work Log:
+- 摸底：Task 22 产物已在 main（cdedc67：表单 after() 异步化 / 中文深度内容 100% / 百度验证钩子）；worklog.md 已进 git；无任何协作基础设施
+- 设计三层防冲突架构：①分支物理隔离（agent 只推 agent/* 分支，永不推 main → push 永不撞车）②完成时 rebase origin/main 收敛（冲突按白名单裁决）③任务卡文件白名单互不重叠（语义层预防，rebase 时根本无冲突可解）
+- AGENTS.md（仓库根，Codex 原生自动读取）：分支模型 / 8 条铁律（黑名单文件：company.ts、site-header/footer、next.config.ts 308 图、inquiry.ts、schema、package.json 等）/ 开工仪式 / 小步提交纪律 / 完成门禁（pkill+rm -rf .next+lint+build+__next_error__ 扫描）/ 完成流程 / worklog 拆分规则
+- tasks/：README 看板（READY→IN_PROGRESS→REVIEW→MERGED + 合并窗口记录表）+ TEMPLATE + 3 张真实任务卡：01-meta-zh（[lang] meta zh 精修+EN 认证名清理，Task21/22 遗留）、02-inquiry-admin（询单管理后台，Basic Auth+只读+noindex，天然新目录零冲突）、03-knowledge-expansion（新增 2 文章+6 解答双语扩容）
+- worklog/ 目录拆分：每 agent 一个 append-only 文件，根 worklog.md 改为管理员专属归档（消除单文件并发写冲突）
+- git：main 推 10930cf；建 3 条分支 agent/meta-zh、agent/inquiry-admin、agent/knowledge-expansion 并推 origin（起点均含 AGENTS.md+任务卡）
+- worktrees/：3 个 worktree 就绪（.gitignore 已加 /worktrees/），node_modules 软链主 checkout，冒烟验证 next 16.1.3 可解析、worktree 状态干净
+
+Stage Summary:
+- 用户可在 3 个终端分别 cd worktrees/<slug> 启动 codex，各 agent 自动受 AGENTS.md 约束
+- 版本不匹配问题的答案：agent 永不推 main（物理隔离）+ 完成时 rebase（时间收敛）+ 白名单分区（语义预防）+ 管理员串行合并窗口（每合一个推一次 main 并通知全员 rebase）
+- Vercel 每个分支 push 自动出 preview URL，agent 在 preview 验证、不抢生产；提醒：SMTP 等 env 需在 Vercel 后台确认 Preview 作用域可见
