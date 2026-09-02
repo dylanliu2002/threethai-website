@@ -34,8 +34,19 @@
 ## File Allowlist
 
 ```text
-[Only files this task may modify]
+[Only implementation or audit output files this task may modify]
 ```
+
+The File Allowlist does not need to repeat this task's administrative card or
+worklog; their automatic ownership is defined below and in `AGENTS.md`.
+
+## Task-Owned Administrative Files
+
+- **Task card:** `tasks/NN-task-name.md` — the assigned Owner may update Status,
+  Coordination Items, Validation results, and Completion Record. The assigned
+  independent Reviewer may update review-related fields within their role.
+- **Worklog:** `worklog/agent-NN-task-name.md` — create if absent; append only.
+  Never rewrite history or modify another task's worklog.
 
 ## Forbidden / Shared Files
 
@@ -90,7 +101,7 @@ Validation:
 - Base / rebase commit:
 - Changed files:
 - Validation results:
-- Worklog (if permitted):
+- Worklog:
 - Remaining risks:
 
 ## Rollback

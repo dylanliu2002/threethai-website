@@ -1,7 +1,9 @@
 # Three Thai Website Agent Rules
 
-These rules govern work inside `threethai-website/`. Read this file completely,
-then the assigned `tasks/NN-short-task-name.md` card; `../AGENTS.md` supplies the wider collaboration rules.
+These rules govern work inside `threethai-website/`. Read this file completely
+and then the assigned `tasks/NN-short-task-name.md` card. If a workspace-level
+`AGENTS.md` exists in an ancestor directory of the current checkout or worktree,
+read and follow it in addition to this repository-level `AGENTS.md`.
 
 ## 1. Scope & Source of Truth
 
@@ -25,15 +27,27 @@ working directory without recording the reason in its coordination items.
 
 ## 3. Git Commit Identity
 
+### Before Commit
+
 Set and verify this identity in every task worktree before committing:
 
 ```bash
 git config user.name "dylanliu2002"
 git config user.email "dylanliu2002@gmail.com"
+
+test "$(git config user.name)" = "dylanliu2002"
+test "$(git config user.email)" = "dylanliu2002@gmail.com"
+```
+
+### After Commit / Before Push
+
+Verify the newly created commit, not a historical commit:
+
+```bash
 git log -1 --format='%an <%ae>'
 ```
 
-The final verification must be exactly:
+Its output must be exactly:
 
 ```text
 dylanliu2002 <dylanliu2002@gmail.com>
@@ -83,13 +97,21 @@ Agent identity as a standing organizational model.
 
 ## 7. File Ownership
 
-The task card's file allowlist is the exclusive edit boundary. An Agent may edit
-only its own task card, its allowed task output, and its task-owned worklog when
-the card explicitly permits it. Never alter another task card, report, or
-worklog history. Append-only worklogs never have their existing entries edited.
+Every task automatically owns three kinds of files:
 
-AUDIT cards normally allow exactly one report under `docs/audits/`. Existing
-reports are evidence, not permission to overwrite another task's output.
+1. Its administrative task card, `tasks/NN-task-name.md`. The assigned Owner
+   may update its Status, Coordination Items, Validation results, and Completion
+   Record; the assigned independent Reviewer may update review-related fields
+   within their review responsibility. No one may modify another task's card.
+2. Its worklog, `worklog/agent-NN-task-name.md`. The task may create this file
+   if absent and may only append to it; historical entries are never rewritten.
+3. Its output File Allowlist. This remains the strict boundary for implementation
+   or audit output, and does not need to repeat the task card or worklog above.
+
+AUDIT cards normally allow exactly one report under `docs/audits/` as output.
+They still may not modify `src/`, application code, shared files, another audit
+report, another task card, or another worklog. Existing reports are evidence,
+not permission to overwrite another task's output.
 
 ## 8. Shared Files
 
@@ -97,6 +119,8 @@ Specialists may not directly change these shared surfaces:
 
 ```text
 AGENTS.md
+tasks/README.md
+tasks/TEMPLATE.md
 package.json
 package-lock.json
 bun.lock
@@ -117,7 +141,9 @@ vercel.json
 ```
 
 Add related global configuration or deployment files to the same protection
-unless an ORCHESTRATOR explicitly grants ownership in the task card.
+unless an ORCHESTRATOR explicitly grants ownership in the task card. Only an
+ORCHESTRATOR or an Agent with explicit task-level delegation may modify the
+governance files `tasks/README.md` and `tasks/TEMPLATE.md`.
 
 ## 9. Git & Worktree Discipline
 
@@ -179,7 +205,7 @@ evidence. Only an authorized integrator merges approved work.
 ## 14. Delivery Requirements
 
 Before reporting completion: update the task card's completion record, record
-all validation results, state the exact base/rebase commit, add a permitted
+all validation results, state the exact base/rebase commit, add a task-owned
 append-only worklog entry, and provide a rollback note. Verify identity using
 the latest commit, then push only the task-owned branch. Deliver the branch,
 commit, changed files, validation, review status, remaining risks, and

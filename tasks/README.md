@@ -39,8 +39,10 @@ or held task must name its reason in **Coordination items**; it is never silent.
 | 15 | `15-qa-performance-audit.md` | QA_PERFORMANCE | `codex/15-qa-performance-audit` | `docs/audits/15-qa-performance.md` |
 | 16 | `16-backlink-audit.md` | BACKLINK | `codex/16-backlink-audit` | `docs/audits/16-backlink.md` |
 
-All seven are `AUDIT`, `P1`, and `READY`. Their allowlist contains only their
-dedicated report path; creating a card does not authorize performing its audit.
+All seven are `AUDIT`, `P1`, and `READY`. Their output allowlist contains only
+their dedicated report path; each task also automatically owns its own task card
+and append-only matching worklog under the model in `AGENTS.md`. Creating a card
+does not authorize performing its audit.
 
 ## Historical Records
 
