@@ -27,10 +27,14 @@ export const metadata: Metadata = {
   //   GOOGLE_SITE_VERIFICATION  -> <meta name="google-site-verification">  (Google Search Console)
   //   BING_SITE_VERIFICATION    -> <meta name="msvalidate.01">             (Bing Webmaster Tools)
   //   YANDEX_SITE_VERIFICATION  -> <meta name="yandex-verification">      (Yandex Webmaster)
+  //   BAIDU_SITE_VERIFICATION   -> <meta name="baidu-site-verification">   (百度搜索资源平台)
   verification: {
     google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
     yandex: process.env.YANDEX_SITE_VERIFICATION || undefined,
-    other: process.env.BING_SITE_VERIFICATION ? { "msvalidate.01": process.env.BING_SITE_VERIFICATION } : undefined,
+    other: {
+      ...(process.env.BING_SITE_VERIFICATION ? { "msvalidate.01": process.env.BING_SITE_VERIFICATION } : {}),
+      ...(process.env.BAIDU_SITE_VERIFICATION ? { "baidu-site-verification": process.env.BAIDU_SITE_VERIFICATION } : {}),
+    },
   },
   authors: [{ name: company.nameLegalZh }],
   creator: company.nameLegalZh,

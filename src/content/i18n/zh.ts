@@ -227,12 +227,14 @@ export const zh: Dictionary = {
   },
   answersIndex: {
     title: "采购问答",
+    eyebrow: "买家解答 · 水溶性 PVA 材料",
+    directLabel: "直接回答",
     lead: "围绕水溶性 PVA 纱线、缝纫线、短纤和长丝的常见采购问题，提供以证据为基础的解答。排名、价格与认证均视为待核实的声明，而非营销话术。",
     askHeading: "询盘时请提供的信息",
     aboutHeading: "关于本解答",
     aboutBody: "本文由 Shandong Three Thai Textile Co., Ltd.（山东荣沣纺织有限公司）技术内容团队编写。页面提供采购指引，不构成独立评级或认证结论。产品适用性须通过可追溯样品和买方实际工艺确认。",
     count: "个实用解答",
-    englishNote: "采购问答目前仅提供英文版。",
+    englishNote: "由技术内容团队维护——排名与声明均经验证，而非简单转载。",
   },
   knowledgeIndex: {
     title: "技术文章",

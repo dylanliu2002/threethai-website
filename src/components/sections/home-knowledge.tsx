@@ -2,10 +2,11 @@ import Link from "next/link";
 import Reveal from "@/components/layout/reveal";
 import { articles } from "@/content/articles";
 import type { Dictionary } from "@/content/i18n";
-import { localePath, type Locale } from "@/content/company";
+import { localePath, contentLocaleOf, type Locale } from "@/content/company";
 
 export default function HomeKnowledge({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const t = dict.home.knowledge;
+  const cl = contentLocaleOf(locale);
   const lp = (path: string) => localePath(path, locale);
   const featured = articles.slice(0, 3);
   return (
@@ -30,9 +31,9 @@ export default function HomeKnowledge({ locale, dict }: { locale: Locale; dict: 
                 href={lp(`/knowledge/${article.slug}`)}
                 className="card-line group flex h-full flex-col p-6 transition-all duration-200 hover:border-primary/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-deep">{article.category}</p>
-                <h3 className="mt-3 flex-1 font-semibold leading-snug text-ink group-hover:text-primary">{article.title}</h3>
-                <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{article.intro}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-deep">{article.category[cl]}</p>
+                <h3 className="mt-3 flex-1 font-semibold leading-snug text-ink group-hover:text-primary">{article.title[cl]}</h3>
+                <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{article.intro[cl]}</p>
                 <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
                   {dict.actions.readArticle}
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true">

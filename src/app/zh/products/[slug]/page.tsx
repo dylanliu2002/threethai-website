@@ -33,7 +33,7 @@ export default async function ZhProductPage({ params }: ProductPageProps) {
     <>
       {jsonLd([
         productSchema({ name: product.name.zh, description: product.metaDescription.zh, image: product.image, slug: product.slug }),
-        faqSchema(product.faqs),
+        faqSchema(product.faqs.zh),
         breadcrumbSchema([
           { name: zh.breadcrumbs.home, path: "/zh" },
           { name: zh.breadcrumbs.products, path: "/zh/products" },

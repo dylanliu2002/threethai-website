@@ -18,8 +18,8 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
   const article = articleBySlug(slug);
   if (!article) return {};
   return buildMetadata({
-    title: article.title,
-    description: article.metaDescription,
+    title: article.title.en,
+    description: article.metaDescription.en,
     path: `/knowledge/${article.slug}`,
     locale: "en",
     alternates: { en: `/knowledge/${article.slug}` },
@@ -40,8 +40,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     <>
       {jsonLd([
         articleSchema({
-          headline: article.title,
-          description: article.metaDescription,
+          headline: article.title.en,
+          description: article.metaDescription.en,
           slug: article.slug,
           datePublished: article.datePublished,
           dateModified: article.dateModified,
@@ -50,7 +50,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         breadcrumbSchema([
           { name: dict.breadcrumbs.home, path: "/" },
           { name: dict.breadcrumbs.knowledge, path: "/knowledge" },
-          { name: article.title, path: `/knowledge/${article.slug}` },
+          { name: article.title.en, path: `/knowledge/${article.slug}` },
         ]),
       ])}
       <div className="container-site max-w-3xl py-12 sm:py-16">
@@ -59,12 +59,12 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           trail={[
             { name: dict.breadcrumbs.home, path: "/" },
             { name: dict.breadcrumbs.knowledge, path: "/knowledge" },
-            { name: article.title, path: `/knowledge/${article.slug}` },
+            { name: article.title.en, path: `/knowledge/${article.slug}` },
           ]}
         />
         <article>
-          <p className="eyebrow mt-8">{article.category} · PVA knowledge</p>
-          <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl">{article.title}</h1>
+          <p className="eyebrow mt-8">{article.category.en} · PVA knowledge</p>
+          <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl">{article.title.en}</h1>
           <p className="mt-4 text-sm text-muted-foreground">
             <time dateTime={article.datePublished}>{dict.knowledgeIndex.published} {article.datePublished}</time>
             <span aria-hidden="true"> · </span>
@@ -72,9 +72,9 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             <span aria-hidden="true"> · </span>
             <span>{dict.answersIndex.aboutHeading}</span>
           </p>
-          <p className="mt-6 border-l-2 border-gold pl-5 text-lg leading-relaxed text-foreground/90">{article.intro}</p>
+          <p className="mt-6 border-l-2 border-gold pl-5 text-lg leading-relaxed text-foreground/90">{article.intro.en}</p>
 
-          {article.sections.map(([heading, body]: readonly [string, string]) => (
+          {article.sections.en.map(([heading, body]: readonly [string, string]) => (
             <section key={heading} className="mt-8">
               <h2 className="text-xl font-semibold tracking-tight text-ink">{heading}</h2>
               <p className="mt-3 text-base leading-relaxed text-muted-foreground">{body}</p>
@@ -107,7 +107,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
             {others.map((a) => (
               <li key={a.slug}>
                 <Link href={`/knowledge/${a.slug}`} className="text-sm font-medium text-primary hover:underline">
-                  {a.title}
+                  {a.title.en}
                 </Link>
               </li>
             ))}

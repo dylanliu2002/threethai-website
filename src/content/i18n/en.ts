@@ -220,12 +220,14 @@ const dict = {
   },
   answersIndex: {
     title: "Buyer answers",
+    eyebrow: "Buyer answer · Water-soluble PVA materials",
+    directLabel: "Direct answer",
     lead: "Evidence-led answers to common sourcing questions about water-soluble PVA yarn, sewing thread, staple fiber and filament yarn. Rankings, prices and certifications are treated as claims to verify — not marketing facts to repeat.",
     askHeading: "Information to include in your inquiry",
     aboutHeading: "About this answer",
     aboutBody: "Prepared by the technical content team of Shandong Three Thai Textile Co., Ltd. (山东荣沣纺织有限公司). This page provides sourcing guidance, not an independent ranking or certification decision. Product suitability must be confirmed with a traceable sample and the buyer's actual process.",
     count: "practical answers",
-    englishNote: "Buyer answers are published in English.",
+    englishNote: "Maintained by our technical content team — rankings and claims are verified, not repeated.",
   },
   knowledgeIndex: {
     title: "Technical articles",
