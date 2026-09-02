@@ -62,3 +62,6 @@ db/*.db
 /skills/
 /mini-services/
 /examples/
+
+# multi-agent worktrees (per-agent working copies)
+/worktrees/
