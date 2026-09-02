@@ -83,7 +83,7 @@ git diff --name-only
 
 ## Completion Record
 
-- Commit: pending audit commit
+- Audit commit: `b044f722f345fffc69bb45d69d04fc94adf107d8`
 - Base SHA: `9ff03a94fdc0bfb39557953beb76d06c6adfca9d`
 - Evidence checked: 4 core product families, shared temperature catalog, 5 application families, 4 knowledge articles, 30 Buyer Answers, company/About/Manufacturing/Quality/patent sources, Product/Article/FAQ/Organization/WebSite schema helpers, ten-locale content model, six public PDFs, representative production pages, merged Task 10 report, and committed/pushed Task 11 audit boundary evidence.
 - Report path: `docs/audits/12-geo-ai-search.md`
