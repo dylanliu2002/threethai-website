@@ -4,13 +4,18 @@
 - **Title:** Technical SEO Audit
 - **Mode:** `AUDIT`
 - **Role:** `TECHNICAL_SEO`
+- **Execution Profile:** `HIGH_RISK_CODE`
+- **Executor Platform:** `Codex`
+- **Current Provider:** Not pinned
+- **Current Model Family:** Not pinned
+- **Execution Assignment Recorded:** Yes — 2026-09-03
 - **Priority:** `P1`
-- **Status:** `READY`
+- **Status:** `REVIEW`
 - **Risk:** `HIGH`
 - **Branch:** `codex/10-technical-seo-audit`
 - **Worktree:** `worktrees/agent-10-technical-seo`
-- **Owner:** Unassigned
-- **Reviewer:** Unassigned (independent)
+- **Owner:** `TECHNICAL_SEO`
+- **Reviewer:** Task 15 / `QA_PERFORMANCE` (independent)
 - **depends_on:** None
 - **blocks:** Follow-up technical SEO implementation tasks
 
@@ -63,12 +68,19 @@ git diff --check
 git diff --name-only
 ```
 
-- [ ] Diff is limited to the dedicated report.
-- [ ] No unmeasured browser or search-engine behavior is presented as fact.
+- [x] Diff is limited to the dedicated report plus this Task-owned card and
+  append-only worklog.
+- [x] No unmeasured browser or search-engine behavior is presented as fact.
 
 ## Coordination Items
 
-- None.
+- Independent review requested from Task 15 / `QA_PERFORMANCE`.
+- ORCHESTRATOR coordination is required for proposed changes to root layout,
+  proxy/middleware, sitemap, robots, redirects, DNS, and global locale routing.
+- SEO_CONTENT and GEO_AI_SEARCH need a verified business decision about the
+  contradictory concrete-PVA offering statements before implementation.
+- Search Console, Bing Webmaster Tools, crawl logs, legacy URL evidence, and
+  multi-region DNS/TLS checks remain data requirements.
 
 ## Review Status
 
@@ -76,11 +88,25 @@ git diff --name-only
 
 ## Completion Record
 
-- Commit:
-- Evidence checked:
+- Commit: `37c2c3729f2de7e6abaf2900e47abff1a297b247`
+  (`audit: complete technical SEO baseline`, rewritten by rebase).
+- Base / rebase commit: `91443ad6eb36a5f9cb2d08b4d44f374cc260a5ae`.
+- Changed files: `docs/audits/10-technical-seo.md`, this Task-owned
+  card, and `worklog/agent-10-technical-seo.md` only.
+- Validation results: report blob preserved as
+  `aa6e986301f8be38fd5437353108705b62cb7bc0`; document-only diff and scope
+  validation passed after rebase.
+- Evidence checked: current source routes and SEO helpers; production 55-URL
+  sitemap crawl; 120-URL locale/template matrix; robots, sitemap, redirects,
+  status codes, rendered HTML/DOM, internal links, schema, images, and
+  public/default DNS resolution.
 - Report path: `docs/audits/10-technical-seo.md`
+- Worklog: `worklog/agent-10-technical-seo.md`
+- Remaining risks: Independent review and the previously recorded Search
+  Console, Bing Webmaster Tools, crawl-log, legacy-URL, DNS/TLS, and verified
+  concrete-PVA evidence remain outstanding; no Technical SEO fix is included.
 
 ## Rollback
 
-Revert the report-only commit if the audit record must be withdrawn; no runtime
-behavior is changed by this task.
+Revert the audit report commit and its Task-owned handoff record if the audit
+must be withdrawn; no runtime behavior is changed by this task.
