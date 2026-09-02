@@ -4,20 +4,20 @@ Each row is a task-card summary. Before activation, Agent 0 copies the row into 
 standalone card with the exact final allowlist and confirms it does not overlap
 another active implementation task.
 
-Statuses: `READY`, `BLOCKED-D1`, `BLOCKED-D2`, `BLOCKED-D3`, `BLOCKED-D4`,
-`DEPENDS`, `REVIEW`.
+Statuses: `READY`, `COMPLETE`, `BLOCKED-D1`, `BLOCKED-D2`, `BLOCKED-D3`,
+`BLOCKED-D4`, `DEPENDS`, `REVIEW`.
 
 | ID | Priority | Task | Status | Model | Depends on | Initial ownership / acceptance |
 | --- | --- | --- | --- | --- | --- | --- |
-| 20 | P1 | Fix field-level error messages and error-state semantics | READY | Luna high | — | `inquiry-form.tsx`; real messages are announced and persistence errors are distinct |
-| 21 | P1 | Preserve Finder locale and all qualification context | READY | Luna high | 20 | `product-finder.tsx`, then coordinated form query parsing; locale-safe encoded handoff |
-| 22 | P1 | Make quote-page Finder panel actionable | READY | Luna medium | — | quote route templates only; correct locale-safe Finder link |
-| 23 | P2 | Normalize localized navigation active state | READY | Luna medium | — | header shared file via Agent 0; correct `aria-current` on all prefixes |
-| 24 | P2 | Fix missing schema image and metadata parity | READY | Luna high | — | SEO helper plus answer metadata, serialized; all referenced assets exist |
-| 25 | P1 | Restore accessible light-surface accent contrast | READY | Luna high | — | global CSS via Agent 0; normal text reaches WCAG AA without breaking dark surfaces |
-| 26 | P2 | Add mobile-menu focus and modal behavior | READY | Terra high | 23 | header shared file; focus transfer/return, Escape, background isolation |
-| 27 | P1 | Audit and remove `ignoreBuildErrors` safely | READY | Sol high | — | Next config via Agent 0; explicit typecheck and production build pass |
-| 28 | P2 | Add route/metadata parity test scaffold | READY | Luna high | — | new test files/scripts; no source overlap; covers three route trees |
+| 20 | P1 | Fix field-level error messages and error-state semantics | COMPLETE | Luna high | — | `inquiry-form.tsx`; real messages are announced and persistence errors are distinct |
+| 21 | P1 | Preserve Finder locale and all qualification context | COMPLETE | Luna high | 20 | `product-finder.tsx`, then coordinated form query parsing; locale-safe encoded handoff |
+| 22 | P1 | Make quote-page Finder panel actionable | COMPLETE | Luna medium | — | quote route templates only; correct locale-safe Finder link |
+| 23 | P2 | Normalize localized navigation active state | COMPLETE | Luna medium | — | header shared file via Agent 0; correct `aria-current` on all prefixes |
+| 24 | P2 | Fix missing schema image and metadata parity | COMPLETE | Luna high | — | SEO helper plus answer metadata, serialized; all referenced assets exist |
+| 25 | P1 | Restore accessible light-surface accent contrast | COMPLETE | Luna high | — | global CSS via Agent 0; normal text reaches WCAG AA without breaking dark surfaces |
+| 26 | P2 | Add mobile-menu focus and modal behavior | COMPLETE | Terra high | 23 | header shared file; focus transfer/return, Escape, background isolation |
+| 27 | P1 | Audit and remove `ignoreBuildErrors` safely | COMPLETE | Sol high | — | Next config via Agent 0; explicit typecheck and production build pass |
+| 28 | P2 | Add route/metadata parity test scaffold | COMPLETE | Luna high | — | new test files/scripts; no source overlap; covers three route trees |
 | 29 | P1 | Model translated-content availability | BLOCKED-D1 | Sol high | D1 | company/locale model via Agent 0; one source of truth for UI vs content availability |
 | 30 | P1 | Make document `<html lang>` and RTL route-aware | BLOCKED-D1 | Sol high | 29 | root/locale layouts; correct document element across 10 locales |
 | 31 | P1 | Refactor canonical and hreflang generation | BLOCKED-D1 | Sol high | 29 | SEO helper; reciprocal equivalents only, caller mistakes removed |
@@ -27,7 +27,7 @@ Statuses: `READY`, `BLOCKED-D1`, `BLOCKED-D2`, `BLOCKED-D3`, `BLOCKED-D4`,
 | 35 | P1 | Build claim inventory and evidence status map | BLOCKED-D2 | Luna high | D2 | new docs/content registry; every high-visibility claim classified |
 | 36 | P1 | Create versioned evidence registry and scope guards | DEPENDS | Terra high | 35 | new content model plus Quality integration; issuer/scope/date/approval tracked |
 | 37 | P1 | Resolve product-range contradictions | BLOCKED-D2 | Terra high | D2, 35 | product/legacy content; one verified offering statement and schema outcome |
-| 38 | P1 | Define keyword and page-intent ownership | READY | Luna high | audits | new strategy data/doc; one primary URL per cluster, no invented volume |
+| 38 | P1 | Define keyword and page-intent ownership | COMPLETE | Luna high | audits | new strategy data/doc; one primary URL per cluster, no invented volume |
 | 39 | P2 | Implement contextual related-content matrix | DEPENDS | Luna high | 38 | product/application/answer mappings; relevance replaces generic first-items logic |
 | 40 | P1 | Add author/reviewer/evidence metadata to content model | DEPENDS | Terra high | 36 | answer/article models and views; visible scope, reviewer, review date, sources |
 | 41 | P2 | Expand ten priority buyer answers | DEPENDS | Luna high | 36, 38, 40 | assigned answer subsets; distinct intent, evidence, CTA, no new unsupported claims |

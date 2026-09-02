@@ -5,7 +5,7 @@ import Breadcrumbs from "@/components/layout/breadcrumbs";
 import { buyerAnswers, answerBySlug, expandedEnglishAnswers } from "@/content/answers";
 import { productBySlug } from "@/content/products";
 import { en } from "@/content/i18n";
-import { articleSchema, breadcrumbSchema, clampMetaDescription, faqSchema, jsonLd } from "@/lib/seo";
+import { articleSchema, breadcrumbSchema, buildMetadata, faqSchema, jsonLd } from "@/lib/seo";
 
 type AnswerPageProps = { params: Promise<{ slug: string }> };
 
@@ -18,13 +18,13 @@ export async function generateMetadata({ params }: AnswerPageProps): Promise<Met
   const answer = answerBySlug(slug);
   if (!answer) return {};
   const expanded = expandedEnglishAnswers[slug];
-  const description = clampMetaDescription(expanded?.metaDescription ?? answer.shortAnswer);
-  return {
+  return buildMetadata({
     title: `${answer.question} | Buyer Answer`,
-    description,
-    alternates: { canonical: `${process.env.NEXT_PUBLIC_SITE_URL || "https://www.threethai.com"}/answers/${answer.slug}` },
-    openGraph: { title: answer.question, description, type: "article" },
-  };
+    description: expanded?.metaDescription ?? answer.shortAnswer,
+    path: `/answers/${answer.slug}`,
+    locale: "en",
+    type: "article",
+  });
 }
 
 function ArticleFooterCta() {

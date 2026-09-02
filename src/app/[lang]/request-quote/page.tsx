@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import Breadcrumbs from "@/components/layout/breadcrumbs";
@@ -65,6 +66,9 @@ export default async function LangRequestQuotePage({ params }: Props) {
               <div className="card-line p-6">
                 <h2 className="font-semibold text-ink">{dict.actions.productFinder}</h2>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{dict.finder.intro}</p>
+                <Link href={lp("/product-finder")} className="btn-ghost mt-4 !min-h-10 !px-4 text-sm">
+                  {dict.actions.productFinder}
+                </Link>
               </div>
               <div className="card-line p-6">
                 <h2 className="font-semibold text-ink">{dict.form.contactDirect}</h2>

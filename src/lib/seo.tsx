@@ -178,7 +178,7 @@ export const articleSchema = (article: {
     author: { "@type": "Organization", name: company.nameLegalZh, url: siteUrl },
     publisher: { "@type": "Organization", name: company.nameExportEn, url: siteUrl },
     mainEntityOfPage: url,
-    image: `${siteUrl}/og.png`,
+    image: `${siteUrl}/og.jpg`,
   };
 };
 

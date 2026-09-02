@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import Breadcrumbs from "@/components/layout/breadcrumbs";
 import Reveal from "@/components/layout/reveal";
 import InquiryForm from "@/components/forms/inquiry-form";
 import { zh } from "@/content/i18n";
 import { buildMetadata } from "@/lib/seo";
-import { company } from "@/content/company";
+import { company, localePath } from "@/content/company";
 
 export const metadata: Metadata = buildMetadata({
   title: "在线询价 — 水溶性 PVA 纱线、缝纫线与纤维",
@@ -49,6 +50,13 @@ export default function ZhRequestQuotePage() {
           </Reveal>
           <Reveal delay={90}>
             <aside className="space-y-6">
+              <div className="card-line p-6">
+                <h2 className="font-semibold text-ink">{dict.actions.productFinder}</h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{dict.finder.intro}</p>
+                <Link href={localePath("/product-finder", "zh")} className="btn-ghost mt-4 !min-h-10 !px-4 text-sm">
+                  {dict.actions.productFinder}
+                </Link>
+              </div>
               <div className="card-line p-6">
                 <h2 className="font-semibold text-ink">{dict.form.contactDirect}</h2>
                 <dl className="mt-3 space-y-2 text-sm">

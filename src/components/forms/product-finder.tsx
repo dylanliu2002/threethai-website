@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { Dictionary } from "@/content/i18n";
-import { contentLocaleOf, type Locale } from "@/content/company";
+import { contentLocaleOf, localePath, type Locale } from "@/content/company";
 import { products } from "@/content/products";
 
 type Answers = {
@@ -11,6 +11,22 @@ type Answers = {
   application: string;
   temperature: string;
   spec: string;
+};
+
+const applicationSlugs: Record<string, string> = {
+  towel: "towel-weaving",
+  embroidery: "embroidery-sewing",
+  knitting: "knitting",
+  paper: "papermaking",
+  technical: "technical-textiles",
+  other: "other",
+};
+
+const temperatureValues: Record<string, string> = {
+  cold: "20°C",
+  low: "40-55°C",
+  mid: "60-70°C",
+  high: "80-90°C",
 };
 
 /**
@@ -121,10 +137,15 @@ export default function ProductFinder({ locale, dict }: { locale: Locale; dict: 
     },
   ];
 
-  const inquiryHref = `/request-quote?product=${result?.slug ?? ""}&temperature=${
-    answers.temperature === "cold" ? "20°C" : answers.temperature === "low" ? "40-55°C" : answers.temperature === "mid" ? "60-70°C" : answers.temperature === "high" ? "80-90°C" : ""
-  }`;
-  const sampleHref = `/request-sample?product=${result?.slug ?? ""}`;
+  const params = new URLSearchParams();
+  if (result?.slug) params.set("product", result.slug);
+  if (applicationSlugs[answers.application]) params.set("application", applicationSlugs[answers.application]);
+  if (temperatureValues[answers.temperature]) params.set("temperature", temperatureValues[answers.temperature]);
+  if (answers.spec) params.set("spec", answers.spec);
+  const query = params.toString();
+  const querySuffix = query ? `?${query}` : "";
+  const inquiryHref = `${localePath("/request-quote", locale)}${querySuffix}`;
+  const sampleHref = `${localePath("/request-sample", locale)}${querySuffix}`;
 
   return (
     <div className="card-line overflow-hidden">
@@ -163,7 +184,7 @@ export default function ProductFinder({ locale, dict }: { locale: Locale; dict: 
               <Link href={inquiryHref} className="btn-primary">{t.resultCta}</Link>
               <Link href={sampleHref} className="btn-ghost">{dict.actions.requestSample}</Link>
               {product && (
-                <Link href={`/${locale === "zh" ? "zh/" : ""}products/${product.slug}`} className="btn-ghost">
+                <Link href={localePath(`/products/${product.slug}`, locale)} className="btn-ghost">
                   {dict.actions.viewSpecifications}
                 </Link>
               )}
