@@ -4,6 +4,11 @@
 - **Title:** Technical SEO Audit
 - **Mode:** `AUDIT`
 - **Role:** `TECHNICAL_SEO`
+- **Execution Profile:** `HIGH_RISK_CODE`
+- **Executor Platform:** `Codex`
+- **Current Provider:** Not pinned
+- **Current Model Family:** Not pinned
+- **Execution Assignment Recorded:** Yes — 2026-09-03
 - **Priority:** `P1`
 - **Status:** `REVIEW`
 - **Risk:** `HIGH`
@@ -83,14 +88,23 @@ git diff --name-only
 
 ## Completion Record
 
-- Commit: `c9dce50` (`audit: complete technical SEO baseline`)
-- Base / rebase: `041dcafca0b7097cec9bfd2db68b6628f126f252`;
-  final fetch confirmed `origin/main` unchanged, so no rebase was needed.
+- Commit: `37c2c3729f2de7e6abaf2900e47abff1a297b247`
+  (`audit: complete technical SEO baseline`, rewritten by rebase).
+- Base / rebase commit: `91443ad6eb36a5f9cb2d08b4d44f374cc260a5ae`.
+- Changed files: `docs/audits/10-technical-seo.md`, this Task-owned
+  card, and `worklog/agent-10-technical-seo.md` only.
+- Validation results: report blob preserved as
+  `aa6e986301f8be38fd5437353108705b62cb7bc0`; document-only diff and scope
+  validation passed after rebase.
 - Evidence checked: current source routes and SEO helpers; production 55-URL
   sitemap crawl; 120-URL locale/template matrix; robots, sitemap, redirects,
   status codes, rendered HTML/DOM, internal links, schema, images, and
   public/default DNS resolution.
 - Report path: `docs/audits/10-technical-seo.md`
+- Worklog: `worklog/agent-10-technical-seo.md`
+- Remaining risks: Independent review and the previously recorded Search
+  Console, Bing Webmaster Tools, crawl-log, legacy-URL, DNS/TLS, and verified
+  concrete-PVA evidence remain outstanding; no Technical SEO fix is included.
 
 ## Rollback
 
