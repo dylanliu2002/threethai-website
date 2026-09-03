@@ -10,7 +10,7 @@
 - **Current Model Family:** GPT-5
 - **Execution Assignment Recorded:** Yes
 - **Priority:** `P1`
-- **Status:** `REVIEW`
+- **Status:** `APPROVED`
 - **Risk:** `LOW`
 - **Branch:** `codex/51-baidu-verification`
 - **Worktree:** `worktrees/agent-51-baidu-verification`
@@ -99,13 +99,42 @@ git diff --check
 - The existing Task Board row and current file allowlist are retroactively
   accepted.
 - The technical implementation was accepted without substantive changes.
-- The task remains `REVIEW` and requires independent `QA_PERFORMANCE` review
-  before merge.
+- At adoption, the task remained `REVIEW` pending independent `QA_PERFORMANCE`
+  review before merge. That review is now completed and recorded below.
 
 ## Review Status
 
-- Outcome: Pending
-- Independent reviewer evidence:
+- Outcome: `APPROVED`
+- Independent Reviewer: `QA_PERFORMANCE`
+- Independently Reviewed Head: `5ae92805af3d567f60da6e20004e4a04fa32bd36`
+- This administrative closeout records the official independent review result
+  supplied by the ORCHESTRATOR; it is not implementer self-approval. The new
+  closeout commit is not the independently reviewed head.
+- Governance: `PASS` — ORCHESTRATOR adoption and retroactive-adoption disclosure
+  are recorded; Owner is `TECHNICAL_SEO`; Reviewer is `QA_PERFORMANCE`; worklog
+  is append-only; Role, Risk, Priority, and pre-approval Status were correct.
+- Technical: `PASS` — correct public path; exact 32-byte token with no BOM,
+  newline, markup, or extra bytes; byte-identical R100 move; no duplicate
+  tracked copy; no routing/configuration changes or unrelated implementation.
+- Scope: `PASS`.
+- Reconciliation commit administration-only: `PASS`.
+- Independent validation: lint `PASS`; local runtime HTTP 200,
+  `Content-Length: 32`, and exact expected token; ordinary, Baidu, CN, and
+  Chinese-locale requests validated.
+- Build/runtime review classification: `PARTIAL` only because the reviewer did
+  not perform a fresh build. This is a non-blocking note, not a finding.
+- Findings: `BLOCKER: 0`; `MAJOR: 0`; `MINOR: 0`.
+
+## Post-Merge Production Verification — Required
+
+Production success is NOT yet established. After merge and deployment, verify:
+
+`https://www.threethai.com/baidu_verify_codeva-R66rDyn2Kt.html`
+
+- HTTP 200 without a redirect.
+- `Content-Length: 32`.
+- Exact body: `f9e5f7f4ed81e18a351ec1355bdea757`.
+- No BOM, newline, HTML, or extra bytes.
 
 ## Completion Record
 
@@ -118,8 +147,10 @@ git diff --check
   `Content-Length: 32`, and the expected token; `git diff --check` passed; only
   the public verification path is tracked.
 - Worklog: `worklog/agent-51-baidu-verification.md`
-- Remaining risks: Production HTTP 200 can only be confirmed after independent
-  review, merge, and Vercel deployment.
+- Approval closeout base: `5ae92805af3d567f60da6e20004e4a04fa32bd36`; this
+  follow-up is administration-only and preserves the technical implementation.
+- Remaining risks: Production success is not established. The post-merge
+  production verification above remains required after merge and deployment.
 
 ## Rollback
 
