@@ -2,7 +2,7 @@
 
 - **Task ID:** `52`
 - **Title:** Sogou Site Verification
-- **Status:** `REVIEW`
+- **Status:** `APPROVED`
 - **Mode:** `IMPLEMENT`
 - **Role:** `TECHNICAL_SEO`
 - **Priority:** `P1`
@@ -57,6 +57,13 @@ verification comment. `tasks/README.md` is authorized only for the Task 52 row;
 Task 51 and every other entry must remain unchanged. This task's worklog is
 append-only.
 
+Administrative closeout authorization (2026-09-04): `ORCHESTRATOR` may update
+only this card, append to `worklog/agent-52-sogou-verification.md`, and change
+only the Task 52 row in `tasks/README.md`. The reviewed application is frozen;
+`src/app/layout.tsx` and every other file are outside this closeout allowance.
+Normal push of `codex/52-sogou-verification` and PR creation against `main` are
+authorized. Merge remains human-controlled and is not authorized here.
+
 ## Out of Scope
 
 No hard-coded permanent verification value in application metadata, extra head,
@@ -64,8 +71,10 @@ gb2312 declaration, or UTF-8 change. No changes to the Baidu verification file,
 Task 51 artifacts, canonical/www policy, sitemap, robots, hreflang, locales,
 proxy/middleware, content, dependencies/package files, Next.js or deployment
 configuration, production environment, `.env.example`, or other unlisted files.
-Do not touch the Task 48 legacy worktree. Do not create or merge a PR, push main,
-configure production, or click Sogou's completion control.
+Do not touch the Task 48 legacy worktree. Do not merge a PR, push main,
+configure production, deploy, or click Sogou's completion control. The explicit
+administrative closeout authorization above supersedes only the earlier ban
+on PR creation; all other scope restrictions remain in force.
 
 ## Validation Plan
 
@@ -91,8 +100,18 @@ configure production, or click Sogou's completion control.
   Task 11's audit report, task card and worklog (PR #11), with no overlap with
   Task 52's implementation or allowlist. Starting at the new main is safe
   without changing scope. No existing worktree was reset or reused.
-- Independent `QA_PERFORMANCE` review is required; the implementer does not
-  approve this task. Production setup and Sogou completion remain deferred.
+- Independent `QA_PERFORMANCE` review completed with `APPROVED`; the
+  ORCHESTRATOR records that independent decision, not implementer self-approval.
+  Production setup, deployment and Sogou completion remain deferred.
+- Closeout preflight fetched origin and confirmed `origin/main` still equals
+  reviewed base `9360d46bc8baf5a2d76666edfd166145ce5dc271`; local and remote
+  Task 52 heads both equal `25148a2b372b106d60f956a599e791263bf06f7e`.
+  The worktree was clean. No rebase, reset, merge or force-push is needed or
+  authorized; stop for integration assessment if main changes before delivery.
+- Task 52 releases shared task-board write ownership upon successful closeout
+  commit and push. No further board edits are reserved by Task 52. This is a
+  release only, not creation, startup or handoff of another task. Do not create
+  Task 53 or start `SYS-AUTO-001` as part of this closeout.
 
 ## Validation Results
 
@@ -141,8 +160,36 @@ environment or `.env` file was changed.
 
 ## Review Status
 
-- Outcome: Pending independent `QA_PERFORMANCE` review.
-- Independent reviewer evidence: Not yet provided.
+- Outcome: `APPROVED`.
+- Reviewer: `QA_PERFORMANCE` (independent).
+- Reviewer execution (task-level evidence): Codex / GPT-5.6 Sol.
+- Reviewed Base: `9360d46bc8baf5a2d76666edfd166145ce5dc271`.
+- Independently Reviewed Head: `25148a2b372b106d60f956a599e791263bf06f7e`.
+- Findings: BLOCKER: 0; MAJOR: 0; MINOR: 0.
+- Required corrections: None.
+- Evidence source: independent review outcome supplied in the user-authorized
+  Task 52 closeout request. The reviewer confirmed implementation correctness,
+  SET/UNSET behavior, exactly one configured tag, no gb2312, preservation of
+  existing verification metadata, diff scope, task-board isolation, governance,
+  append-only worklog, `git diff --check`, and lint.
+- Reviewer limitation: the complete fresh-build/runtime two-build matrix was
+  not repeated because sandbox/network restrictions blocked Google Fonts and
+  prohibited temporary validation mutations. The reviewer independently
+  inspected the existing production-mode SET build, exact source rendering
+  through installed Next.js metadata functions, the owner's recorded two-build
+  evidence, and the complete task diff and governance evidence. On that basis
+  the review remained `APPROVED`; this limitation is not a failed implementation
+  validation gate and must not be described as a fresh reviewer build pass.
+
+## Production Status (Separate from Approval)
+
+- Production environment configured: NO.
+- Production deployed: NO.
+- Sogou Webmaster verification completed: NO.
+
+These steps remain pending and require separate authorization. This closeout
+does not configure the production environment, deploy, verify production, or
+interact with authenticated Sogou Webmaster controls.
 
 ## Completion Record
 
@@ -150,6 +197,18 @@ environment or `.env` file was changed.
   (`seo: add Sogou site verification`). Subsequent handoff changes are task
   documentation only; the delivered branch HEAD identifies that record.
 - Base / rebase commit: `9360d46bc8baf5a2d76666edfd166145ce5dc271`.
+- Independently Reviewed Head: `25148a2b372b106d60f956a599e791263bf06f7e`.
+- Administrative closeout: `chore: record Task 52 approval`; its distinct
+  Closeout Head is recorded in the PR and final delivery report. It changes
+  only this card, the append-only worklog and Task 52's board row; it is not
+  represented as an independently reviewed implementation commit.
+- Integration readiness: `APPROVED`, ready for PR and human-controlled merge
+  consideration; no merge or production action is included in this closeout.
+- Closeout validation: PASS; diff from the independently reviewed head contains
+  only the three administrative files, with no `src/app/layout.tsx` change.
+  `git diff --check` passed. Byte comparison confirmed the historical worklog
+  remains an exact prefix and the board changes only Task 52's status. Git
+  config identity was set and verified; verify the new commit author before push.
 - Changed files: The four allowlisted files above.
 - Validation results: All required implementation, lint, fresh-build and runtime
   checks passed; see the evidence above and append-only worklog.
