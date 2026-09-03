@@ -77,20 +77,33 @@ git diff --name-only
 
 ## Coordination Items
 
-- 2026-09-03: Task 10 (in REVIEW) finding TECH10-08 (fallback-locale
-  indexability / content-language mismatch) is reinforced by content evidence
-  (report Localization Findings). Merge-ordering of locale-route fixes vs
-  content work is an ORCHESTRATOR decision.
-- 2026-09-03: Report proposes 7 follow-up workstreams (11-A … 11-G) gated on an
-  owner-evidence package (11-A); Task Cards were NOT created per task §35 —
-  synthesis reserved to ORCHESTRATOR.
+- 2026-09-03: Task 10 finding **TSEO-10-02** (eight fallback locale trees label
+  English fallback content as translated alternatives; at least 43 English
+  deep-detail routes per locale) is reinforced by content evidence
+  (report Localization Findings). Not to be confused with TSEO-10-08
+  (redirecting `?_locale=en` self-links). Merge-ordering of locale-route
+  fixes vs content work is an ORCHESTRATOR decision.
+- 2026-09-03: Report proposes 7 follow-up workstreams (11-A … 11-G) with
+  **evidence-specific dependencies** — 11-A (owner evidence) gates current
+  company facts, availability, specs and evidence-dependent claims only;
+  structural/editorial workstreams (11-E, differentiation, editorial
+  governance) are not blocked behind it. Task Cards were NOT created per
+  task §35 — synthesis reserved to ORCHESTRATOR.
 - 2026-09-03: Legacy report `docs/audits/11-keyword-strategy.md` shares the "11"
   prefix from a previous task model; retained as HISTORICAL input, not
   overwritten. Current report supersedes it against the `9ff03a9` baseline.
 
 ## Review Status
 
-- Outcome: Pending
+- Prior Review Outcome: **CHANGES_REQUESTED** (2026-09-03, independent
+  GEO_AI_SEARCH review of head `3a7b91a`): no BLOCKER; 9 documentation/
+  strategy corrections (claim-evidence classification, SEO11-01/02/05
+  wording, localization counts/priorities, solubility-biodegradability
+  ownership, route arithmetic, Task 10 cross-reference, follow-up
+  dependencies). All corrections applied in the corrective pass recorded in
+  the Completion Record below.
+- Outcome: REVIEW — **independent focused re-review required** on the
+  corrective head.
 - Recommended Reviewer: Task 12 / GEO_AI_SEARCH (independent)
 
 ## Completion Record
@@ -105,8 +118,15 @@ git diff --name-only
   `middleware.ts` (read-only), Task 10 report (cross-reference only),
   `docs/site-rebuild-plan.md` §7–§8, `docs/agent-team/*` governance, public
   production check (root → `/zh` 308; sitemap 200).
-- Findings: 12 total (P0: 0, P1: 4, P2: 5, P3: 3); 7 proposed follow-up
-  workstreams (11-A…11-G).
+- Findings (corrected 2026-09-03 after review): 12 total (P0: 0, P1: 3,
+  P2: 6, P3: 3) — SEO11-02 downgraded P1→P2; 7 proposed follow-up
+  workstreams (11-A…11-G) with evidence-specific dependencies.
+- Corrective pass 2026-09-03: all 9 review corrections applied to the report
+  (see worklog entry "corrective pass"); previous reviewed head `3a7b91a`
+  retained in history; corrective head = the commit introduced by this
+  change set ("audit: address Task 11 review findings"); independent
+  focused re-review required. Task status deliberately kept at REVIEW;
+  not self-approved.
 - Report path: `docs/audits/11-seo-content.md`
 - Validation: `git diff --check` clean; diff scope pass; identity pass
   (`dylanliu2002 <dylanliu2002@gmail.com>` on audit commit); no secrets; no

@@ -61,3 +61,81 @@ Entries:
   the three Task 11-owned artifacts. Commit message: "audit: complete SEO
   content baseline". Identity gate re-verified on the new commit before push;
   only `codex/11-seo-content-audit` pushed. No merge, no deploy.
+
+---
+
+## 2026-09-03 — Corrective pass after independent review (CHANGES_REQUESTED)
+
+- Reviewer: independent GEO_AI_SEARCH review of head
+  `3a7b91a1448f6117494f064282b936bbdb56da5a`. Outcome: CHANGES_REQUESTED,
+  no BLOCKER, 9 documentation/strategy corrections. Mode remained STRICT
+  AUDIT — only the three Task 11-owned artifacts were touched.
+- Sync check: `git fetch origin` — origin/main unchanged at `9ff03a9`;
+  branch owned, worktree clean, no rebase needed.
+- Applied corrections to `docs/audits/11-seo-content.md`:
+  1. Claim/evidence reclassification — added explicit classification rule
+     (register/public document required for VERIFIED_IN_CURRENT_EVIDENCE);
+     patents portfolio downgraded to PARTIAL/OWNER_CONFIRMATION_REQUIRED
+     (register status/transfer not re-checked); Nigeria patent PARTIAL
+     (no implied exclusive ownership); Malta narrow; R&D/honors ->
+     OWNER_CONFIRMATION_REQUIRED; certificate claims scope-limited
+     (ISO system scope, OEKO-TEX raw-white Class I article, TESTEX
+     linkage control per Task 12); application structure vs outcome
+     evidence separated.
+  2. SEO11-01 reworded — confirmed structure (1 expanded / 29 shorter
+     template) but replaced "29/30 too thin" with selective depth/
+     usefulness/evidence gaps on sampled high-stakes pages; adopted
+     Task 12 extractability scores (4.5/5) distinguishing
+     EXTRACTABILITY from DEPTH; corrected template-model note: expanded
+     record's cta/ctaLabel fields are NOT rendered (verified
+     NOT_RENDERED_ANYWHERE in src); expansion proposal made selective
+     and evidence-led with editorial governance first.
+  3. SEO11-02 downgraded P1->P2, MEDIUM confidence; reframed as intent
+     overlap / doorway-drift / near-duplicate risk; strongest overlap
+     isolated to the best/top pair; distinct intents (legal
+     verification, auditing, certificate verification, export docs,
+     destination logistics, province-neutral evaluation) explicitly
+     kept, not merged; retirement gated on Search Console/Bing query
+     evidence, ranking overlap, legacy URL impact, redirect planning,
+     buyer intent evidence. Register totals revised P0:0 P1:3 P2:6 P3:3.
+  4. SEO11-05 corrected — the 5 answers DO render template CTAs
+     (/request-sample, /contact); real weakness is missing contextual
+     product/evidence path (weak proof transfer), not absent conversion
+     route; no behavioral impact asserted.
+  5. Localization — tightened per Task 10 TSEO-10-02: at least 43
+     English deep-detail routes per fallback locale (not "all 55
+     wholly English"); localized chrome/home/finder/forms distinguished;
+     all locale orderings labelled STRATEGIC_HYPOTHESIS pending
+     commercial/inquiry/analytics/indexing/market evidence.
+  6. Solubility-vs-biodegradability ownership changed from
+     CREATE_DISTINCT_PAGE to EXPAND_EXISTING_PAGE on
+     `/answers/biodegradable-water-soluble-thread-fashion`; separate page
+     only RESEARCH-DEPENDENT; ownership-map + gap-analysis rows aligned.
+  7. Route arithmetic reproducible: trust/commercial/utility set = 7
+     (manufacturing, quality, about, contact, request-quote,
+     request-sample, product-finder); 1+5+6+5+31+7 = 55 verified in
+     methodology text.
+  8. Task 10 cross-reference corrected TECH10-08 -> TSEO-10-02
+     (eight fallback trees label English fallback content as translated
+     alternatives; explicitly distinguished from TSEO-10-08
+     `?_locale=en` self-links); task card coordination item fixed too.
+  9. Follow-up dependencies refined: 11-A no longer a universal gate —
+     evidence-specific gating (C; factual parts of B; D-claims; G
+     company/process); 11-B selective prioritized program with
+     source/editorial/reviewer governance first; 11-C remains strongly
+     owner-gated with versioned fact sheets/methods/applicability/
+     approved specs; 11-D RESEARCH_FIRST on the overlapping pair;
+     11-E wording fixed (contextual evidence path, not CTA absence);
+     11-F RESEARCH_FIRST (locale priority needs evidence); 11-G expand
+     existing owners first, general education separated from
+     owner-dependent claims.
+- Cross-check: completed Task 12 report used as supporting evidence
+  (extractability scores, evidence-chain gaps, conservative claim
+  classifications); Task 12 artifacts NOT modified; reconciliation done
+  against source, not mechanical copy.
+- Task card: status kept REVIEW (not self-approved); Prior Review Outcome
+  CHANGES_REQUESTED recorded; corrected totals and corrective-pass note
+  added. Report header carries the corrective-pass revision note.
+- Validation: see next commit ("audit: address Task 11 review findings"):
+  git diff --check; scope = 3 Task 11 files; identity gate; push branch
+  only. Independent focused re-review required before any approval.
