@@ -63,7 +63,7 @@ its audit.
 
 | Task key | Task card | Role | Branch | Status / Phase |
 | --- | --- | --- | --- | --- |
-| `sys-auto-001-codex-autonomous-workflow-bootstrap` | `sys-auto-001-codex-autonomous-workflow-bootstrap.md` | ORCHESTRATOR | `codex/sys-auto-001-bootstrap` | IN_PROGRESS / IMPLEMENT |
+| `sys-auto-001-codex-autonomous-workflow-bootstrap` | `sys-auto-001-codex-autonomous-workflow-bootstrap.md` | ORCHESTRATOR | `codex/sys-auto-001-bootstrap` | REVIEW / INDEPENDENT_REVIEW |
 
 Infrastructure task keys are canonical machine identities. Numeric/display IDs
 are historical or UI metadata and must never be used alone for machine identity.
