@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "register_type": "additive-provenance-only",
+  "created_by_task_key": "sys-auto-001-codex-autonomous-workflow-bootstrap",
+  "automatic_adoption": false,
+  "historical_artifacts_rewritten": false,
+  "entries": [
+    { "display_task_id": "10", "card_path": "tasks/10-technical-seo-audit.md", "policy": "preserve-source-artifact", "adoption": "NOT_AUTHORIZED" },
+    { "display_task_id": "11", "card_path": "tasks/11-seo-content-audit.md", "policy": "preserve-source-artifact", "adoption": "NOT_AUTHORIZED" },
+    { "display_task_id": "12", "card_path": "tasks/12-geo-ai-search-audit.md", "policy": "preserve-source-artifact", "adoption": "NOT_AUTHORIZED" },
+    { "display_task_id": "13", "card_path": "tasks/13-cro-audit.md", "policy": "do-not-continue-automatically", "adoption": "NOT_AUTHORIZED" },
+    { "display_task_id": "14", "card_path": "tasks/14-brand-ux-audit.md", "policy": "do-not-continue-automatically", "adoption": "NOT_AUTHORIZED" },
+    { "display_task_id": "15", "card_path": "tasks/15-qa-performance-audit.md", "policy": "do-not-start-automatically", "adoption": "NOT_AUTHORIZED" },
+    { "display_task_id": "16", "card_path": "tasks/16-backlink-audit.md", "policy": "remain-on-hold", "adoption": "NOT_AUTHORIZED" },
+    { "display_task_id": "48", "card_path": null, "policy": "legacy-worktree-untouched-preserve-executor-history", "adoption": "NOT_AUTHORIZED" },
+    { "display_task_id": "51", "card_path": "tasks/51-baidu-verification.md", "policy": "preserve-source-artifact", "adoption": "NOT_AUTHORIZED" },
+    { "display_task_id": "52", "card_path": "tasks/52-sogou-verification.md", "policy": "merged-before-bootstrap-provenance-only", "adoption": "NOT_AUTHORIZED" }
+  ],
+  "notes": [
+    "No historical run IDs were fabricated.",
+    "Historical platform/provider/model metadata remains in its original artifact and Git history.",
+    "No past Hermes work is represented as Codex execution.",
+    "The former proposal label Task 53 is not a task identity and is not registered."
+  ]
+}

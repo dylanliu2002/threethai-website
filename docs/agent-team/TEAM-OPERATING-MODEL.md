@@ -64,3 +64,21 @@ Previous Luna, Terra, and Sol allocation guidance described an earlier execution
 recommendation. It is retained in Git history and in completed-task records where
 it reflects actual work, but it is not current governance. Future Tasks use an
 Execution Profile and a task-specific, replaceable execution assignment.
+
+## Controller Boundary (Inactive Bootstrap)
+
+The optional SYS-AUTO-001 controller owns deterministic authorization,
+admission, legal state transitions, dependency/concurrency scheduling, leases,
+path/shared/resource/Git locks, validation eligibility, review independence and
+publishing gates. Codex workers retain reasoning and implementation judgment
+inside the exact contract. The controller must not turn reasoning into a rigid
+step-by-step state machine.
+
+The pilot default is two workers. Disjoint task scopes may run concurrently;
+overlapping paths and shared governance serialize. `CHANGES_REQUESTED` returns
+to the same owner Role/branch/worktree for up to three correction cycles, then
+blocks. `ON_HOLD` never dispatches. `APPROVED` permits only the closeout actions
+listed by the contract and never implies merge, production or external action.
+
+This operating model remains inactive until independent approval and separate
+activation authorization. Existing Tasks are not automatically enrolled.

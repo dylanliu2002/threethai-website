@@ -148,3 +148,25 @@ An approved executor, provider, or model family may be added without redefining
 Roles or changing the One Task = One Branch = One Worktree model. Record the
 task-specific assignment and apply the same governance, credential, validation,
 handoff, and review requirements.
+
+## Machine Routing v1 (Inactive Bootstrap)
+
+Machine routing is task execution metadata evaluated from an authorized
+contract, never a permanent Role binding:
+
+| Work classification | Approved Codex model |
+| --- | --- |
+| Codex-native work | GPT-5.6 Sol |
+| Legacy Hermes complex reasoning/strategy/synthesis migrated to Codex | GPT-5.6 Terra |
+| Legacy Hermes bounded bulk/extraction/repetitive work migrated to Codex | GPT-5.6 Luna |
+| Explicitly authorized escalation | GPT-5.6 Sol |
+
+An unavailable or out-of-policy model yields `BLOCKED`. There is no silent
+cross-provider/model fallback. Historical executor metadata is immutable and a
+migration must not make Hermes work appear to have been Codex work.
+
+SYS-AUTO-001 is a manually supervised bootstrap only. A strict machine contract
+binds task key, routing policy revision, requested model, reasoning effort and
+configuration digest for reproducibility. Changing any of these requires a new
+authorized contract revision and may invalidate existing review evidence. Live
+dispatch and model routing remain disabled until separate activation.

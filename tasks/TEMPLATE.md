@@ -1,5 +1,9 @@
 # Task [NN] — [Title]
 
+- **Task Key:** Optional for historical/manual tasks; required canonical full key
+  for machine-managed tasks and never inferred from numeric ID alone
+- **Machine Contract:** None, or `tasks/machine/<task_key>.json`
+- **Machine Phase:** None, or a phase compatible with Status
 - **Task ID:** `NN`
 - **Title:** [short, outcome-oriented title]
 - **Mode:** `AUDIT` | `IMPLEMENT` | `REVIEW`
@@ -25,6 +29,12 @@ starts. These are replaceable execution metadata, not permanent Role bindings;
 do not add a permanent exact-model-version field. Record any material execution
 change in the task-owned append-only worklog and, when coordination is affected,
 in a Coordination Item.
+
+A machine contract is an additional authorization boundary, not a replacement
+for this human-readable card. Machine-managed tasks fail closed on unsupported
+schema/fields or card/scope binding mismatch. Editing this card, an issue,
+prompt, or worklog can never broaden contract permissions. Historical Tasks do
+not need retroactive task keys/contracts and must not receive fabricated runs.
 
 ## Goal
 

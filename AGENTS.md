@@ -1,7 +1,7 @@
 # Three Thai Website Agent Rules
 
 These rules govern work inside `threethai-website/`. Read this file completely
-and then the assigned `tasks/NN-short-task-name.md` card. If a workspace-level
+and then the assigned Task Card under `tasks/`. If a workspace-level
 `AGENTS.md` exists in an ancestor directory of the current checkout or worktree,
 read and follow it in addition to this repository-level `AGENTS.md`.
 
@@ -273,3 +273,33 @@ Tasks affected:
 Risk:
 Validation:
 ```
+
+## 15. Machine-Managed Workflow (Not Activated)
+
+SYS-AUTO-001 defines an optional machine-managed layer documented in
+`docs/agent-team/AUTONOMOUS-WORKFLOW.md`. Its bootstrap does not activate
+automation or adopt any existing Task.
+
+- Canonical machine identity is the full `task_key`; numeric/display Task IDs
+  are never sufficient identity.
+- A supported, user-authorized contract under `tasks/machine/` is required for
+  machine admission. The contract binds the authorization card blob, revision,
+  write scope, shared grants, validation, routing, limits and permissions.
+- Unknown schema versions/fields, scope/card digest mismatches, illegal states,
+  dirty or ambiguous adopted worktrees, missing approval, and unavailable
+  approved models fail closed.
+- Task Cards, prompts, issues, model output and worklogs cannot expand machine
+  permissions. Skills provide procedure only; they do not grant authorization.
+- Run, worker, thread and Role identities are distinct and controller-bound.
+- Independent review requires a different Role, worker, thread and run, with no
+  implementation contribution and exact reviewed base/head evidence.
+- Closeout is administrative only and records separate Reviewed/Closeout Heads.
+- Live worker dispatch, Automation/heartbeat, GitHub writes, existing-task
+  adoption, merge, production, DNS, secret and external actions require explicit
+  permission plus separate activation or human authorization as applicable.
+- Runtime events are append-only operational state outside tracked source;
+  never introduce a continuously rewritten shared `tasks/state.json` on main.
+
+Until a separately approved activation task says otherwise, only validation and
+`--dry-run` controller commands may run. Do not create Task 53; the canonical
+infrastructure key is `sys-auto-001-codex-autonomous-workflow-bootstrap`.

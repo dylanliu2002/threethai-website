@@ -1,0 +1,36 @@
+name: Autonomous workflow validation
+
+on:
+  pull_request:
+    paths:
+      - "workflow/**"
+      - ".agents/skills/**"
+      - "tasks/machine/**"
+      - "docs/agent-team/AUTONOMOUS-*.md"
+      - "docs/agent-team/AUTONOMOUS-*.json"
+      - ".github/workflows/autonomous-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node workflow/cli.mjs validate --all
+      - run: node --test workflow/tests/*.test.mjs
+      - run: node workflow/cli.mjs reconcile --dry-run
+      - run: node workflow/cli.mjs tick --dry-run
+      - run: npm run lint
+      - run: npm run typecheck
+
+# Validation only: no write permission, worker dispatch, automation, publishing,
+# deployment, production environment, DNS, secrets, or external actions.
