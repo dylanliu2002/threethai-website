@@ -86,7 +86,7 @@ git diff --name-only
 
 ## Completion Record
 
-- Commit:
+- Commit: `029d865` (`audit: complete CRO baseline`)
 - Base SHA: `9ff03a94fdc0bfb39557953beb76d06c6adfca9d`
 - Execution: Codex / GPT-5.6 Sol
 - Evidence checked: current source; representative German production journeys; read-only public HTTP/search evidence; committed Task 10 audit; no form submission.
