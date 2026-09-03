@@ -52,6 +52,7 @@ Overall assessment:
 - **Visibility:** UNKNOWN.
 
 Finding count: **P0 0 · P1 5 · P2 7 · P3 1**.
+Review outcome: APPROVED (independent reviewer Task 11 / SEO_CONTENT, 2026-09-03; reviewed head `ed3f6393e0502a22c88a37c90f28852e35596b30`). Closeout added the verified Nigeria certificate-header dates to the Claim/Evidence Register without reopening any finding.
 
 ## Scope
 
@@ -481,7 +482,7 @@ mechanics belong to TECHNICAL_SEO.
 | TESTEX report SH005 275198.1 passed listed tests | Full report | SUPPORTED | Applies to submitted raw PVA yarn samples; retain report limitations. |
 | SGS quality result | 2020 image/summary | PARTIAL | Current PDF or issuer-verifiable report if still relied upon. |
 | 34 granted Chinese patents | Dossier list in source | PARTIAL | Current register extracts and ownership/status mapping for public reliance. |
-| Nigeria patent | Public certificate | PARTIAL | Show joint holder with Shandong Huimin Three Thai Textile Co., Ltd. |
+| Nigeria patent | Public certificate — closeout-verified certificate-header fields: FOREIGN PRIORITY No. CHINA:202511322549.7 dated 2025-09-16; Date of Patent 2026-02-09; certificate sealed/issued 2026-04-10 | PARTIAL | Show joint holder with Shandong Huimin Three Thai Textile Co., Ltd.; these are certificate-header dates — authoritative register confirmation remains appropriate for legal-status verification. |
 | Malta patent 5964 | Public grant/register PDF | SUPPORTED | Keep registration/status/date scoped. |
 | Manufacture of concrete PVA fiber | Homepage says yes; staple FAQ says no | CONTRADICTORY | Written owner decision and current catalog/production proof. |
 | PVA cotton, PVA top, PPVA fiber, Gracell yarn availability | Extended-format statement only | OWNER_CONFIRMATION_REQUIRED | Current offering status, specification, production/sales role, sample status. |
