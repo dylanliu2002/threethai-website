@@ -10,7 +10,7 @@
 - **Current Model Family:** GPT-5
 - **Execution Assignment Recorded:** Yes
 - **Priority:** `P1`
-- **Status:** `IN_PROGRESS`
+- **Status:** `REVIEW`
 - **Risk:** `LOW`
 - **Branch:** `codex/51-baidu-verification`
 - **Worktree:** `worktrees/agent-51-baidu-verification`
@@ -86,8 +86,8 @@ npm run build
 git diff --check
 ```
 
-- [ ] Diff scope reviewed
-- [ ] Validation recorded
+- [x] Diff scope reviewed
+- [x] Validation recorded
 
 ## Coordination Items
 
@@ -100,13 +100,17 @@ git diff --check
 
 ## Completion Record
 
-- Commit:
+- Commit: `69cdc83` (`seo: publish Baidu verification file`)
 - Base / rebase commit: `b5a2525`
-- Changed files:
-- Validation results:
+- Changed files: moved the verification file into `public/`; added this task
+  card and task worklog; added the Task 51 row to `tasks/README.md`.
+- Validation results: `npm run lint` passed; clean `npm run build` passed with
+  555 static pages; local production request returned HTTP 200,
+  `Content-Length: 32`, and the expected token; `git diff --check` passed; only
+  the public verification path is tracked.
 - Worklog: `worklog/agent-51-baidu-verification.md`
-- Remaining risks: Production HTTP 200 can only be confirmed after merge and
-  Vercel deployment.
+- Remaining risks: Production HTTP 200 can only be confirmed after independent
+  review, merge, and Vercel deployment.
 
 ## Rollback
 

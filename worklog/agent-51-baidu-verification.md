@@ -17,3 +17,16 @@ Stage Summary:
 - The static file is now mapped to `/baidu_verify_codeva-R66rDyn2Kt.html`.
 - No application source, routing, middleware, dependency, or deployment
   configuration was changed.
+
+---
+Validation and Delivery Preparation:
+- Fetched `origin` and confirmed the task branch was up to date with
+  `origin/main` at `b5a2525`; no rebase rewrite was needed.
+- Repeated the post-sync gate from a clean `.next`: lint and the full production
+  build passed.
+- Repeated the local production check on port 3151: HTTP 200, 32-byte body, and
+  exact Baidu token.
+- Confirmed the tracked verification path is only
+  `public/baidu_verify_codeva-R66rDyn2Kt.html` and `git diff --check` passes.
+- Moved Task 51 to `REVIEW`; independent approval and production verification
+  remain pending.

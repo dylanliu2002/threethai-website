@@ -51,7 +51,7 @@ research and retains a dirty worktree. Its resume condition is authoritative in
 
 | ID | Task card | Role | Branch | Status |
 | --- | --- | --- | --- | --- |
-| 51 | `51-baidu-verification.md` | TECHNICAL_SEO | `codex/51-baidu-verification` | IN_PROGRESS |
+| 51 | `51-baidu-verification.md` | TECHNICAL_SEO | `codex/51-baidu-verification` | REVIEW |
 
 Each Audit Task's output allowlist contains only its dedicated report path. Each
 task also automatically owns its own task card and append-only matching worklog
