@@ -139,3 +139,42 @@ Entries:
 - Validation: see next commit ("audit: address Task 11 review findings"):
   git diff --check; scope = 3 Task 11 files; identity gate; push branch
   only. Independent focused re-review required before any approval.
+
+---
+
+## 2026-09-03 — Second corrective pass: clarification superseding numerical
+## Task 12 score attribution (SEO11-01 = PARTIAL in focused re-review)
+
+- CLARIFICATION (supersedes an earlier entry in this worklog): the prior
+  corrective entry attributed numerical scores (4.5/5 extractability,
+  3.0/5 depth) to the Task 12 GEO_AI_SEARCH report. That attribution was
+  unsupported by the authoritative Task 12 text. The Task 12 report
+  explicitly states "No numerical GEO score is used." Its actual Buyer
+  Answer assessment is qualitative: Extractability ADEQUATE to STRONG;
+  STRONG format; WEAK–MODERATE depth/evidence. The current Task 11 report
+  has been corrected to carry only that qualitative characterization;
+  every 4.5/5 and 3.0/5 attribution is removed from the report and task
+  card. Historical worklog text is preserved unrewritten per the
+  append-only rule; this entry is the superseding record.
+  Preserved throughout: 30 Buyer Answers total, 1 expanded record,
+  29 shorter/non-expanded template-based records; the
+  extractability/format vs depth/usefulness/evidence distinction; and the
+  non-uniformity of the 29 (no blanket thinness claim).
+- RECOVERY NOTE (factual, not a review outcome): the second corrective
+  pass began from remote head `6c3f437`. The worktree contained partial
+  uncommitted edits to `docs/audits/11-seo-content.md` from an
+  accidentally misdirected reviewer session (a Task 12 session was given
+  the Task 11 corrective prompt). The SEO_CONTENT owner inspected those
+  edits, verified them against the authoritative Task 12 text, found
+  them correct and complete, and preserved them without rewriting. This
+  note records recovery only; it is not an approval or independent
+  review result.
+- Governance state: `origin/main` advanced to `b5a2525` (Task 10
+  corrective merge + baidu verification). New main commits touch no
+  Task 11-owned file; per the corrective instruction the second
+  corrective head is delivered additively on `6c3f437` (no rebase, no
+  history rewrite of the pushed task branch); merge-base coordination
+  remains an ORCHESTRATOR decision.
+- Findings totals unchanged: P0 0 / P1 3 / P2 6 / P3 3 (12 total).
+  Status remains REVIEW; not self-approved. Commit:
+  "audit: remove unsupported Task 12 scores"; push task branch only.

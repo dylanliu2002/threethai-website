@@ -102,8 +102,16 @@ git diff --name-only
   ownership, route arithmetic, Task 10 cross-reference, follow-up
   dependencies). All corrections applied in the corrective pass recorded in
   the Completion Record below.
-- Outcome: REVIEW — **independent focused re-review required** on the
-  corrective head.
+- Focused Re-Review Outcome: **CHANGES_REQUESTED** (head `6c3f437`) —
+  single remaining issue: SEO11-01 PARTIAL (report attributed numerical
+  GEO scores to Task 12, which uses no numerical GEO score).
+  Resolved in the second corrective pass (see worklog clarification +
+  "audit: remove unsupported Task 12 scores"): qualitative assessment
+  (extractability ADEQUATE–STRONG, STRONG format, WEAK–MODERATE
+  depth/evidence) substituted; 30/1/29 structure and the
+  extractability-vs-depth distinction preserved; totals unchanged.
+- Outcome: REVIEW — **final focused independent re-review required** on
+  the second corrective head.
 - Recommended Reviewer: Task 12 / GEO_AI_SEARCH (independent)
 
 ## Completion Record

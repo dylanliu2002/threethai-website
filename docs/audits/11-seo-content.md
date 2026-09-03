@@ -31,9 +31,11 @@ Largest gaps:
 1. **Depth concentration (selective, not uniform)** — 29 of 30 Buyer Answers
    use the shorter shared template and only one
    (`best-pva-water-soluble-yarn-manufacturers-china`) uses the expanded model.
-   Task 12 confirms the short-template family is generally *extractable*
-   (4.5/5) and several individual answers are adequate; the demonstrated
-   weakness is depth/usefulness/evidence on sampled high-stakes pages, not the
+   Task 12's qualitative assessment: Buyer Answer extractability STRONG
+   (ADEQUATE to STRONG) and STRONG format, with WEAK–MODERATE
+   depth/evidence — several individual answers are adequate, while sampled
+   high-stakes pages are frequently too shallow or insufficiently
+   evidenced; the demonstrated weakness is on those sampled pages, not the
    template count itself. See corrected SEO11-01.
 2. **Supplier-intent overlap (MEDIUM confidence)** — ~9 URLs sit in the
    manufacturer/supplier/factory/exporter validation space. The strongest
@@ -455,11 +457,13 @@ Findings:
   Answers total; exactly **1 expanded record** and **29 shorter
   template-based records** (question + ~40-word answer + ~3 detail pairs +
   ask-for list). The correct characterization is therefore *29 of 30 use the
-  shorter shared template*, **not** "29 of 30 are too thin". Task 12
-  independently scores the family Extractability 4.5/5 and Intent coverage
-  4.5/5 — the shorter answers are generally well-formed, scannable, and
-  question-led, and several individual answers are adequate. Depth is the
-  dimension scored lower (3.0/5). The finding must therefore be read as a
+  shorter shared template*, **not** "29 of 30 are too thin". Task 12's
+  qualitative assessment — no numerical score is used in that report — is:
+  Buyer Answer extractability STRONG (ADEQUATE to STRONG) and STRONG format,
+  WEAK–MODERATE depth/evidence. The shorter answers are generally
+  well-formed, scannable, and question-led, and several individual answers
+  are adequate; high-stakes buyer questions are frequently too shallow or
+  insufficiently evidenced. The finding must therefore be read as a
   **selective depth/usefulness/evidence gap on sampled high-stakes pages**,
   distinguishing EXTRACTABILITY (good) from DEPTH / USEFULNESS / EVIDENCE
   (varies by page). Sampled high-stakes answers that are demonstrably
@@ -639,8 +643,9 @@ Affected: `/answers/*` — the 29 shorter-template records, of which a sampled
 subset of high-stakes pages show demonstrable depth/usefulness/evidence gaps;
 Primary intent BUYER_VALIDATION;
 Evidence: `legacy-source.ts` answer shape vs `answer-expanded.ts` (1 key) —
-SOURCE-CONFIRMED; extractability of the short family confirmed ADEQUATE by
-Task 12 (4.5/5) — the gap is DEPTH/USEFULNESS/EVIDENCE, not template count;
+SOURCE-CONFIRMED; Task 12's qualitative assessment for the short family:
+STRONG extractability, STRONG format, WEAK–MODERATE depth/evidence — the
+gap is DEPTH/USEFULNESS/EVIDENCE, not template count;
 Why it matters: validation-stage pages are the site's differentiator; the
 sampled high-stakes pages under-serve their decision role, and their
 under-development — not the template itself — is what caps the cluster;
@@ -764,8 +769,9 @@ Task 31 + commercial evidence) → G (education expansion, existing owners first
 
 **GEO_AI_SEARCH (Task 12 — completed; used as cross-check evidence in this
 corrective pass, `docs/audits/12-geo-ai-search.md`):**
-- Task 12 scores the Buyer Answer family Extractability 4.5/5 and Intent
-  coverage 4.5/5 with Depth 3.0/5 — adopted here to recast SEO11-01 as a
+- Task 12's qualitative assessment of the Buyer Answer family (no numerical
+  score is used there): extractability ADEQUATE–STRONG, STRONG format,
+  WEAK–MODERATE depth/evidence — adopted here to recast SEO11-01 as a
   selective depth/evidence gap rather than a blanket thinness claim. Its
   conservative classifications for patents, R&D/company claims, application
   evidence and certification scope informed Correction 1 (reconciled against
