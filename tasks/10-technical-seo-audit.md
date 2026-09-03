@@ -65,7 +65,8 @@ All files other than the allowlist, including every shared file in `AGENTS.md`.
 
 ```bash
 git diff --check
-git diff --name-only
+git diff --name-only origin/main...HEAD
+git status --short
 ```
 
 - [x] Diff is limited to the dedicated report plus this Task-owned card and
@@ -74,7 +75,13 @@ git diff --name-only
 
 ## Coordination Items
 
-- Independent review requested from Task 15 / `QA_PERFORMANCE`.
+- Independent Task 15 / `QA_PERFORMANCE` review of
+  `33d08a8fda012572a022993eee1ca78fdf61fc7a` returned
+  `CHANGES_REQUESTED`; the corrective head requires independent re-review.
+- PR #6 merged the reviewed pre-correction head into `main` at
+  `9ff03a94fdc0bfb39557953beb76d06c6adfca9d` before independent approval.
+  The corrective PR is intended to reconcile that prematurely integrated audit
+  record and must not be represented as approved.
 - ORCHESTRATOR coordination is required for proposed changes to root layout,
   proxy/middleware, sitemap, robots, redirects, DNS, and global locale routing.
 - SEO_CONTENT and GEO_AI_SEARCH need a verified business decision about the
@@ -84,29 +91,47 @@ git diff --name-only
 
 ## Review Status
 
-- Outcome: Pending
+- Outcome: `CHANGES_REQUESTED`
+- Independent reviewer: Task 15 / `QA_PERFORMANCE`
+- Reviewed pre-correction head:
+  `33d08a8fda012572a022993eee1ca78fdf61fc7a`
+- Review date: 2026-09-03
+- Corrections requested: downgrade and reframe TSEO-10-03 and TSEO-10-04;
+  reconcile severity totals; add aggregate crawl replayability; distinguish the
+  audit-content commit from the reviewed delivery head; and record the
+  premature PR #6 merge accurately.
+- Current state: Corrections applied; independent re-review pending. **Not
+  approved.**
 
 ## Completion Record
 
-- Commit: `37c2c3729f2de7e6abaf2900e47abff1a297b247`
-  (`audit: complete technical SEO baseline`, rewritten by rebase).
-- Base / rebase commit: `91443ad6eb36a5f9cb2d08b4d44f374cc260a5ae`.
+- Audit-content commit: `37c2c3729f2de7e6abaf2900e47abff1a297b247`
+  (`audit: complete technical SEO baseline`).
+- Reviewed pre-correction head:
+  `33d08a8fda012572a022993eee1ca78fdf61fc7a`.
+- Current corrective head: the `audit: address Task 10 review findings` commit;
+  exact immutable SHA recorded in the corrective push/PR and delivery.
+- Base / synchronization commit:
+  `9ff03a94fdc0bfb39557953beb76d06c6adfca9d` (PR #6 merge; fast-forwarded
+  without rewriting Task 10 history).
 - Changed files: `docs/audits/10-technical-seo.md`, this Task-owned
   card, and `worklog/agent-10-technical-seo.md` only.
-- Validation results: report blob preserved as
-  `aa6e986301f8be38fd5437353108705b62cb7bc0`; document-only diff and scope
-  validation passed after rebase.
+- Validation results: corrective replacement procedures reproduced the 55-page,
+  120-page, and 142-target aggregate observations; final document-only diff and
+  scope validation recorded in the append-only worklog.
 - Evidence checked: current source routes and SEO helpers; production 55-URL
   sitemap crawl; 120-URL locale/template matrix; robots, sitemap, redirects,
   status codes, rendered HTML/DOM, internal links, schema, images, and
-  public/default DNS resolution.
+  historical audit-host/public DNS comparison together with the independent
+  review's non-reproduction record.
 - Report path: `docs/audits/10-technical-seo.md`
 - Worklog: `worklog/agent-10-technical-seo.md`
-- Remaining risks: Independent review and the previously recorded Search
-  Console, Bing Webmaster Tools, crawl-log, legacy-URL, DNS/TLS, and verified
-  concrete-PVA evidence remain outstanding; no Technical SEO fix is included.
+- Remaining risks: Independent re-review and the previously recorded Search
+  Console, Bing Webmaster Tools, crawl-log, legacy-URL, backlink, multi-region
+  DNS/TLS, and verified concrete-PVA evidence remain outstanding; no Technical
+  SEO fix is included.
 
 ## Rollback
 
-Revert the audit report commit and its Task-owned handoff record if the audit
-must be withdrawn; no runtime behavior is changed by this task.
+Revert the corrective audit-record commit if these record changes must be
+withdrawn; no runtime behavior is changed by this task.
