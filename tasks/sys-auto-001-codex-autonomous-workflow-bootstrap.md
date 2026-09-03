@@ -12,8 +12,8 @@
 - **Reasoning Effort:** `high`
 - **Execution Assignment Recorded:** Yes
 - **Priority:** `P1`
-- **Status:** `REVIEW`
-- **Machine Phase:** `INDEPENDENT_REVIEW`
+- **Status:** `IN_PROGRESS`
+- **Machine Phase:** `CORRECT`
 - **Risk:** `HIGH`
 - **Branch:** `codex/sys-auto-001-bootstrap`
 - **Worktree:** `worktrees/sys-auto-001-bootstrap`
@@ -147,6 +147,39 @@ npm run typecheck
 - Outcome: Pending independent `QA_PERFORMANCE` review.
 - Required review: fresh Codex execution, fresh thread/run, no implementation
   contribution, exact reviewed base/head and contract revision binding.
+
+## Independent Review Record — Blocked Head
+
+- **Review Outcome:** `BLOCKED`
+- **Reviewed Base:** `b18e5630909e73c3fc6b4884a51d0b6daa89d20c`
+- **Reviewed Head:** `38e5e74ee70539145756ee22fa52bd8ee578771a`
+- **Reviewer Role:** `QA_PERFORMANCE`
+- **Corrective authorization:** The user authorized this same Task, branch and
+  worktree to move to `IN_PROGRESS / CORRECT`. This historical BLOCKED outcome
+  remains unchanged and cannot approve any corrected head.
+
+BLOCKER findings recorded by the independent review:
+
+1. Authorization was self-manufacturable from the worker-writable contract,
+   including activation, permissions and scope.
+2. `runCodexExec` lacked an unavoidable controller activation/permission gate
+   and accepted caller-selected model, sandbox and working directory.
+3. Actual Git/filesystem changes were not independently derived and compared
+   with authorized scope; worker-reported `changed_files` was trusted.
+4. Approval could be manufactured without authoritative independent-review,
+   run, contract and evidence binding.
+
+MAJOR findings recorded by the independent review:
+
+1. Locks, active runs and wakeup deduplication were process-local.
+2. Recovery did not reconstruct authoritative task/run/lease/lock state.
+3. Publishing lacked live lease/fencing, authoritative approval, current SHA,
+   exact branch and independently verified Git identity gates.
+4. Controller, worktree/path, shared governance, resource/build and Git locks
+   were not acquired as durable authoritative reservations.
+5. Correction count and fresh-review requirements relied on caller input.
+6. Secret detection/redaction did not cover structured worker output,
+   stdout/stderr/errors/logs/journal payloads or broad credential classes.
 
 ## Completion Record
 

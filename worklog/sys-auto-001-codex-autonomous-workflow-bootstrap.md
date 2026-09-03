@@ -70,3 +70,43 @@ Stage Summary:
   revision and validation evidence. The implementer does not self-approve.
 - No PR was created. Autonomous workflow activated: NO. Existing tasks adopted:
   NO. Live workers/Automations/GitHub writes: NO. Production changes: NO.
+
+---
+Task Key: sys-auto-001-codex-autonomous-workflow-bootstrap
+Task ID: SYS-AUTO-001
+Role: ORCHESTRATOR
+Task: Codex Autonomous Workflow Bootstrap — corrective authorization
+Branch: codex/sys-auto-001-bootstrap
+Prior Reviewed Head: 38e5e74ee70539145756ee22fa52bd8ee578771a
+Base: b18e5630909e73c3fc6b4884a51d0b6daa89d20c
+Date: 2026-09-04
+
+Review Outcome:
+- BLOCKED. The historical 41/41 validation result above remains true for the
+  blocked implementation and is not rewritten as approval.
+
+Independent QA_PERFORMANCE Findings:
+- BLOCKER: authorization/activation/permissions/scope were self-manufacturable
+  from the mutable Task Contract and its recomputable embedded digest.
+- BLOCKER: `runCodexExec` could bypass activation and accept caller-selected
+  model, sandbox (including `danger-full-access`) and cwd.
+- BLOCKER: controller scope checks trusted worker-reported `changed_files`
+  instead of independent Git/filesystem evidence.
+- BLOCKER: approval and closeout lacked authoritative independent reviewer,
+  run, contract, reviewed-head and non-empty evidence binding.
+- MAJOR: leases, active runs and wakeup deduplication were process-local.
+- MAJOR: recovery did not reconstruct authoritative phase, run, lease, lock,
+  review, approval, correction, closeout and publishing state.
+- MAJOR: publishing lacked live lease/fence, authoritative approval, current
+  SHA, exact branch, verified Git identity and task-specific permission gates.
+- MAJOR: controller/worktree/path/shared/resource/Git reservations were not
+  durable authoritative scheduler locks.
+- MAJOR: correction count and fresh-review checks trusted caller-supplied data.
+- MAJOR: secret scanning/redaction omitted structured results, stdout, stderr,
+  exceptions, controller logs/journal and broader credential classes.
+
+Corrective Authorization:
+- The user authorized correction on the existing branch/worktree only. Status
+  is now `IN_PROGRESS / CORRECT`; no new Task, branch or worktree was created.
+- Global activation, existing-task adoption, PR creation, merge, production and
+  all live workers remain unauthorized and disabled.
