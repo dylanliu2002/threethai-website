@@ -74,3 +74,68 @@ Validation:
 
 Stage Summary:
 - Task 10 remains in `REVIEW` for the assigned independent reviewer.
+
+---
+Date: 2026-09-03
+Task ID: 10
+Role: TECHNICAL_SEO
+Task: Corrective audit-record pass after independent review
+Branch: codex/10-technical-seo-audit
+Base: 9ff03a94fdc0bfb39557953beb76d06c6adfca9d
+Audit-content commit: 37c2c3729f2de7e6abaf2900e47abff1a297b247
+Reviewed pre-correction head: 33d08a8fda012572a022993eee1ca78fdf61fc7a
+Commit: Corrective head recorded in the push/PR and delivery
+
+Work Log:
+- Recorded the official independent Task 15 / QA_PERFORMANCE outcome
+  `CHANGES_REQUESTED` for reviewed head
+  `33d08a8fda012572a022993eee1ca78fdf61fc7a`; Task 10 remains `REVIEW` and is
+  not approved.
+- Fetched origin, confirmed PR #6 at
+  `9ff03a94fdc0bfb39557953beb76d06c6adfca9d` contains the reviewed head, and
+  fast-forwarded only the Task 10 branch to that merge without rewriting
+  history.
+- Recorded that PR #6 merged before independent approval. This corrective pass
+  and its follow-up PR reconcile the audit record; they do not retroactively
+  represent the original integration as approved.
+- Downgraded TSEO-10-03 and TSEO-10-04 from P1 to P2. TSEO-10-03 is now a
+  historical 2026-09-02 audit-host resolver anomaly that independent review did
+  not reproduce on 2026-09-03, with low confidence in real-user prevalence and
+  no immediate DNS-change recommendation. TSEO-10-04 now describes live,
+  intent-preserving section fallbacks whose exact historical equivalence and
+  material impact remain unknown without legacy URL, Search Console, log, or
+  backlink evidence.
+- Confirmed the revised 13-finding distribution: P0 0, P1 3, P2 7, P3 3.
+- The exact historical bulk-crawl invocations were not durably recorded and
+  were not fabricated. Added self-contained replacement procedures to the
+  existing report and validated them on 2026-09-03.
+
+Corrective Replay:
+- 55-page/internal-link procedure: 55 sitemap URLs, all `200`; zero missing
+  title/description/robots, canonical mismatch, duplicate-title group, H1
+  anomaly, JSON-LD parse failure, or zero-inbound sitemap URL; all 55 reachable
+  from home; 142 unique English internal targets; 55 redirecting
+  `?_locale=en` targets; zero other non-200 English targets.
+- 120-page procedure: 12 templates across 10 locales; 120 `200`, 120
+  self-canonical, 120 with 11 alternates, 120 matching the full expected
+  reciprocal/self-reference graph, 120 with `<html lang="en">`, and no
+  failures.
+
+Scope / Safety:
+- Changed only `docs/audits/10-technical-seo.md`, this Task-owned card, and this
+  append-only worklog.
+- No website source, shared governance, DNS, redirects,
+  canonical/hreflang/schema/robots/sitemap behavior, secrets, or Technical SEO
+  implementation changed.
+
+Validation:
+- `git diff --check`: PASS before commit (line-ending conversion warnings only).
+- Mechanical register recount: PASS — P0 0, P1 3, P2 7, P3 3; total 13.
+- Markdown code-fence parity: PASS.
+- Entire corrective diff and three-file allowlist reviewed; post-commit
+  `origin/main...HEAD`, clean-status, identity, and push checks are recorded in
+  delivery.
+
+Stage Summary:
+- Task 10 remains `REVIEW` with prior outcome `CHANGES_REQUESTED` and is ready
+  for independent re-review after the corrective branch is pushed.

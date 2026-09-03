@@ -29,17 +29,20 @@ architecture:
 2. at least 344 Spanish, Portuguese, Russian, Arabic, Turkish, Vietnamese,
    Indonesian, and German deep-content URLs are English fallbacks while being
    indexable, self-canonical, and labelled as those languages in hreflang;
-3. the audit host's default DNS path resolved `www.threethai.com` to a legacy
-   Netsun endpoint with a wrong-name certificate, while public resolvers and an
-   independent browser reached Vercel;
-4. whole families of historical product/news detail URLs still redirect to
-   section listings rather than verified equivalents;
+3. the audit host's default resolver produced a historical Netsun/wrong-name
+   certificate anomaly on 2026-09-02 that independent review did not reproduce
+   on 2026-09-03; real-user prevalence is unknown;
+4. historical product/news detail URL families currently reach live,
+   intent-preserving section-level fallbacks; exact historical semantic
+   equivalence and material impact are unknown;
 5. production simultaneously says concrete PVA fiber is manufactured and says
    it is not offered; the negative claim is also emitted in FAQ JSON-LD.
 
 Counts in this report are audit observations, not Search Console index counts.
 No Google Search Console, Bing Webmaster Tools, log-file, impression, click, or
 crawl-stat data was available.
+
+The revised finding totals are **P0: 0, P1: 3, P2: 7, P3: 3**.
 
 ## Audit Scope
 
@@ -96,8 +99,8 @@ crawl-stat data was available.
 | --- | --- | --- | --- | --- |
 | TSEO-10-01 | P1 | HIGH | International SEO | Root document language is English on every locale |
 | TSEO-10-02 | P1 | HIGH | Hreflang / indexability | Eight locale trees label English fallback content as translated alternatives |
-| TSEO-10-03 | P1 | MEDIUM | DNS / crawlability | One regional/default DNS path reaches a legacy wrong-certificate endpoint |
-| TSEO-10-04 | P1 | MEDIUM | Redirects | Historical detail URL families collapse to section listings |
+| TSEO-10-03 | P2 | LOW | DNS / crawlability | Historical audit-host resolver anomaly; not reproduced in independent review |
+| TSEO-10-04 | P2 | MEDIUM | Redirects | Historical detail URLs use intent-preserving section fallbacks; exact equivalence unknown |
 | TSEO-10-05 | P1 | HIGH | Structured data / facts | Concrete PVA product claims contradict each other in HTML and JSON-LD |
 | TSEO-10-06 | P2 | HIGH | Sitemap | International sitemap coverage is incomplete and internally inconsistent |
 | TSEO-10-07 | P2 | HIGH | Structured data | Localized Product/Article entity URLs point to English canonicals |
@@ -185,71 +188,6 @@ No confirmed P0 finding.
 - **Risk:** HIGH; canonical/hreflang changes require independent review and
   production validation.
 
-### TSEO-10-03 — One regional/default DNS path reaches a legacy wrong-certificate endpoint
-
-- **State:** RUNTIME-CONFIRMED on this audit network; public-resolution impact
-  is not fully measured.
-- **Affected scope:** `www.threethai.com` lookups using the audit host's
-  default resolver.
-- **Evidence:**
-  - default `Resolve-DnsName www.threethai.com` returned the Vercel CNAME but
-    an A response of `115.238.21.52`;
-  - Node/SChannel connections on that path received a certificate for
-    `*.y.netsun.com` / `y.netsun.com`, causing hostname validation failure;
-  - Google Public DNS returned the Vercel CNAME and Vercel anycast addresses;
-  - Cloudflare DNS also returned Vercel addresses;
-  - an independent in-app browser and web fetch reached the Vercel site;
-  - requests pinned to the public Vercel address returned valid Vercel
-    production responses.
-- **How to reproduce:**
-
-  ```powershell
-  Resolve-DnsName www.threethai.com -Type A
-  nslookup -type=A www.threethai.com 8.8.8.8
-  nslookup -type=A www.threethai.com 1.1.1.1
-  ```
-
-- **Impact:** if reproducible for real users or crawlers on affected resolvers,
-  the site is unreachable over valid HTTPS on that path. This can suppress
-  crawling, referrals, and conversions for an entire network/region.
-- **Uncertainty:** one local/default resolver path is insufficient to establish
-  prevalence; this may be ISP DNS interception, a stale regional record, or
-  local-network behavior rather than authoritative DNS.
-- **Recommended next action:** perform multi-resolver and multi-region DNS/TLS
-  monitoring, inspect authoritative DNS and any historical Netsun configuration,
-  and remove stale routing only after ownership is confirmed.
-- **Suggested owner:** QA_PERFORMANCE + ORCHESTRATOR / DNS administrator.
-- **Suggested task:** **35 — Validate and remediate regional DNS/TLS divergence**.
-- **Risk:** HIGH; DNS changes are production-critical.
-
-### TSEO-10-04 — Historical detail URL families collapse to section listings
-
-- **State:** SOURCE-CONFIRMED, RUNTIME-CONFIRMED, HISTORICAL — still reproducible.
-- **Affected scope:** `/product_detail_en/:rest*`,
-  `/product_detail_zh/:rest*`, `/wap_product_detail/:rest*`,
-  `/news_detail/:rest*`, and `/wap_news_detail/:rest*`.
-- **Repository evidence:** `next.config.ts:38-49` explicitly says exact
-  ID-to-route mappings are pending and sends entire detail families to
-  `/products`, `/zh/products`, or `/knowledge`.
-- **Production evidence:**
-  - `/product_detail_en/id/73.html` returned `308` to `/products`;
-  - `/news_detail/id/123.html` returned `308` to `/knowledge`;
-  - on the sampled no-cookie regional path, the product-detail URL needed a
-    second `307` hop and ended at `/zh/products`.
-- **Impact:** old detail URLs may lose page-specific relevance, backlinks, and
-  canonical signals; listing destinations can be treated as soft 404s when not
-  equivalent.
-- **Uncertainty:** current traffic/backlink/index coverage is UNKNOWN without
-  Search Console, Bing, logs, and a legacy URL inventory.
-- **Recommended next action:** export known legacy URLs and map each to the
-  closest verified current equivalent. Preserve a documented fallback only when
-  no equivalent exists.
-- **Suggested owner:** TECHNICAL_SEO + ORCHESTRATOR.
-- **Suggested task:** **36 — Replace blanket legacy detail redirects with a
-  verified one-to-one map**.
-- **Depends on:** GSC/Bing exports, server logs, old sitemap/archive evidence.
-- **Risk:** HIGH.
-
 ### TSEO-10-05 — Concrete PVA product claims contradict each other in HTML and JSON-LD
 
 - **State:** SOURCE-CONFIRMED, RUNTIME-CONFIRMED, HISTORICAL — still reproducible.
@@ -274,6 +212,80 @@ No confirmed P0 finding.
 - **Risk:** HIGH factual-integrity risk.
 
 ## P2 Findings
+
+### TSEO-10-03 — Historical audit-host resolver anomaly was not reproduced in review
+
+- **State:** HISTORICAL OBSERVATION — observed on the audit host on 2026-09-02;
+  **not independently reproduced** during review on 2026-09-03.
+- **Observed scope:** only the audit host's default resolver path for
+  `www.threethai.com` on 2026-09-02. No evidence establishes that a geographic
+  or regional user population was affected.
+- **Historical audit evidence:**
+  - default `Resolve-DnsName www.threethai.com` returned the Vercel CNAME but
+    an A response of `115.238.21.52`;
+  - Node/SChannel connections on that path received a certificate for
+    `*.y.netsun.com` / `y.netsun.com`, causing hostname validation failure;
+  - Google Public DNS and Cloudflare DNS returned Vercel addresses;
+  - an independent browser and requests pinned to a public Vercel address
+    reached the deployed site.
+- **Review evidence:** the independent reviewer did not reproduce the anomaly
+  on 2026-09-03. The original observation therefore does not establish current
+  authoritative-DNS state, crawler impact, or real-user prevalence.
+- **How to investigate without changing DNS:**
+
+  ```powershell
+  Resolve-DnsName www.threethai.com -Type A
+  Resolve-DnsName www.threethai.com -Type CNAME
+  nslookup -type=A www.threethai.com 8.8.8.8
+  nslookup -type=A www.threethai.com 1.1.1.1
+  ```
+
+- **Confidence:** LOW regarding current real-user prevalence; the single-host
+  historical observation may reflect resolver interception, stale cache, or
+  local-network behavior.
+- **Impact:** UNKNOWN. A material crawlability or availability impact would
+  require independent multi-region evidence that is not currently available.
+- **Data requirement / next action:** retain multi-resolver, multi-region DNS
+  and TLS measurement plus authoritative configuration review as an
+  investigation requirement. **No immediate DNS change is recommended.**
+- **Suggested owner:** QA_PERFORMANCE + ORCHESTRATOR / DNS administrator.
+- **Suggested task:** **35 — Investigate the historical audit-host resolver
+  anomaly**.
+- **Risk:** any later DNS change would be production-critical and requires
+  separate evidence, authorization, review, and rollback planning.
+
+### TSEO-10-04 — Historical detail URLs use section-level fallback destinations
+
+- **State:** SOURCE-CONFIRMED and RUNTIME-CONFIRMED for the current redirect
+  destinations; material SEO impact remains UNKNOWN.
+- **Affected scope:** `/product_detail_en/:rest*`,
+  `/product_detail_zh/:rest*`, `/wap_product_detail/:rest*`,
+  `/news_detail/:rest*`, and `/wap_news_detail/:rest*`.
+- **Repository evidence:** `next.config.ts:38-49` routes those historical detail
+  families to `/products`, `/zh/products`, or `/knowledge` while exact
+  historical ID mappings remain unavailable.
+- **Production evidence:**
+  - `/product_detail_en/id/73.html` returned `308` to `/products`;
+  - `/news_detail/id/123.html` returned `308` to `/knowledge`;
+  - the sampled no-cookie path could add locale routing and end at
+    `/zh/products`.
+- **Assessment:** the current destinations are live, intent-preserving
+  section-level fallbacks. Exact historical semantic equivalence is unknown.
+  No legacy URL inventory, Search Console, server-log, or backlink evidence
+  currently establishes material impact.
+- **Impact:** HYPOTHESIS only. Page-specific relevance or link equity could be
+  reduced where an exact successor exists, but the available evidence neither
+  identifies those cases nor quantifies traffic, indexation, or backlink loss.
+- **Recommended next action:** first inventory historical URLs and collect
+  Search Console, Bing, log, backlink, sitemap, or archive evidence. Retain the
+  current intent-preserving fallbacks unless that evidence supports a reviewed
+  mapping change.
+- **Suggested owner:** TECHNICAL_SEO + ORCHESTRATOR.
+- **Suggested task:** **36 — Inventory and evaluate legacy detail fallbacks**.
+- **Depends on:** GSC/Bing exports, server logs, backlink data, and old
+  sitemap/archive evidence.
+- **Risk:** MEDIUM; any redirect change remains a separately reviewed high-risk
+  implementation task.
 
 ### TSEO-10-06 — International sitemap coverage is incomplete and inconsistent
 
@@ -450,8 +462,9 @@ No confirmed P0 finding.
 
 ### Confirmed risks
 
-- DNS divergence: TSEO-10-03.
-- blanket legacy detail redirects: TSEO-10-04.
+- historical audit-host resolver anomaly requiring more data: TSEO-10-03.
+- intent-preserving legacy section fallbacks with unknown equivalence:
+  TSEO-10-04.
 - redirecting language-switcher paths: TSEO-10-08.
 - wrong-locale homepage links: TSEO-10-09.
 - request-dependent geo/cookie redirects: TSEO-10-10.
@@ -466,7 +479,7 @@ No confirmed P0 finding.
 | Query variants | `200` | `index, follow` | clean path | Crawlable and canonicalized |
 | Trailing-slash variants | `308` | N/A | destination | Redirected |
 | Invalid routes | `404` | `noindex` | none | Correct non-indexable response |
-| Legacy detail families | `308` | N/A | listing destination | Redirected; equivalence unresolved |
+| Legacy detail families | `308` | N/A | live section fallback | Intent preserved at section level; exact equivalence unknown |
 | Exact `/api` | `200 JSON` | no X-Robots | none | Crawlable utility response |
 
 No Search Console index-selection data was available. Whether search engines
@@ -637,8 +650,10 @@ TSEO-10-08 and TSEO-10-10.
 
 ### Historical URLs
 
-Section-level legacy redirects are permanent and reach live routes, but detail
-families are not mapped to equivalent details. See TSEO-10-04.
+Current legacy destinations are permanent, live, intent-preserving
+section-level fallbacks. Exact historical semantic equivalence is unknown, and
+no available legacy inventory, Search Console, log, or backlink evidence
+establishes material impact. See TSEO-10-04.
 
 ## URL Architecture
 
@@ -747,10 +762,12 @@ Production matched current source for sampled:
 - legacy redirect destinations;
 - localized homepage application links.
 
-The DNS divergence is external to repository source and was the only material
-runtime/environment difference. To avoid confusing that resolver path with the
-deployed application, runtime crawl commands were pinned to the public Vercel
-answer `64.29.17.65` and cross-checked with an independent browser.
+The audit host's 2026-09-02 resolver anomaly was external to repository source.
+It was not independently reproduced during review on 2026-09-03 and is not
+established as a current production or regional condition. To isolate the
+application from that historical resolver observation, the original bulk audit
+and the 2026-09-03 replacement replay used the previously validated Vercel
+answer `64.29.17.65`; this pinning does not establish current DNS prevalence.
 
 ## Historical Findings Revalidated
 
@@ -760,7 +777,8 @@ answer `64.29.17.65` and cross-checked with an independent browser.
 | Shared metadata helper ignores explicit alternates | Still reproducible |
 | Fallback deep content is English but self-canonical/hreflang-localized | Still reproducible |
 | Sitemap inconsistent with locale route model | Still reproducible; production now measured |
-| Blanket legacy detail redirects | Still reproducible |
+| Audit-host resolver anomaly | Historical observation from 2026-09-02; not independently reproduced on 2026-09-03; prevalence unknown |
+| Legacy detail section fallbacks | Destinations reproduced; exact historical equivalence and material impact unknown |
 | Concrete PVA offering contradiction | Still reproducible in HTML and FAQ JSON-LD |
 | Article schema used missing `/og.png` | Resolved; `/og.jpg` exists and returns 200 |
 | Localized Article URL points to English page | Still reproducible |
@@ -781,8 +799,9 @@ answer `64.29.17.65` and cross-checked with an independent browser.
   buyer journeys; no CTA redesign is requested here.
 - **BRAND_UX:** document-level language/direction, locale-preserving cards, and
   localized 404 recovery affect accessibility and language continuity.
-- **QA_PERFORMANCE:** independently validate regional DNS/TLS, redirect chains,
-  and post-fix server HTML across locales.
+- **QA_PERFORMANCE:** retain multi-region DNS/TLS investigation for the
+  historical audit-host anomaly; review redirect chains and any future post-fix
+  server HTML across locales.
 
 ## Data Gaps
 
@@ -791,7 +810,7 @@ answer `64.29.17.65` and cross-checked with an independent browser.
 - CDN/server access logs and bot user-agent logs;
 - backlink list for historical detail URLs;
 - authoritative DNS/registrar/CDN configuration access;
-- multi-region DNS and TLS monitoring, especially mainland China;
+- multi-region DNS and TLS measurement for the historical audit-host anomaly;
 - approved business statement for concrete PVA fiber;
 - content-specific modification timestamps;
 - confirmed commercial indexing goal per fallback locale.
@@ -812,8 +831,8 @@ These are proposals for the ORCHESTRATOR, not created tasks.
 | 33 — Rebuild multilingual sitemap from canonical availability | IMPLEMENT | TECHNICAL_SEO | HIGH | 31 | every eligible URL 200/self/reciprocal; no ineligible URL |
 | 34A — Remove current-English redirecting language links | IMPLEMENT | TECHNICAL_SEO + BRAND_UX | MEDIUM | None | rendered-link crawl; cookie switch test |
 | 34B — Preserve locale on homepage application links | IMPLEMENT | TECHNICAL_SEO + BRAND_UX | MEDIUM | 31 | 10-locale rendered href test |
-| 35 — Validate and remediate regional DNS/TLS divergence | INVESTIGATE / IMPLEMENT | QA_PERFORMANCE + ORCHESTRATOR | HIGH | DNS access | multi-resolver/region DNS and certificate checks |
-| 36 — Replace blanket legacy detail redirects | IMPLEMENT | TECHNICAL_SEO | HIGH | GSC/Bing/log/archive inventory | old→new status/equivalence map, no loops/chains |
+| 35 — Investigate historical audit-host resolver anomaly | INVESTIGATE | QA_PERFORMANCE + ORCHESTRATOR | MEDIUM | DNS access | multi-resolver/region DNS and TLS evidence; no DNS change |
+| 36 — Inventory and evaluate legacy detail fallbacks | INVESTIGATE | TECHNICAL_SEO + ORCHESTRATOR | MEDIUM | GSC/Bing/log/backlink/archive inventory | document intent/equivalence and material-impact evidence before any redirect proposal |
 | 37 — Resolve verified concrete-PVA offering fact | IMPLEMENT | SEO_CONTENT + GEO_AI_SEARCH | HIGH factual | business approval | HTML/schema/all-locale string audit |
 | 38 — Align exact API route and crawler controls | IMPLEMENT | TECHNICAL_SEO | MEDIUM | API ownership decision | `/api`, `/api/`, robots, X-Robots checks |
 | 39 — Make sitemap lastmod evidence-based | IMPLEMENT | TECHNICAL_SEO + SEO_CONTENT | LOW | modification source | sample timestamps match source of truth |
@@ -834,9 +853,10 @@ npm run test:seo
 
 ### Production commands
 
-The normal commands are shown below. On the audit host, runtime crawls used
+The normal commands are shown below. The 2026-09-02 audit used
 `--resolve www.threethai.com:443:64.29.17.65` after public DNS validation to
-bypass the separately reported default-resolver anomaly.
+isolate application responses from the historical audit-host resolver anomaly.
+Independent review did not reproduce that anomaly on 2026-09-03.
 
 ```bash
 curl -sS -D - -o /dev/null https://www.threethai.com/
@@ -847,6 +867,397 @@ curl -sS https://www.threethai.com/zh |
 curl -sS https://www.threethai.com/es/products/water-soluble-pva-yarn
 curl -sS -I https://www.threethai.com/product_detail_en/id/73.html
 ```
+
+### Aggregate crawl replay procedure added after review
+
+The exact 2026-09-02 aggregate script invocations were not stored in the Task
+branch and could not be recovered. They are not reconstructed here. The
+following self-contained replacement procedures were actually run and passed
+on 2026-09-03 (Asia/Shanghai) with Node `v24.12.0` and curl `8.21.0`. They use
+the previously validated Vercel address only to make the HTTP application
+measurement independent of the historical resolver observation; they do not
+test, modify, or make a claim about current DNS.
+
+#### 55-page sitemap, metadata, schema, crawl-graph, and 142-target replay
+
+Run this exact block in PowerShell 7 from any directory. It fetches the sitemap,
+crawls each unique `<loc>`, builds a bounded graph from rendered anchor `href`
+values, and checks every unique unprefixed English internal target without
+following redirects.
+
+```powershell
+@'
+const { execFile } = require("node:child_process");
+
+const ORIGIN = "https://www.threethai.com";
+const HOST = "www.threethai.com";
+const PIN = "64.29.17.65";
+const LOCALES = new Set(["zh", "es", "pt", "ru", "ar", "tr", "vi", "id", "de"]);
+const markerStatus = "\n__TASK10_STATUS__:";
+const markerUrl = "\n__TASK10_EFFECTIVE__:";
+
+function request(url, follow = true, locale = "en") {
+  const args = [
+    "--resolve", HOST + ":443:" + PIN,
+    "-sS",
+    "--connect-timeout", "10",
+    "--max-time", "45",
+    "-H", "Cookie: threethai_locale=" + locale
+  ];
+  if (follow) args.push("-L", "--max-redirs", "5");
+  args.push("-w", markerStatus + "%{http_code}" + markerUrl + "%{url_effective}", url);
+  return new Promise((resolve, reject) => {
+    execFile("curl.exe", args, { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) return reject(new Error(url + ": " + (stderr || error.message)));
+      const statusAt = stdout.lastIndexOf(markerStatus);
+      const urlAt = stdout.lastIndexOf(markerUrl);
+      if (statusAt < 0 || urlAt < statusAt) return reject(new Error("Missing curl markers for " + url));
+      resolve({
+        url,
+        body: stdout.slice(0, statusAt),
+        status: Number(stdout.slice(statusAt + markerStatus.length, urlAt)),
+        effective: stdout.slice(urlAt + markerUrl.length).trim()
+      });
+    });
+  });
+}
+
+async function mapLimit(items, limit, fn) {
+  const output = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (true) {
+      const index = next++;
+      if (index >= items.length) return;
+      output[index] = await fn(items[index], index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return output;
+}
+
+function decode(value) {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'");
+}
+
+function tags(html, name) {
+  return html.match(new RegExp("<" + name + "\\b[^>]*>", "gi")) || [];
+}
+
+function attr(tag, name) {
+  const match = tag.match(new RegExp("\\b" + name + "\\s*=\\s*([\"'])(.*?)\\1", "i"));
+  return match ? decode(match[2]) : "";
+}
+
+function oneMeta(html, name) {
+  return tags(html, "meta").find((tag) => attr(tag, "name").toLowerCase() === name) || "";
+}
+
+function oneLink(html, rel) {
+  return tags(html, "link").find((tag) => attr(tag, "rel").toLowerCase().split(/\s+/).includes(rel)) || "";
+}
+
+function normalize(url, keepQuery = true) {
+  const parsed = new URL(url, ORIGIN);
+  parsed.hash = "";
+  if (!keepQuery) parsed.search = "";
+  if (parsed.pathname.length > 1) parsed.pathname = parsed.pathname.replace(/\/+$/, "");
+  return parsed.href;
+}
+
+function internalLinks(html) {
+  const found = [];
+  const pattern = /<a\b[^>]*\bhref\s*=\s*(["'])(.*?)\1/gi;
+  let match;
+  while ((match = pattern.exec(html))) {
+    try {
+      const url = new URL(decode(match[2]), ORIGIN);
+      if (url.origin !== ORIGIN) continue;
+      found.push(normalize(url.href, true));
+    } catch {}
+  }
+  return [...new Set(found)];
+}
+
+function isEnglishTarget(url) {
+  const first = new URL(url).pathname.split("/")[1];
+  return !LOCALES.has(first);
+}
+
+(async () => {
+  const sitemap = await request(ORIGIN + "/sitemap.xml");
+  const locs = [...sitemap.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => decode(m[1].trim()));
+  const urls = [...new Set(locs)].map((url) => normalize(url, false));
+  const pages = await mapLimit(urls, 10, (url) => request(url, true, "en"));
+  const sitemapSet = new Set(urls);
+  const pageMap = new Map();
+  const inbound = new Map(urls.map((url) => [url, 0]));
+  const allTargets = new Set();
+  const titles = new Map();
+  let missingTitle = 0;
+  let missingDescription = 0;
+  let missingRobots = 0;
+  let canonicalMismatch = 0;
+  let h1Anomaly = 0;
+  let invalidJsonLd = 0;
+
+  for (const page of pages) {
+    const titleMatch = page.body.match(/<title>([\s\S]*?)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].trim() : "";
+    const description = attr(oneMeta(page.body, "description"), "content");
+    const robots = attr(oneMeta(page.body, "robots"), "content");
+    const canonical = attr(oneLink(page.body, "canonical"), "href");
+    if (!title) missingTitle++;
+    if (!description) missingDescription++;
+    if (!robots) missingRobots++;
+    if (!canonical || normalize(canonical, false) !== normalize(page.url, false)) canonicalMismatch++;
+    if ((page.body.match(/<h1\b/gi) || []).length !== 1) h1Anomaly++;
+    for (const match of page.body.matchAll(/<script\b[^>]*type\s*=\s*(["'])application\/ld\+json\1[^>]*>([\s\S]*?)<\/script>/gi)) {
+      try { JSON.parse(match[2]); } catch { invalidJsonLd++; }
+    }
+    titles.set(title, (titles.get(title) || 0) + 1);
+    const links = internalLinks(page.body);
+    pageMap.set(normalize(page.url, false), links.map((url) => normalize(url, false)));
+    for (const target of links) {
+      allTargets.add(target);
+      const clean = normalize(target, false);
+      if (sitemapSet.has(clean)) inbound.set(clean, inbound.get(clean) + 1);
+    }
+  }
+
+  const reachable = new Set([normalize(ORIGIN + "/", false)]);
+  const queue = [...reachable];
+  while (queue.length) {
+    const current = queue.shift();
+    for (const target of pageMap.get(current) || []) {
+      if (sitemapSet.has(target) && !reachable.has(target)) {
+        reachable.add(target);
+        queue.push(target);
+      }
+    }
+  }
+
+  const englishTargets = [...allTargets].filter(isEnglishTarget).sort();
+  const targetResponses = await mapLimit(englishTargets, 10, (url) => request(url, false, "en"));
+  const localeOverrideRedirects = targetResponses.filter((r) =>
+    new URL(r.url).searchParams.get("_locale") === "en" && r.status >= 300 && r.status < 400);
+  const otherNon200 = targetResponses.filter((r) =>
+    new URL(r.url).searchParams.get("_locale") !== "en" && r.status !== 200);
+
+  console.log(JSON.stringify({
+    replacementValidatedUtc: new Date().toISOString(),
+    pinnedEndpoint: PIN,
+    sitemapLocs: urls.length,
+    sitemapStatuses: Object.fromEntries([...new Set(pages.map((p) => p.status))].map((status) =>
+      [status, pages.filter((p) => p.status === status).length])),
+    missingTitle,
+    missingDescription,
+    missingRobots,
+    canonicalMismatch,
+    duplicateTitleGroups: [...titles.values()].filter((count) => count > 1).length,
+    h1Anomaly,
+    invalidJsonLd,
+    reachableSitemapUrlsFromHome: [...sitemapSet].filter((url) => reachable.has(url)).length,
+    zeroInboundSitemapUrls: [...inbound.values()].filter((count) => count === 0).length,
+    uniqueEnglishInternalTargets: englishTargets.length,
+    localeOverrideRedirects: localeOverrideRedirects.length,
+    otherNon200EnglishTargets: otherNon200.map((r) => ({ url: r.url, status: r.status }))
+  }, null, 2));
+})().catch((error) => {
+  console.error(error.stack || error);
+  process.exit(1);
+});
+'@ | node -
+```
+
+Corrective replay result: 55 unique sitemap `<loc>` URLs; 55 returned `200`;
+zero missing title, description, or robots fields; zero canonical mismatches,
+duplicate-title groups, H1 anomalies, or JSON-LD parse failures; 55 sitemap URLs
+reachable from home; zero zero-inbound sitemap URLs; 142 unique English
+internal targets; 55 redirecting `?_locale=en` targets; and zero other non-200
+English targets.
+
+#### 120-page locale-template matrix replay
+
+Run this exact block in PowerShell 7. The 12 listed paths crossed with the ten
+listed locale mappings are the complete 120-page sample. For each page it
+checks final status, self-canonical, 11 unique alternates, the full expected
+ten-locale plus `x-default` graph, and document-level `lang`.
+
+```powershell
+@'
+const { execFile } = require("node:child_process");
+
+const ORIGIN = "https://www.threethai.com";
+const HOST = "www.threethai.com";
+const PIN = "64.29.17.65";
+const localeRows = [
+  ["en", ""],
+  ["zh-CN", "zh"],
+  ["es", "es"],
+  ["pt", "pt"],
+  ["ru", "ru"],
+  ["ar", "ar"],
+  ["tr", "tr"],
+  ["vi", "vi"],
+  ["id", "id"],
+  ["de", "de"],
+];
+const paths = [
+  "/",
+  "/products",
+  "/products/water-soluble-pva-yarn",
+  "/applications",
+  "/applications/towel-weaving",
+  "/knowledge",
+  "/knowledge/pva-yarn-dissolution-temperature-guide",
+  "/answers",
+  "/answers/20c-vs-90c-pva-yarn-difference",
+  "/about",
+  "/quality",
+  "/contact",
+];
+const markerStatus = "\n__TASK10_STATUS__:";
+const markerUrl = "\n__TASK10_EFFECTIVE__:";
+
+function route(prefix, path) {
+  if (!prefix) return ORIGIN + path;
+  return ORIGIN + "/" + prefix + (path === "/" ? "" : path);
+}
+
+function normalize(url) {
+  const parsed = new URL(url);
+  parsed.hash = "";
+  if (parsed.pathname.length > 1) parsed.pathname = parsed.pathname.replace(/\/+$/, "");
+  return parsed.href;
+}
+
+function request(item) {
+  const args = [
+    "--resolve", HOST + ":443:" + PIN,
+    "-sS", "-L", "--max-redirs", "5",
+    "--connect-timeout", "10", "--max-time", "45",
+    "-H", "Cookie: threethai_locale=" + (item.prefix || "en"),
+    "-w", markerStatus + "%{http_code}" + markerUrl + "%{url_effective}",
+    item.url,
+  ];
+  return new Promise((resolve, reject) => {
+    execFile("curl.exe", args, { encoding: "utf8", maxBuffer: 8 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) return reject(new Error(item.url + ": " + (stderr || error.message)));
+      const statusAt = stdout.lastIndexOf(markerStatus);
+      const urlAt = stdout.lastIndexOf(markerUrl);
+      if (statusAt < 0 || urlAt < statusAt) return reject(new Error("Missing curl markers for " + item.url));
+      resolve({
+        ...item,
+        body: stdout.slice(0, statusAt),
+        status: Number(stdout.slice(statusAt + markerStatus.length, urlAt)),
+        effective: stdout.slice(urlAt + markerUrl.length).trim(),
+      });
+    });
+  });
+}
+
+async function mapLimit(items, limit, fn) {
+  const output = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (true) {
+      const index = next++;
+      if (index >= items.length) return;
+      output[index] = await fn(items[index]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return output;
+}
+
+function decode(value) {
+  return value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'");
+}
+
+function tags(html, name) {
+  return html.match(new RegExp("<" + name + "\\b[^>]*>", "gi")) || [];
+}
+
+function attr(tag, name) {
+  const match = tag.match(new RegExp("\\b" + name + "\\s*=\\s*([\"'])(.*?)\\1", "i"));
+  return match ? decode(match[2]) : "";
+}
+
+function linksByHreflang(html) {
+  const output = new Map();
+  for (const tag of tags(html, "link")) {
+    const rel = attr(tag, "rel").toLowerCase().split(/\s+/);
+    const hreflang = attr(tag, "hreflang").toLowerCase();
+    const href = attr(tag, "href");
+    if (rel.includes("alternate") && hreflang && href) output.set(hreflang, normalize(href));
+  }
+  return output;
+}
+
+(async () => {
+  const matrix = [];
+  for (const path of paths) {
+    for (const [hreflang, prefix] of localeRows) {
+      matrix.push({ path, hreflang, prefix, url: route(prefix, path) });
+    }
+  }
+  const pages = await mapLimit(matrix, 10, request);
+  let status200 = 0;
+  let selfCanonical = 0;
+  let elevenAlternates = 0;
+  let reciprocalGraphs = 0;
+  let htmlLangEn = 0;
+  const failures = [];
+
+  for (const page of pages) {
+    const canonicalTag = tags(page.body, "link").find((tag) =>
+      attr(tag, "rel").toLowerCase().split(/\s+/).includes("canonical")) || "";
+    const canonical = attr(canonicalTag, "href");
+    const alternates = linksByHreflang(page.body);
+    const htmlTag = tags(page.body, "html")[0] || "";
+    const expected = new Map(localeRows.map(([hreflang, prefix]) =>
+      [hreflang.toLowerCase(), normalize(route(prefix, page.path))]));
+    expected.set("x-default", normalize(route("", page.path)));
+    const graphOk = [...expected].every(([code, url]) => alternates.get(code) === url);
+
+    if (page.status === 200) status200++;
+    if (canonical && normalize(canonical) === normalize(page.url)) selfCanonical++;
+    if (alternates.size === 11) elevenAlternates++;
+    if (graphOk) reciprocalGraphs++;
+    if (attr(htmlTag, "lang").toLowerCase() === "en") htmlLangEn++;
+    if (page.status !== 200 || !canonical || normalize(canonical) !== normalize(page.url) || alternates.size !== 11 || !graphOk) {
+      failures.push({ url: page.url, status: page.status, canonical, alternates: alternates.size, graphOk });
+    }
+  }
+
+  console.log(JSON.stringify({
+    replacementValidatedUtc: new Date().toISOString(),
+    pinnedEndpoint: PIN,
+    templates: paths.length,
+    locales: localeRows.length,
+    samples: pages.length,
+    status200,
+    selfCanonical,
+    elevenAlternates,
+    reciprocalGraphs,
+    htmlLangEn,
+    failures,
+  }, null, 2));
+})().catch((error) => {
+  console.error(error.stack || error);
+  process.exit(1);
+});
+'@ | node -
+```
+
+Corrective replay result: 12 templates × 10 locales = 120 samples; 120 returned
+`200`; 120 were self-canonical; 120 emitted 11 unique alternates; 120 matched
+the full expected reciprocal/self-reference graph; 120 rendered
+`<html lang="en">`; and the failure list was empty.
 
 ### DNS commands
 
@@ -870,8 +1281,28 @@ nslookup -type=A www.threethai.com 1.1.1.1
 - `https://www.threethai.com/robots.txt`
 - `https://www.threethai.com/sitemap.xml`
 
+## Review Traceability
+
+- **Audit-content commit:**
+  `37c2c3729f2de7e6abaf2900e47abff1a297b247` — the original report-content
+  commit, not the full reviewed delivery head.
+- **Reviewed pre-correction head:**
+  `33d08a8fda012572a022993eee1ca78fdf61fc7a` — the full Task 10 delivery
+  reviewed independently on 2026-09-03.
+- **Official review outcome:** `CHANGES_REQUESTED`.
+- **Premature integration:** PR #6 merged the reviewed pre-correction head into
+  `main` at `9ff03a94fdc0bfb39557953beb76d06c6adfca9d` before independent approval.
+  That integration was not approved and is not represented as approved here.
+- **Current corrective head:** the new `audit: address Task 10 review findings`
+  commit created from this corrective pass; its immutable SHA is recorded in
+  the corrective push/PR and delivery because a Git commit cannot contain its
+  own final hash.
+
 ## Review Handoff
 
-This audit changes documentation and Task-owned coordination artifacts only.
-It contains no Technical SEO implementation. It is ready for independent review
-by Task 15 / QA_PERFORMANCE.
+This corrective audit-record pass changes only the existing report and Task 10
+coordination artifacts. It contains no Technical SEO implementation, DNS or
+redirect change, or website-source change. The corrective PR is intended to
+reconcile the audit record after the independent `CHANGES_REQUESTED` review and
+is ready for independent re-review by Task 15 / QA_PERFORMANCE. It must not be
+treated as approved until that re-review records `APPROVED`.
