@@ -47,6 +47,12 @@ Task 16 is `AUDIT`, `P1`, and `ON_HOLD` because legacy Task 48 overlaps backlink
 research and retains a dirty worktree. Its resume condition is authoritative in
 `tasks/16-backlink-audit.md`; do not launch it while that hold remains.
 
+## Current Implementation Tasks
+
+| ID | Task card | Role | Branch | Status |
+| --- | --- | --- | --- | --- |
+| 51 | `51-baidu-verification.md` | TECHNICAL_SEO | `codex/51-baidu-verification` | REVIEW |
+
 Each Audit Task's output allowlist contains only its dedicated report path. Each
 task also automatically owns its own task card and append-only matching worklog
 under the model in `AGENTS.md`. Creating a card does not authorize performing
