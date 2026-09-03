@@ -14,8 +14,8 @@
 - **Risk:** `LOW`
 - **Branch:** `codex/51-baidu-verification`
 - **Worktree:** `worktrees/agent-51-baidu-verification`
-- **Owner:** Codex Agent 51
-- **Reviewer:** Unassigned (must be independent)
+- **Owner:** TECHNICAL_SEO
+- **Reviewer:** QA_PERFORMANCE
 - **depends_on:** None
 - **blocks:** Baidu site ownership verification
 
@@ -91,7 +91,16 @@ git diff --check
 
 ## Coordination Items
 
-- None
+- Task 51 was originally created by an ad-hoc Codex thread without prior
+  ORCHESTRATOR authorization.
+- Its modification to `tasks/README.md` was also made before formal
+  authorization.
+- The ORCHESTRATOR subsequently reviewed the work and formally ADOPTED Task 51.
+- The existing Task Board row and current file allowlist are retroactively
+  accepted.
+- The technical implementation was accepted without substantive changes.
+- The task remains `REVIEW` and requires independent `QA_PERFORMANCE` review
+  before merge.
 
 ## Review Status
 
