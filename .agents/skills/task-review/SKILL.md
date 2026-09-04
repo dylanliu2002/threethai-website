@@ -5,8 +5,8 @@ description: Independently review an implementation already in REVIEW for Three 
 
 # Independent Task Review
 
-1. Require a controller-created fresh run and thread, a reviewer Role different
-   from the owner Role, and no implementation contribution by this worker.
+1. Require a controller-created fresh run/thread, external Grant, review
+   capability and current lease/fence; Reviewer Role differs from Owner Role.
 2. Read durable repository evidence: governance, contract revision, Task Card,
    reviewed base/head, diff and validation record. Do not rely on private chat.
 3. Prefer read-only repository access. Do not modify implementation or broaden
@@ -15,5 +15,6 @@ description: Independently review an implementation already in REVIEW for Three 
    secrets, risk, rollback and exact reviewed SHA binding.
 5. Return strict structured evidence with one outcome: `APPROVED`,
    `CHANGES_REQUESTED`, or `BLOCKED`. Durable findings are required for changes.
-6. Approval binds contract/policy revision, reviewed base/head and validation
-   digest. Any substantive later change invalidates it.
+6. Model prose never creates approval. The controller record binds contract and
+   authorization revisions/digests, reviewer run, reviewed base/head,
+   validation and non-empty evidence digests. Any substantive change invalidates it.

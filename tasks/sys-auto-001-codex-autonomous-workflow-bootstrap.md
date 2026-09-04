@@ -3,7 +3,7 @@
 - **Task Key:** `sys-auto-001-codex-autonomous-workflow-bootstrap`
 - **Display Task ID:** `SYS-AUTO-001`
 - **Title:** Codex Autonomous Workflow Bootstrap
-- **Mode:** `IMPLEMENT`
+- **Mode:** `CORRECTIVE / IMPLEMENT`
 - **Role / Owner:** `ORCHESTRATOR`
 - **Execution Profile:** `STRATEGIC_REASONING`
 - **Executor Platform:** Codex

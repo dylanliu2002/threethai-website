@@ -165,8 +165,11 @@ An unavailable or out-of-policy model yields `BLOCKED`. There is no silent
 cross-provider/model fallback. Historical executor metadata is immutable and a
 migration must not make Hermes work appear to have been Codex work.
 
-SYS-AUTO-001 is a manually supervised bootstrap only. A strict machine contract
-binds task key, routing policy revision, requested model, reasoning effort and
-configuration digest for reproducibility. Changing any of these requires a new
-authorized contract revision and may invalidate existing review evidence. Live
-dispatch and model routing remain disabled until separate activation.
+SYS-AUTO-001 is a manually supervised bootstrap only. Its strict Task Contract
+records requested configuration but grants no authority. A controller-owned
+Authorization Grant outside the worker worktree binds the complete contract
+digest plus routing, model, sandbox, scope, permissions, activation and
+publishing policy. A controller capability and current durable lease/fencing
+token are required for privileged use of the selected route. Changing a bound
+field requires a new Grant revision and invalidates incompatible review or
+approval evidence. Live dispatch remains disabled until separate activation.

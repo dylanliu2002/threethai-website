@@ -67,15 +67,19 @@ Execution Profile and a task-specific, replaceable execution assignment.
 
 ## Controller Boundary (Inactive Bootstrap)
 
-The optional SYS-AUTO-001 controller owns deterministic authorization,
-admission, legal state transitions, dependency/concurrency scheduling, leases,
-path/shared/resource/Git locks, validation eligibility, review independence and
-publishing gates. Codex workers retain reasoning and implementation judgment
-inside the exact contract. The controller must not turn reasoning into a rigid
+The optional SYS-AUTO-001 controller owns external Authorization Grants,
+capabilities, admission, legal state transitions, dependency/concurrency
+scheduling, durable leases/fencing, path/shared/resource/Git reservations,
+validation eligibility, review/approval authority and publishing gates. Task
+Contracts are untrusted requested configuration until a matching external Grant
+is loaded. Codex workers retain reasoning and implementation judgment inside
+the exact granted boundary. The controller must not turn reasoning into a rigid
 step-by-step state machine.
 
 The pilot default is two workers. Disjoint task scopes may run concurrently;
-overlapping paths and shared governance serialize. `CHANGES_REQUESTED` returns
+overlapping paths and shared governance serialize across processes. Actual Git
+and filesystem changes are controller-derived; worker path reports are advisory.
+`CHANGES_REQUESTED` returns
 to the same owner Role/branch/worktree for up to three correction cycles, then
 blocks. `ON_HOLD` never dispatches. `APPROVED` permits only the closeout actions
 listed by the contract and never implies merge, production or external action.

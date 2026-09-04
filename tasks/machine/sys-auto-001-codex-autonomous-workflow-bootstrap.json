@@ -1,23 +1,23 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "task_key": "sys-auto-001-codex-autonomous-workflow-bootstrap",
   "task_id": "SYS-AUTO-001",
   "card_path": "tasks/sys-auto-001-codex-autonomous-workflow-bootstrap.md",
-  "card_blob_sha": "61a1188e34e778ad5bb7d6b559b9d4ee00a72a6f",
-  "contract_revision": 1,
-  "status": "REVIEW",
-  "phase": "INDEPENDENT_REVIEW",
-  "mode": "IMPLEMENT",
+  "card_blob_sha": "1739d736abc1a842ebe6f4307922c498bb601817",
+  "contract_revision": 2,
+  "status": "IN_PROGRESS",
+  "phase": "CORRECT",
+  "mode": "CORRECTIVE",
   "owner_role": "ORCHESTRATOR",
   "reviewer_role": "QA_PERFORMANCE",
   "execution_profile": "STRATEGIC_REASONING",
   "risk": "HIGH",
   "priority": "P1",
-  "origin": {
-    "kind": "USER_AUTHORIZED",
-    "authorized_by": "user",
-    "authorized_at": "2026-09-04",
-    "source": "SYS-AUTO-001 authorized implementation request",
+  "request_provenance": {
+    "kind": "USER_REQUESTED",
+    "requested_by": "user",
+    "requested_at": "2026-09-04",
+    "source": "SYS-AUTO-001 authorized corrective pass",
     "base_sha": "b18e5630909e73c3fc6b4884a51d0b6daa89d20c"
   },
   "dependencies": [],
@@ -50,60 +50,31 @@
     "worklog/sys-auto-001-codex-autonomous-workflow-bootstrap.md"
   ],
   "shared_file_grants": [
-    {
-      "path": "AGENTS.md",
-      "purpose": "Add machine-contract and activation governance."
-    },
-    {
-      "path": "docs/agent-team/EXECUTION-POLICY.md",
-      "purpose": "Add replaceable model routing and autonomous execution boundaries."
-    },
-    {
-      "path": "docs/agent-team/TEAM-OPERATING-MODEL.md",
-      "purpose": "Add controller and independent review responsibilities."
-    },
-    {
-      "path": "docs/agent-team/UNIFIED-AGENT-PROMPT.md",
-      "purpose": "Require machine-contract admission for managed runs."
-    },
-    {
-      "path": "docs/agent-team/AUTONOMOUS-WORKFLOW.md",
-      "purpose": "Document the non-activated controller architecture."
-    },
-    {
-      "path": "docs/agent-team/AUTONOMOUS-MIGRATION-REGISTER.json",
-      "purpose": "Preserve historical task provenance without adoption."
-    },
-    {
-      "path": "tasks/TEMPLATE.md",
-      "purpose": "Add optional canonical task-key and machine phase fields."
-    },
-    {
-      "path": "tasks/README.md",
-      "purpose": "Register SYS-AUTO-001 without altering historical rows."
-    },
-    {
-      "path": "worklog/README.md",
-      "purpose": "Document infrastructure task-key worklog naming."
-    },
-    {
-      "path": ".github/workflows/autonomous-validation.yml",
-      "purpose": "Add validation-only CI with no autonomous dispatch."
-    }
+    { "path": "AGENTS.md", "purpose": "Add machine-contract and activation governance." },
+    { "path": "docs/agent-team/EXECUTION-POLICY.md", "purpose": "Add replaceable model routing and autonomous execution boundaries." },
+    { "path": "docs/agent-team/TEAM-OPERATING-MODEL.md", "purpose": "Add controller and independent review responsibilities." },
+    { "path": "docs/agent-team/UNIFIED-AGENT-PROMPT.md", "purpose": "Require machine-contract admission for managed runs." },
+    { "path": "docs/agent-team/AUTONOMOUS-WORKFLOW.md", "purpose": "Document the non-activated controller architecture." },
+    { "path": "docs/agent-team/AUTONOMOUS-MIGRATION-REGISTER.json", "purpose": "Preserve historical task provenance without adoption." },
+    { "path": "tasks/TEMPLATE.md", "purpose": "Add optional canonical task-key and machine phase fields." },
+    { "path": "tasks/README.md", "purpose": "Register SYS-AUTO-001 without altering historical rows." },
+    { "path": "worklog/README.md", "purpose": "Document infrastructure task-key worklog naming." },
+    { "path": ".github/workflows/autonomous-validation.yml", "purpose": "Add validation-only CI with no autonomous dispatch." }
   ],
   "validation_profile": {
-    "name": "sys-auto-bootstrap-v1",
+    "name": "sys-auto-bootstrap-v2",
     "commands": [
       "git diff --check",
       "node workflow/cli.mjs validate --all",
       "node --test workflow/tests/*.test.mjs",
       "node workflow/cli.mjs reconcile --dry-run",
       "node workflow/cli.mjs tick --dry-run",
+      "node workflow/cli.mjs tick",
       "npm run lint",
       "npm run typecheck"
     ]
   },
-  "permissions": {
+  "requested_permissions": {
     "repository_write": true,
     "git_commit": true,
     "branch_push": true,
@@ -118,7 +89,7 @@
     "external_action": false,
     "task_adoption": false
   },
-  "routing": {
+  "requested_routing": {
     "policy_revision": "model-routing-v1",
     "executor_platform": "Codex",
     "provider": "OpenAI",
@@ -133,28 +104,9 @@
     "timeout_seconds": 3600,
     "lease_seconds": 900
   },
-  "authorization": {
-    "decision": "AUTHORIZED",
-    "recorded_before_implementation": true,
-    "scope_digest": "04733eb30f888e8ae47286e39c77e542b993ea5fed949e8af56a8bf3d9cbda32",
-    "activation_authorized": false
-  },
   "provenance": {
-    "proposal_names": [
-      "Task 53"
-    ],
-    "historical_task_ids": [
-      "10",
-      "11",
-      "12",
-      "13",
-      "14",
-      "15",
-      "16",
-      "48",
-      "51",
-      "52"
-    ],
+    "proposal_names": ["Task 53"],
+    "historical_task_ids": ["10", "11", "12", "13", "14", "15", "16", "48", "51", "52"],
     "preserve_executor_metadata": true,
     "automatic_existing_task_adoption": false
   }

@@ -1,5 +1,6 @@
-export const SCHEMA_VERSION = "1.0.0";
-export const POLICY_REVISION = "autonomous-policy-v1";
+export const SCHEMA_VERSION = "2.0.0";
+export const GRANT_SCHEMA_VERSION = "1.0.0";
+export const POLICY_REVISION = "autonomous-policy-v2";
 export const MODEL_ROUTING_REVISION = "model-routing-v1";
 
 export const ROLES = Object.freeze([
@@ -21,29 +22,21 @@ export const EXECUTION_PROFILES = Object.freeze([
 ]);
 
 export const STATUSES = Object.freeze([
-  "DRAFT",
-  "READY",
-  "IN_PROGRESS",
-  "REVIEW",
-  "CHANGES_REQUESTED",
-  "APPROVED",
-  "MERGED",
-  "BLOCKED",
-  "ON_HOLD",
+  "DRAFT", "READY", "IN_PROGRESS", "REVIEW", "CHANGES_REQUESTED",
+  "APPROVED", "MERGED", "BLOCKED", "ON_HOLD",
 ]);
 
 export const PHASES = Object.freeze([
-  "INTAKE",
-  "QUEUED",
-  "IMPLEMENT",
-  "VALIDATE",
-  "INDEPENDENT_REVIEW",
-  "CORRECT",
-  "CLOSEOUT",
-  "PR_READY",
-  "WAITING_FOR_MERGE",
-  "COMPLETE",
+  "INTAKE", "QUEUED", "IMPLEMENT", "VALIDATE", "INDEPENDENT_REVIEW",
+  "CORRECT", "CLOSEOUT", "PR_READY", "WAITING_FOR_MERGE", "COMPLETE",
 ]);
+
+export const CAPABILITY_ACTIONS = Object.freeze([
+  "dispatch", "validate", "review", "approve", "correct", "closeout",
+  "commit", "push", "pr",
+]);
+
+export const SANDBOXES = Object.freeze(["read-only", "workspace-write"]);
 
 export const DEFAULT_LIMITS = Object.freeze({
   max_workers: 2,
@@ -52,8 +45,9 @@ export const DEFAULT_LIMITS = Object.freeze({
   lease_seconds: 900,
 });
 
-export const ACTIVATION_ENV = "THREETHAI_AUTONOMOUS_ACTIVATION";
-export const ACTIVATION_VALUE = "EXPLICITLY_AUTHORIZED";
+// Environment is an emergency kill switch only. It is never positive authority.
+export const KILL_SWITCH_ENV = "THREETHAI_AUTONOMOUS_KILL";
+export const KILL_SWITCH_VALUE = "1";
 
 export function stateKey(status, phase) {
   return `${status}/${phase}`;

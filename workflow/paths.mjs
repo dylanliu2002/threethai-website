@@ -1,17 +1,16 @@
-import path from "node:path";
 import fs from "node:fs";
+import path from "node:path";
 
 export function normalizeRepoPath(value, { prefix = false } = {}) {
   if (typeof value !== "string" || value.length === 0 || value.includes("\0")) {
     throw new Error("Path must be a non-empty string without NUL bytes.");
   }
   const slashPath = value.replaceAll("\\", "/").normalize("NFC");
-  if (/^(?:[A-Za-z]:|\/|\\)/.test(slashPath)) {
-    throw new Error(`Absolute path is forbidden: ${value}`);
+  if (/^(?:[A-Za-z]:|\/|\\)/.test(slashPath) || slashPath.startsWith("//")) {
+    throw new Error(`Absolute, drive, or UNC path is forbidden: ${value}`);
   }
   const rawSegments = slashPath.split("/");
-  if (rawSegments.some((segment, index) =>
-    segment === "" && (!prefix || index !== rawSegments.length - 1))) {
+  if (rawSegments.some((segment, index) => segment === "" && (!prefix || index !== rawSegments.length - 1))) {
     throw new Error(`Empty path segment is forbidden: ${value}`);
   }
   if (rawSegments.some((segment) => segment === "." || segment === "..")) {
@@ -39,21 +38,19 @@ export function pathAllowed(candidate, writeFiles, writePrefixes) {
   const key = windowsPathKey(candidate);
   const exact = new Set(writeFiles.map((item) => windowsPathKey(item)));
   if (exact.has(key)) return true;
-  return writePrefixes.some((prefix) =>
-    key.startsWith(windowsPathKey(prefix, { prefix: true })),
-  );
+  return writePrefixes.some((prefix) => key.startsWith(windowsPathKey(prefix, { prefix: true })));
 }
 
-export function assertChangedPathsAllowed(
-  changedPaths,
-  { write_files: writeFiles, write_prefixes: writePrefixes },
-) {
+export function assertChangedPathsAllowed(changedPaths, grant) {
+  const writeFiles = [...grant.write_files, ...(grant.administrative_files ?? [])];
+  const writePrefixes = grant.write_prefixes;
   for (const changed of changedPaths) {
     const paths = typeof changed === "string"
       ? [changed]
       : [changed.source, changed.destination].filter(Boolean);
     for (const candidate of paths) {
-      if (!pathAllowed(candidate, writeFiles, writePrefixes)) {
+      const normalized = normalizeRepoPath(candidate);
+      if (!pathAllowed(normalized, writeFiles, writePrefixes)) {
         throw new Error(`Changed path is outside authorization: ${candidate}`);
       }
     }
@@ -66,11 +63,25 @@ function inside(root, candidate) {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
-export function resolveWithinRepo(repoRoot, repositoryPath) {
+function assertNoReparseAncestor(rootReal, candidate, repositoryPath) {
+  const relative = path.relative(rootReal, candidate);
+  let current = rootReal;
+  for (const segment of relative.split(path.sep).filter(Boolean)) {
+    current = path.join(current, segment);
+    if (!fs.existsSync(current)) break;
+    const stat = fs.lstatSync(current);
+    if (stat.isSymbolicLink()) {
+      throw new Error(`Symlink or junction/reparse point is forbidden: ${repositoryPath}`);
+    }
+  }
+}
+
+export function resolveWithinRepo(repoRoot, repositoryPath, { rejectReparse = true } = {}) {
   const normalized = normalizeRepoPath(repositoryPath);
   const rootReal = fs.realpathSync.native(repoRoot);
   const candidate = path.resolve(rootReal, ...normalized.split("/"));
   if (!inside(rootReal, candidate)) throw new Error("Path escapes repository root.");
+  if (rejectReparse) assertNoReparseAncestor(rootReal, candidate, repositoryPath);
 
   let ancestor = candidate;
   while (!fs.existsSync(ancestor)) {
@@ -89,4 +100,19 @@ export function resolveWithinRepo(repoRoot, repositoryPath) {
     }
   }
   return candidate;
+}
+
+export function assertScopePathsSafe(repoRoot, grant) {
+  const seen = new Map();
+  for (const candidate of [...grant.write_files, ...grant.write_prefixes, ...grant.administrative_files]) {
+    const prefix = candidate.endsWith("/");
+    const key = windowsPathKey(candidate, { prefix });
+    const prior = seen.get(key);
+    if (prior && prior !== candidate) {
+      throw new Error(`Case-equivalent path collision: ${prior} and ${candidate}`);
+    }
+    seen.set(key, candidate);
+    resolveWithinRepo(repoRoot, prefix ? candidate.slice(0, -1) : candidate);
+  }
+  return true;
 }

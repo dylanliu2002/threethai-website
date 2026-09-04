@@ -1,9 +1,9 @@
-export function assessExistingTaskAdoption(contract, {
+export function assessExistingTaskAdoption(grant, {
   worktreeStatusLines = [],
   ambiguousWorktree = false,
-  explicitlyAuthorized = false,
+  separatelyAuthorized = false,
 } = {}) {
-  if (!explicitlyAuthorized || !contract.permissions.task_adoption) {
+  if (!separatelyAuthorized || !grant.permissions.task_adoption) {
     return { adoptable: false, reason: "separate-adoption-authorization-required" };
   }
   if (ambiguousWorktree) return { adoptable: false, reason: "ambiguous-worktree" };

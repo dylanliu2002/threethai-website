@@ -30,11 +30,13 @@ do not add a permanent exact-model-version field. Record any material execution
 change in the task-owned append-only worklog and, when coordination is affected,
 in a Coordination Item.
 
-A machine contract is an additional authorization boundary, not a replacement
-for this human-readable card. Machine-managed tasks fail closed on unsupported
-schema/fields or card/scope binding mismatch. Editing this card, an issue,
-prompt, or worklog can never broaden contract permissions. Historical Tasks do
-not need retroactive task keys/contracts and must not receive fabricated runs.
+A machine Task Contract is requested/declared configuration, not authorization
+and not a replacement for this human-readable card. Machine-managed tasks fail
+closed unless a controller-owned Authorization Grant outside the worker
+worktree matches the complete contract/card digest and every authorization-
+bearing field. Editing the contract, this card, an issue, prompt, worklog or
+model result can never broaden the external Grant. Historical Tasks do not need
+retroactive task keys/contracts and must not receive fabricated runs.
 
 ## Goal
 

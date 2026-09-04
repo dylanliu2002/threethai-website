@@ -4,6 +4,7 @@ const transitions = new Map([
   ["DRAFT/INTAKE", new Set(["READY/QUEUED", "BLOCKED/INTAKE", "ON_HOLD/INTAKE"])],
   ["READY/QUEUED", new Set(["IN_PROGRESS/IMPLEMENT", "BLOCKED/QUEUED", "ON_HOLD/QUEUED"])],
   ["IN_PROGRESS/IMPLEMENT", new Set(["IN_PROGRESS/VALIDATE", "BLOCKED/IMPLEMENT", "ON_HOLD/IMPLEMENT"])],
+  ["IN_PROGRESS/CORRECT", new Set(["IN_PROGRESS/VALIDATE", "BLOCKED/CORRECT", "ON_HOLD/CORRECT"])],
   ["IN_PROGRESS/VALIDATE", new Set(["REVIEW/INDEPENDENT_REVIEW", "BLOCKED/VALIDATE", "ON_HOLD/VALIDATE"])],
   ["REVIEW/INDEPENDENT_REVIEW", new Set([
     "CHANGES_REQUESTED/CORRECT",
@@ -78,8 +79,10 @@ export function approvalStillValid(approval, current) {
   return approval.reviewed_head_sha === current.head_sha
     && approval.reviewed_base_sha === current.base_sha
     && approval.contract_revision === current.contract_revision
-    && approval.policy_revision === current.policy_revision
-    && approval.validation_digest === current.validation_digest;
+    && approval.contract_digest === current.contract_digest
+    && approval.authorization_revision === current.authorization_revision
+    && approval.validation_digest === current.validation_digest
+    && approval.review_evidence_digest === current.review_evidence_digest;
 }
 
 export function nextOwnerAfterChangesRequested(contract) {

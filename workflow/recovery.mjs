@@ -1,48 +1,37 @@
 import fs from "node:fs";
 import path from "node:path";
+import { recoverControllerState, replayControllerJournal } from "./controller-state.mjs";
 import { RuntimeEventSchema } from "./schemas.mjs";
 
-export function replayEvents(events) {
-  const ordered = events.map((event) => RuntimeEventSchema.parse(event))
-    .sort((left, right) => left.sequence - right.sequence);
-  const seen = new Set();
-  const state = new Map();
-  let expected = 0;
-  for (const event of ordered) {
-    if (seen.has(event.event_id)) continue;
-    if (event.sequence !== expected) {
-      throw new Error(`Runtime event sequence gap: expected ${expected}, got ${event.sequence}`);
-    }
-    expected += 1;
-    seen.add(event.event_id);
-    const previous = state.get(event.task_key) ?? { events: [], last_run_id: null };
-    previous.events.push(event.type);
-    previous.last_run_id = event.run_id ?? previous.last_run_id;
-    previous.last_event = event;
-    state.set(event.task_key, previous);
-  }
-  return { state, event_ids: seen, next_sequence: expected };
-}
-
 export function readEventDirectory(runtimeDirectory) {
-  if (!runtimeDirectory) return [];
-  if (!fs.existsSync(runtimeDirectory)) return [];
-  return fs.readdirSync(runtimeDirectory)
-    .filter((name) => name.endsWith(".jsonl"))
-    .sort()
-    .flatMap((name) => fs.readFileSync(path.join(runtimeDirectory, name), "utf8")
-      .split(/\r?\n/)
-      .filter(Boolean)
-      .map((line) => JSON.parse(line)));
+  if (!runtimeDirectory || !fs.existsSync(runtimeDirectory)) return [];
+  const candidates = fs.statSync(runtimeDirectory).isDirectory()
+    ? [path.join(runtimeDirectory, "controller-journal.jsonl")]
+    : [runtimeDirectory];
+  return candidates.filter(fs.existsSync).flatMap((file) =>
+    fs.readFileSync(file, "utf8").split(/\r?\n/).filter(Boolean)
+      .map((line) => RuntimeEventSchema.parse(JSON.parse(line))));
 }
 
-export function reconcileRuntime(events) {
-  const reconstructed = replayEvents(events);
+export function replayEvents(events) {
+  return replayControllerJournal(events);
+}
+
+export function reconcileRuntime(stateDirectory, { repair = false } = {}) {
+  const recovered = recoverControllerState(stateDirectory, { repair });
+  const state = recovered.state;
   return {
     idempotent: true,
-    task_count: reconstructed.state.size,
-    event_count: reconstructed.event_ids.size,
-    next_sequence: reconstructed.next_sequence,
+    state_revision: state.revision,
+    event_count: recovered.event_count,
+    task_count: Object.keys(state.tasks).length,
+    run_count: Object.keys(state.runs).length,
+    live_lease_count: Object.keys(state.leases).length,
+    reservation_count: Object.keys(state.reservations).length,
+    approval_count: Object.keys(state.approvals).length,
+    correction_count: Object.values(state.tasks).reduce((sum, task) => sum + (task.correction_count ?? 0), 0),
+    reconstructed: recovered.reconstructed,
+    repair_needed: recovered.repair_needed,
     mutations: [],
   };
 }

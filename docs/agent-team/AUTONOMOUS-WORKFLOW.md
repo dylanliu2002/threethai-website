@@ -1,164 +1,166 @@
-# Autonomous Workflow (Bootstrap v1)
+# Autonomous Workflow (Corrected Bootstrap v2)
 
 ## Activation status
 
-**DISABLED.** SYS-AUTO-001 implements and tests a manually supervised,
-live-capable design. It does not activate a heartbeat, Automation, worker,
-GitHub mutation, existing-task adoption, unattended run, or production action.
-Independent approval and a separate explicit activation authorization are
-required before any live operation.
+**DISABLED.** SYS-AUTO-001 implements a manually supervised, fail-closed local
+controller. It creates no heartbeat, Automation, live worker, GitHub mutation,
+PR, task adoption, deployment or production action. Independent approval and a
+separate explicit activation authorization remain mandatory.
 
-## Native Codex and Symphony alignment
+The installed Codex CLI remains the replaceable execution adapter. The design
+uses its explicit cwd/model/sandbox, JSONL and JSON Schema output primitives,
+while keeping Task, Role, authorization, review and publishing policy outside
+the model. Private model/session context is never controller state.
 
-The controller deliberately remains small. It follows the Symphony-style
-separation between task-centered orchestration and worker reasoning: durable
-tasks are scheduled into isolated worktrees with bounded concurrency, while the
-worker chooses the investigation and implementation approach within the exact
-contract. ThreeThai-specific authorization, review and external-action controls
-remain deterministic controller responsibilities.
+## Trust boundary
 
-The installed Codex CLI is the MVP runtime because it directly supports the
-needed non-interactive primitives. Official OpenAI documentation confirms:
+The worker worktree is untrusted for authority. The tracked machine Task
+Contract under `tasks/machine/` contains requested/declared configuration only.
+It cannot grant its own scope, permissions, activation, route or publishing
+rights. An `authorization: true` field is rejected by the strict schema.
 
-- [`codex exec` non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode)
-  is designed for scripts/CI, supports explicit sandboxes, JSONL event streams,
-  JSON Schema final output and an output file for the last message;
-- [`AGENTS.md` instructions](https://learn.chatgpt.com/docs/agent-configuration/agents-md)
-  are layered repository guidance loaded for every run;
-- [repository Skills](https://learn.chatgpt.com/docs/build-skills) use a required
-  `SKILL.md` plus optional scripts/references/assets and progressive disclosure.
-
-The bootstrap therefore uses `codex exec` rather than adding an SDK/App Server
-dependency. App Server is a valid later integration if live supervision needs
-bidirectional session control that the CLI cannot provide. No external
-orchestrator is copied and no continuously rewritten `tasks/state.json` exists.
-
-## Durable identity and sources of truth
+Machine admission requires a separate Controller Authorization Grant stored in
+controller-owned durable state outside the worker worktree. The local default
+is:
 
 ```text
-task_key != display task_id != Role != worker_id != thread_id != run_id
+<git-common-dir>/threethai-workflow/
 ```
 
-The canonical machine identity is the full `task_key`. The strict versioned JSON
-contract is the authorization source; Task Cards, prompts, issue text, worker
-output and worklogs cannot broaden it. `card_blob_sha`, `contract_revision` and
-`scope_digest` bind the recorded card and permissions. Unknown fields and schema
-versions fail closed.
+The Grant binds its own envelope digest and all authority-bearing data:
 
-Repository/GitHub artifacts remain durable coordination state:
+- authorization ID/revision, Task key, complete contract digest/revision and
+  current card blob;
+- Owner/Reviewer Roles, mode, risk, dependencies, exact branch/worktree and
+  worktree realpath;
+- write files/prefixes, administrative paths and shared-file grants;
+- validation profile, permissions, routing/model/fallback and limits;
+- activation and publishing permissions, allowed branch, force prohibition,
+  provenance, issue time and expiry/non-expiring policy.
 
-- Task Contract: what is authorized;
-- append-only runtime events outside the tracked source tree: what happened;
-- review record: exact reviewed base/head, run independence and evidence;
-- PR metadata: integration fact;
-- Git history: historical provenance.
+Any Task Contract or card change without a matching new trusted Grant is
+rejected. A recomputed digest inside worker-writable content has no authority.
 
-Runtime events must use controller-assigned monotonic sequence numbers,
-idempotent event IDs and controller run IDs. The controller can replay them on
-restart. A merge never manufactures `APPROVED` status.
+## Controller capabilities and sandbox
 
-## Lifecycle
+Every privileged continuation after admission requires an expiring,
+controller-signed capability. It binds Task/run/attempt, lease ID, monotonic
+fencing token, contract digest, authorization revision, branch/worktree, Role,
+model, sandbox, action, current head and expiry. The signing key and active
+capability state never enter tracked content.
+
+The controller derives execution values; callers cannot select model, cwd,
+sandbox or escalation:
 
 ```text
-DRAFT / INTAKE
-  -> READY / QUEUED
-  -> IN_PROGRESS / IMPLEMENT
-  -> IN_PROGRESS / VALIDATE
-  -> REVIEW / INDEPENDENT_REVIEW
-  -> CHANGES_REQUESTED / CORRECT -> IN_PROGRESS / VALIDATE
-  -> APPROVED / CLOSEOUT
-  -> APPROVED / PR_READY
-  -> APPROVED / WAITING_FOR_MERGE
-  -> MERGED / COMPLETE
+independent REVIEW -> read-only
+bounded IMPLEMENT/CORRECT -> workspace-write
+danger-full-access -> forbidden in this MVP
 ```
 
-`BLOCKED/<reason>` stops the affected task. `ON_HOLD/<reason>` is never eligible
-for dispatch. Corrective runs return to the same owner Role, branch and worktree,
-then require validation and a fresh independent review. Three completed
-correction cycles are the MVP limit; the next request becomes `BLOCKED`.
+`runCodexExec` verifies the external Grant, signed capability, controller
+activation state, task dispatch permission, authoritative run, current
+lease/fence, route and exact worktree before invoking `spawn`. An environment
+variable may only disable execution as an emergency kill switch; it never
+enables execution.
 
-Approval binds reviewed base/head, contract revision, validation digest and
-policy revision. Any substantive change invalidates it. Closeout is idempotent,
-may write only `administrative_files`, and must record a separate Closeout Head.
+## Durable state, leases and recovery
 
-## Admission and scheduling
+Controller state and its append-only event journal are outside the worker
+worktree. State records Task phase, current run/attempt, run/worker/thread/Role,
+executor/provider/requested and reported model, configuration/contract digests,
+authorization revision, base/head, lease/fence, reviews, approvals, correction
+count, closeout and publishing facts.
 
-Admission requires all of the following:
+Admission uses an OS/filesystem atomic mutex plus atomic state replacement.
+Durable reservations cover controller Task identity, task/worktree, case-folded
+paths, shared governance, resource/build and Git-operation classes. Lease expiry
+advances a monotonic fencing generation; a stale worker cannot validate,
+review, approve, close out or publish. Duplicate wakeups and simultaneous
+processes cannot create a second authoritative run. Disjoint scopes may still
+proceed concurrently.
 
-1. supported strict contract and authorization decision;
-2. card blob and scope digest match;
-3. legal status/phase pair and satisfied dependency DAG;
-4. independent owner/reviewer Roles;
-5. approved model route with no silent fallback;
-6. activation and worker-dispatch permissions;
-7. clean, unambiguous worktree for any separately authorized adoption;
-8. available concurrency and all required locks.
+Each journal event includes a sanitized reconstructable snapshot. Restart
+replay restores active Task/run/lease/reservation/review/approval/correction/
+closeout/publishing state. Repeated reconciliation is idempotent and creates no
+duplicate run.
 
-Default `MAX_WORKERS` is two and is configuration, not permanent architecture.
-Duplicate wakeup IDs cannot create duplicate runs. Disjoint scopes may acquire
-leases concurrently; overlapping case-normalized paths serialize.
+## Actual change and path authority
 
-## Lock and path model
+`worker_result.changed_files` is advisory telemetry only. After a run, the
+controller independently derives committed, staged, unstaged and untracked
+changes from Git. Rename/copy source and destination are both checked. Every
+actual path is NFC-normalized, slash-normalized and compared case-insensitively
+for Windows against the Grant.
 
-The lock manager supports controller, task/worktree, path reservation,
-shared-governance, resource/build and Git-operation locks. A lease owns the
-right to continue/publish; stale workers fail closed after lease loss.
+Absolute, drive, UNC, empty-segment and traversal paths are rejected. Existing
+ancestors are realpath-checked; symlink/junction/reparse paths and escapes are
+rejected. A hidden untracked file or an allowed-to-forbidden rename blocks the
+run before validation or publishing.
 
-All write paths are repository-relative, NFC-normalized and compared
-case-insensitively for Windows. Absolute paths, empty segments, traversal and
-symlink/junction escape are rejected. Rename validation includes both source and
-destination. Administrative paths participate in write scopes and locks.
+## Review, approval and correction
 
-The controller never resets, stashes, deletes or recreates an existing dirty
-worktree automatically.
+An `APPROVED` string in model output is not approval. Independent review
+requires authoritative completed implementation and reviewer runs with:
 
-## Codex execution adapter
+- different Owner/Reviewer Roles, run IDs, worker IDs and thread IDs;
+- exact Task, contract digest/revision and authorization revision;
+- exact reviewed base/head and implementation validation digest;
+- non-empty review evidence and a recomputed evidence digest.
 
-For a live run after activation, the adapter constructs:
+Only after that record validates may the controller issue an Approval Record.
+The Approval binds reviewed base/head, contract and authorization revisions,
+reviewer run, validation/evidence digests and approval revision. A later
+substantive head or authorization change invalidates it.
+
+`CHANGES_REQUESTED` increments the durable controller correction counter. The
+same Owner Role/branch/worktree receives the corrective run; caller-supplied
+counts are ignored. Each return to review requires a new reviewer run. Three
+completed cycles are the maximum; the next request becomes `BLOCKED`.
+
+## Closeout and publishing
+
+Closeout requires a current controller Approval, closeout capability, live
+lease/fence and the unchanged reviewed head. It derives the diff again from the
+Reviewed Head and permits administrative paths only. Any implementation path
+change is rejected. A committed closeout must preserve distinct Reviewed and
+Closeout Heads.
+
+Commit, push and PR are independently gated by Grant permission, matching
+capability/action/head, current lease/fence, exact non-main branch, task-specific
+approval where configured, independent scope evidence and exact Git config/
+HEAD author identity:
 
 ```text
-codex exec -
-  --cd <absolute-worktree>
-  --model <approved-model>
-  --sandbox <least-required-sandbox>
-  --json
-  --output-schema <temporary-schema>
-  --output-last-message <temporary-result>
+dylanliu2002 <dylanliu2002@gmail.com>
 ```
 
-The prompt is sent over stdin. The controller supervises timeout/cancellation,
-requires exit status zero, parses JSONL, binds the reported `thread_id`, and
-strictly validates final output against authoritative task/run/Role identity.
-Temporary result files live outside the repository and are removed. Free-form
-prose is never the sole state-transition input.
+Force push and push-to-main are forbidden. Task-specific `pr=false` wins over
+any generic policy. Merge remains not implemented and not authorized.
 
-## Independent review and publishing
+## Secret boundary
 
-Review requires a different Role, worker, thread and run from implementation,
-no implementation contribution, and exact reviewed base/head. Read-only
-repository access is preferred. Reviewer output is structured and is still
-subject to controller validation.
+Contracts, structured worker results, stdout, stderr, exceptions, controller
+event/log payloads and worklog candidates are scanned/sanitized. Detection
+covers private keys, common API/GitHub/cloud token shapes, credentialed URLs,
+JWT-like credentials and password/secret assignments. Detected values are
+redacted from logs and blocked from tracked publication. Public ownership-
+verification values are not treated as credentials merely because they are
+short verification tokens. Full environment maps are never logged.
 
-Git commit, branch push, PR creation and merge are separate permissions. The Git
-identity gate is exact. PR creation additionally requires explicit GitHub-write
-permission. Production, DNS, secrets and external actions remain human gates.
-The bootstrap's live PR adapter always throws because SYS-AUTO-001 is not
-activated.
+## Validation-only operation
 
-## Wake mechanism and activation
-
-A future Codex heartbeat/Automation may wake `tick`, but it must not contain
-authorization and must stay quiet on unchanged state. The contract and current
-repository state determine eligibility. Activation requires a new explicit
-authorization covering runtime directory, credentials/auth strategy, sandbox,
-GitHub permissions, selected pilot tasks, notification policy, operator/stop
-procedure and rollback. Until then, only these commands are permitted:
+Local full validation requires the external Grant. Hosted CI intentionally has
+no controller authority and uses `--contracts-only`; this can validate schemas
+and adversarial tests but cannot dispatch or publish.
 
 ```bash
 node workflow/cli.mjs validate --all
+node --test workflow/tests/*.test.mjs
 node workflow/cli.mjs reconcile --dry-run
 node workflow/cli.mjs tick --dry-run
+node workflow/cli.mjs tick
 ```
 
-Dry-run returns structured plans with empty mutation lists and zero workers or
-automations started.
+With activation disabled, both tick forms produce zero live workers, GitHub
+mutations and publishing actions. No existing Task is adopted by SYS-AUTO-001.
