@@ -12,8 +12,8 @@
 - **Reasoning Effort:** `high`
 - **Execution Assignment Recorded:** Yes
 - **Priority:** `P1`
-- **Status:** `IN_PROGRESS`
-- **Machine Phase:** `CORRECT`
+- **Status:** `REVIEW`
+- **Machine Phase:** `INDEPENDENT_REVIEW`
 - **Risk:** `HIGH`
 - **Branch:** `codex/sys-auto-001-bootstrap`
 - **Worktree:** `worktrees/sys-auto-001-bootstrap`
@@ -180,6 +180,88 @@ MAJOR findings recorded by the independent review:
 5. Correction count and fresh-review requirements relied on caller input.
 6. Secret detection/redaction did not cover structured worker output,
    stdout/stderr/errors/logs/journal payloads or broad credential classes.
+
+## Corrective Pass Evidence
+
+- **Corrected implementation head:**
+  `fec98b557876be6488f8bde7983cd228033b5dda`
+- **Prior blocked reviewed head:**
+  `38e5e74ee70539145756ee22fa52bd8ee578771a`
+- **Contract revision:** `3` (final independent-review handoff)
+- **Authorization revision:** `3`, stored in controller-owned Git common/admin
+  state outside the worker worktree; global activation remains disabled.
+- **Fresh review required:** `QA_PERFORMANCE`, fresh Codex run/thread. The prior
+  blocked reviewer run and evidence cannot be reused as approval.
+
+BLOCKER closure evidence:
+
+1. PASS — tracked Task Contract is declared/requested configuration only.
+   Strict schema rejects self-declared authorization; the external Grant binds
+   the complete contract/card digest and every scope/activation/publishing field.
+2. PASS — `runCodexExec` rejects caller model/sandbox/cwd and validates the
+   external Grant, signed capability, activation, run, lease/fence, derived
+   route/sandbox and exact worktree before spawn. `danger-full-access` is
+   forbidden. Inactive non-dry-run tick started zero workers.
+3. PASS — controller independently derives committed/staged/unstaged/untracked
+   Git changes plus rename source/destination and reparse-safe canonical paths.
+   Worker `changed_files` remains advisory telemetry.
+4. PASS — approval requires authoritative completed implementation/reviewer
+   runs, exact Role/run/thread/worker/base/head/contract/authorization binding,
+   validation digest and non-empty review evidence digest. Only the controller
+   can issue the Approval Record.
+
+MAJOR closure evidence:
+
+1. PASS — cross-process atomic controller state, leases, path/shared/resource/
+   Git reservations, persistent wakeup dedupe and monotonic fencing replace
+   process-local operational Maps.
+2. PASS — append-only sanitized journal snapshots reconstruct task phase,
+   current run/attempt, leases/locks, review/approval, correction, closeout and
+   publishing state; repeated reconcile is idempotent.
+3. PASS — publishing requires Grant, action capability, live lease/fence,
+   exact branch/current SHA, task-specific approval where configured, scope
+   evidence and exact Git config/HEAD author. Main/force/merge remain rejected.
+4. PASS — controller, task/worktree, path, shared governance, resource/build and
+   Git-operation reservations are acquired in the same atomic admission.
+5. PASS — correction count and used reviewer run IDs are controller-owned
+   durable state; caller counts are ignored and every corrected head needs a
+   fresh reviewer run. Maximum remains three.
+6. PASS — structured results, stdout/stderr/errors, controller journal/log data,
+   worklog candidates and tracked artifacts use expanded secret detection and
+   redaction without classifying public ownership-verification values as secrets.
+
+Manual security reproduction (focused adversarial run):
+
+- A self-manufactured authorization: REJECTED (`AUTH-01`).
+- B activation unset/disabled: spawn not invoked (`EXEC-01`).
+- C worker omits unauthorized change: independent Git evidence detected it
+  (`SCOPE-01`).
+- D manufactured/empty/mismatched review evidence: REJECTED (`REVIEW-01`,
+  `REVIEW-02`, `REVIEW-04`).
+- E two independent Node controller processes: exactly one authoritative
+  dispatch (`LOCK-01`).
+- F stale lease/fence publishing attempt: REJECTED (`LEASE-01`).
+
+Corrective validation:
+
+- `node workflow/cli.mjs validate --all`: PASS; one external Grant verified,
+  activation disabled and tracked secret scan passed.
+- `node --test workflow/tests/*.test.mjs`: PASS, 48/48 including every required
+  AUTH/EXEC/SCOPE/PATH/REVIEW/APPROVAL/LOCK/LEASE/RECOVERY/CORRECT/CLOSEOUT/
+  PUBLISH/SECRET regression ID and real two-process contention.
+- `node workflow/cli.mjs reconcile --dry-run`: PASS; zero mutations/workers.
+- `node workflow/cli.mjs tick --dry-run`: PASS; zero mutations/workers/
+  Automations/GitHub/publishing actions.
+- inactive `node workflow/cli.mjs tick`: PASS; zero live workers, GitHub
+  mutations and publishing actions.
+- `npm run lint`: PASS. `npm run typecheck`: PASS.
+- `git diff --check`: PASS.
+- Independent controller-derived scope evidence: PASS; only SYS-AUTO-001
+  allowlisted paths. No application/public/Prisma/environment/package/lock/
+  deployment or existing Task artifact changed.
+- Task 16 remains `ON_HOLD`; dirty legacy Task 48 worktree was inspected
+  read-only and untouched; Tasks 13/14/15 were not adopted or started.
+- Autonomous workflow active: NO. Existing Tasks adopted: NO. PR: NO.
 
 ## Completion Record
 

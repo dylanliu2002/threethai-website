@@ -110,3 +110,58 @@ Corrective Authorization:
   is now `IN_PROGRESS / CORRECT`; no new Task, branch or worktree was created.
 - Global activation, existing-task adoption, PR creation, merge, production and
   all live workers remain unauthorized and disabled.
+
+---
+Task Key: sys-auto-001-codex-autonomous-workflow-bootstrap
+Task ID: SYS-AUTO-001
+Role: ORCHESTRATOR
+Task: Codex Autonomous Workflow Bootstrap — corrective implementation handoff
+Branch: codex/sys-auto-001-bootstrap
+Prior Reviewed Head: 38e5e74ee70539145756ee22fa52bd8ee578771a
+Corrected Implementation Head: fec98b557876be6488f8bde7983cd228033b5dda
+Base: b18e5630909e73c3fc6b4884a51d0b6daa89d20c
+Date: 2026-09-04
+
+Corrective Work:
+- Replaced the self-authorizing contract with a strict requested Task Contract
+  and a controller-owned external Authorization Grant binding the complete
+  contract/card digest, all permissions/scopes, activation, routing, publishing,
+  provenance and revision/expiry policy.
+- Added signed expiring controller capabilities and made execution completion,
+  lease release, review, approval, correction, closeout and publishing verify
+  current authoritative run/lease/fencing state.
+- Derived model/sandbox/cwd inside the controller. The adapter rejects caller
+  overrides and `danger-full-access`, and checks activation before spawn.
+- Replaced process-local operational locks with cross-process atomic durable
+  state, leases, six reservation classes, persistent wakeup dedupe, monotonic
+  fencing and a sanitized reconstructable journal.
+- Added independent Git evidence for committed/staged/unstaged/untracked paths,
+  rename source/destination, Windows case aliases and reparse/junction escape.
+- Added authoritative reviewer and approval records, durable correction counts/
+  reviewer freshness, administrative-only closeout and current SHA/branch/Git
+  identity/scope publishing gates. Merge remains unimplemented.
+- Expanded secret detection/redaction across structured output, stdout/stderr,
+  errors, journal/log data, worklog candidates and common credential classes.
+
+Validation and Reproduction:
+- Full external-Grant validation PASS; authorization revision 3 remains
+  activation=false and worker_dispatch=false.
+- Node tests PASS, 48/48. Required adversarial IDs are present, including two
+  separate Node processes contending for the same lease and overlapping paths.
+- Manual A–F focused reproduction PASS: self-authorization rejected; disabled
+  activation never invoked spawn; hidden Git change detected; manufactured,
+  empty and wrong-Role review rejected; cross-process duplicate dispatch denied;
+  stale publishing rejected.
+- Reconcile dry-run and tick dry-run PASS with zero mutations/workers. Inactive
+  non-dry-run tick PASS with zero workers, GitHub mutations or publishing.
+- Lint, typecheck and `git diff --check` PASS.
+- Controller-derived scope PASS. No `src/`, `public/`, Prisma, environment,
+  package/lock, deployment or existing Task artifact changed. Task 16 remains
+  ON_HOLD; Task 48 was untouched; Tasks 13/14/15 were not adopted or started.
+
+Stage Summary:
+- Status REVIEW / INDEPENDENT_REVIEW. The corrected branch head requires an
+  entirely fresh QA_PERFORMANCE Codex run/thread; prior blocked review evidence
+  remains historical and is not approval.
+- Autonomous workflow active: NO. Existing Tasks adopted: NO. PR/merge/
+  production/GitHub mutations: NO.
