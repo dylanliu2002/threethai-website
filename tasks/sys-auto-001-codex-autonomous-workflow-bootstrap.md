@@ -12,8 +12,8 @@
 - **Reasoning Effort:** `high`
 - **Execution Assignment Recorded:** Yes
 - **Priority:** `P1`
-- **Status:** `REVIEW`
-- **Machine Phase:** `INDEPENDENT_REVIEW`
+- **Status:** `IN_PROGRESS`
+- **Machine Phase:** `CORRECT`
 - **Risk:** `HIGH`
 - **Branch:** `codex/sys-auto-001-bootstrap`
 - **Worktree:** `worktrees/sys-auto-001-bootstrap`
@@ -293,3 +293,45 @@ Before merge, withhold the branch. After a separately approved merge, revert the
 SYS-AUTO-001 implementation commits to remove controller code and additive
 governance. No live automation or production rollback is needed because this
 task does not activate either.
+
+## Independent Review Record — Second Blocked Head
+
+- **Review Outcome:** `BLOCKED`
+- **Reviewed Base:** `b18e5630909e73c3fc6b4884a51d0b6daa89d20c`
+- **Reviewed Head:** `efe26f4b51214ab576b51927f504a0bbc39180a2`
+- **Reviewer Role:** `QA_PERFORMANCE`
+- **Correction cycle:** `#2`, explicitly authorized by the user on the existing
+  Task, branch and worktree only. This historical review remains unchanged and
+  cannot approve a later corrected head.
+
+BLOCKER findings recorded by the second independent review:
+
+1. The trusted authority root remained caller-manufacturable because production
+   privileged APIs accepted caller-selected state, Grant, activation, signing
+   key, lease and capability material.
+2. Authoritative run state was forgeable: a worker-reported `FAILED` outcome
+   could be recorded as completed and a nonexistent worker-selected head could
+   replace the actual Git HEAD.
+3. `finalizeCloseout` accepted a caller-supplied plan and could complete without
+   independently loading a valid current approval record.
+
+MAJOR findings recorded by the second independent review:
+
+1. Lease/fencing validation and privileged state mutation were separate,
+   leaving a TOCTOU race.
+2. Structured secret detection/redaction missed sensitive field names such as
+   `password`.
+3. The configured durable `max_workers` limit was not enforced.
+4. Fresh controller state could not admit a `REVIEW / INDEPENDENT_REVIEW` task
+   under its authorized reviewer Role.
+5. Validation-only CI `tick --dry-run` required external live authority and
+   failed on a clean checkout.
+
+Second corrective authorization:
+
+- Status is `IN_PROGRESS / CORRECT`; activation, worker dispatch, existing-task
+  adoption, PR creation, merge, GitHub writes and production remain disabled.
+- The correction must establish a canonical controller authority root, pinned
+  trust anchor, separate administration boundary, controller-derived completion
+  evidence, atomic fencing, authoritative closeout and all required second-pass
+  regressions before returning to a fresh independent review.

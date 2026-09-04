@@ -165,3 +165,37 @@ Stage Summary:
   remains historical and is not approval.
 - Autonomous workflow active: NO. Existing Tasks adopted: NO. PR/merge/
   production/GitHub mutations: NO.
+
+---
+Task Key: sys-auto-001-codex-autonomous-workflow-bootstrap
+Task ID: SYS-AUTO-001
+Role: ORCHESTRATOR
+Task: Codex Autonomous Workflow Bootstrap — second corrective authorization
+Branch: codex/sys-auto-001-bootstrap
+Second Blocked Reviewed Head: efe26f4b51214ab576b51927f504a0bbc39180a2
+Base: b18e5630909e73c3fc6b4884a51d0b6daa89d20c
+Date: 2026-09-04
+
+Review Outcome:
+- BLOCKED. Review #1 at `38e5e74ee70539145756ee22fa52bd8ee578771a`
+  and Review #2 at `efe26f4b51214ab576b51927f504a0bbc39180a2`
+  remain historical and are not rewritten or reused as approval.
+
+Independent QA_PERFORMANCE Findings:
+- BLOCKER: the production trust root remained caller-manufacturable through
+  caller-selected state/Grant/key/activation/lease/capability material.
+- BLOCKER: worker `FAILED` and worker-selected nonexistent head values could
+  become authoritative completion state instead of controller-derived evidence.
+- BLOCKER: closeout trusted a caller-supplied plan and did not independently
+  require the current stored approval.
+- MAJOR: privileged continuation had a lease/fence TOCTOU window.
+- MAJOR: deep structured secret handling missed sensitive key names.
+- MAJOR: durable `max_workers` was not enforced.
+- MAJOR: fresh review-phase admission derived the owner instead of reviewer.
+- MAJOR: clean validation-only CI required unavailable live authority.
+
+Corrective Authorization:
+- The user authorized correction cycle #2 on this existing branch/worktree only.
+  Status is `IN_PROGRESS / CORRECT`.
+- No new Task/branch/worktree, autonomy activation, existing-task adoption, PR,
+  merge, GitHub mutation, production change or live worker is authorized.
