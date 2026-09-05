@@ -8,8 +8,20 @@ const PATTERNS = Object.freeze([
   ["cloud-access-key", /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g],
   ["jwt", /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g],
   ["credential-url", /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|https?):\/\/[^\s:/]+:[^\s/@]+@[^\s]+/gi],
-  ["credential-assignment", /\b(?:api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|password|passwd|private[_-]?key|secret[_-]?key)\b\s*[=:]\s*["']?[^\s"'<>{},]{8,}/gi],
+  ["credential-assignment", /\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|auth[_-]?token|client[_-]?secret|password|passwd|pwd|private[_-]?key|secret[_-]?key|credential)\b\s*[=:]\s*["']?[^\s"'<>{},]{3,}/gi],
 ]);
+
+const SENSITIVE_KEYS = new Set([
+  "password", "passwd", "pwd", "secret", "clientsecret", "apikey",
+  "accesstoken", "refreshtoken", "privatekey", "authorization",
+  "credential", "credentials",
+]);
+
+function normalizedKey(key) {
+  return String(key).toLocaleLowerCase("en-US").replace(/[^a-z0-9]/g, "");
+}
+
+function isSensitiveKey(key) { return SENSITIVE_KEYS.has(normalizedKey(key)); }
 
 export function detectedSecretClasses(text) {
   const value = String(text);
@@ -30,11 +42,37 @@ export function redactSecrets(text) {
   return value;
 }
 
+export function detectedSecretsDeep(value, pathPrefix = "$") {
+  const findings = [];
+  function visit(item, currentPath) {
+    if (typeof item === "string") {
+      for (const label of detectedSecretClasses(item)) findings.push(`${currentPath}:${label}`);
+      return;
+    }
+    if (Array.isArray(item)) {
+      item.forEach((entry, index) => visit(entry, `${currentPath}[${index}]`));
+      return;
+    }
+    if (item && typeof item === "object") {
+      for (const [key, entry] of Object.entries(item)) {
+        const childPath = `${currentPath}.${key}`;
+        if (isSensitiveKey(key)) findings.push(`${childPath}:sensitive-field`);
+        else visit(entry, childPath);
+      }
+    }
+  }
+  visit(value, pathPrefix);
+  return [...new Set(findings)];
+}
+
 export function sanitizeForLog(value) {
   if (typeof value === "string") return redactSecrets(value);
   if (Array.isArray(value)) return value.map(sanitizeForLog);
   if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, sanitizeForLog(item)]));
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+      key,
+      isSensitiveKey(key) ? "[REDACTED]" : sanitizeForLog(item),
+    ]));
   }
   return value;
 }
@@ -46,7 +84,9 @@ export function assertNoSecretValues(text, label = "artifact") {
 }
 
 export function assertNoSecretsDeep(value, label = "value") {
-  return assertNoSecretValues(JSON.stringify(value), label);
+  const findings = detectedSecretsDeep(value);
+  if (findings.length) throw new Error(`Possible secret field/value in ${label}: ${findings.join(",")}`);
+  return true;
 }
 
 export function prepareWorklogCandidate(value) {

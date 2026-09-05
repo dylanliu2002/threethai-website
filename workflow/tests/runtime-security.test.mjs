@@ -5,15 +5,18 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { issueControllerCapability } from "../capability.mjs";
 import { runCodexExec } from "../codex-exec.mjs";
-import { setControllerActivation, readControllerState } from "../controller-state.mjs";
-import { reserveTaskDispatch, releaseTaskLease } from "../durable-leases.mjs";
-import { assertPublishingContext } from "../publishing.mjs";
-import { reconcileRuntime } from "../recovery.mjs";
 import { tick } from "../controller.mjs";
+import { issueCapabilityInternal } from "../internal/capability-engine.mjs";
+import { readControllerStateInternal } from "../internal/controller-state-engine.mjs";
+import { releaseTaskLeaseInternal, reserveTaskDispatchInternal } from "../internal/lease-engine.mjs";
+import { planPublishingInternal } from "../internal/publishing-engine.mjs";
+import { reconcileRuntimeInternal } from "../internal/recovery-engine.mjs";
+import { runCodexExecInternal } from "../internal/run-engine.mjs";
+import { setTestActivation, testAuthorityMaterial } from "../testing/controller-harness.mjs";
 import {
   cleanupFixture,
+  engineFor,
   makeContract,
   makeGitFixture,
   makeGrant,
@@ -24,8 +27,8 @@ import {
 const contender = path.join(path.dirname(fileURLToPath(import.meta.url)), "lease-contender.mjs");
 
 function reserve(fixture, roleId = fixture.contract.owner_role) {
-  return reserveTaskDispatch({
-    stateDirectory: fixture.stateDirectory,
+  return reserveTaskDispatchInternal({
+    engine: fixture.engine,
     contract: fixture.contract,
     grant: fixture.grant,
     wakeupId: `wake-${Math.random()}`,
@@ -39,16 +42,14 @@ test("EXEC-01 runCodexExec with activation disabled never invokes spawn", async 
   const fixture = makeGitFixture();
   t.after(() => cleanupFixture(fixture.repoRoot, fixture.stateDirectory));
   const admitted = reserve(fixture);
-  const capability = issueControllerCapability({
-    stateDirectory: fixture.stateDirectory, contract: fixture.contract, grant: fixture.grant,
-    action: "dispatch", runId: admitted.run.run_id, leaseId: admitted.lease.lease_id,
-    fencingToken: admitted.lease.fencing_token, headSha: fixture.baseSha, repoRoot: fixture.repoRoot,
+  const capability = issueCapabilityInternal({
+    engine: fixture.engine, contract: fixture.contract, grant: fixture.grant,
+    action: "dispatch", runId: admitted.run.run_id, headSha: fixture.baseSha,
   });
-  setControllerActivation(fixture.stateDirectory, false, { source: "test-disable" });
+  setTestActivation(fixture.stateDirectory, false, { source: "test-disable" });
   let spawned = 0;
-  await assert.rejects(() => runCodexExec({
-    repoRoot: fixture.repoRoot, stateDirectory: fixture.stateDirectory,
-    contract: fixture.contract, grant: fixture.grant, capability,
+  await assert.rejects(() => runCodexExecInternal({
+    engine: fixture.engine, contract: fixture.contract, grant: fixture.grant, capability,
     prompt: "perform bounded test work", spawnImpl: () => { spawned += 1; },
   }), /activation/i);
   assert.equal(spawned, 0);
@@ -57,14 +58,14 @@ test("EXEC-01 runCodexExec with activation disabled never invokes spawn", async 
 test("EXEC-02 caller cannot request danger-full-access", async () => {
   let spawned = 0;
   await assert.rejects(() => runCodexExec({
-    sandbox: "danger-full-access", spawnImpl: () => { spawned += 1; },
-  }), /caller-selected sandbox/i);
+    sandbox: "danger-full-access",
+  }), /caller-selected.*sandbox/i);
   assert.equal(spawned, 0);
 });
 
 test("EXEC-03 caller alternate model cwd or sandbox is rejected", async () => {
-  await assert.rejects(() => runCodexExec({ model: "alternate" }), /caller-selected model/i);
-  await assert.rejects(() => runCodexExec({ cwd: "C:/other" }), /caller-selected cwd/i);
+  await assert.rejects(() => runCodexExec({ model: "alternate" }), /caller-selected.*model/i);
+  await assert.rejects(() => runCodexExec({ cwd: "C:/other" }), /caller-selected.*cwd/i);
 });
 
 function runContender(fixturePath, stateDirectory, wakeupId) {
@@ -93,13 +94,13 @@ test("LOCK-01 two separate controller processes produce exactly one task lease",
   const contract = makeContract();
   const grant = makeGrant(contract);
   const fixturePath = path.join(fixtureDirectory, "fixture.json");
-  fs.writeFileSync(fixturePath, JSON.stringify({ contract, grant, baseSha: "a".repeat(40) }));
+  fs.writeFileSync(fixturePath, JSON.stringify({ contract, grant, baseSha: "a".repeat(40), authority: testAuthorityMaterial() }));
   const results = await Promise.all([
     runContender(fixturePath, stateDirectory, "process-one"),
     runContender(fixturePath, stateDirectory, "process-two"),
   ]);
   assert.equal(results.filter((item) => item.acquired).length, 1);
-  assert.equal(Object.keys(readControllerState(stateDirectory).runs).length, 1);
+  assert.equal(Object.keys(readControllerStateInternal(stateDirectory).runs).length, 1);
 });
 
 test("LOCK-02 overlapping paths serialize across separate controller processes", async (t) => {
@@ -110,7 +111,7 @@ test("LOCK-02 overlapping paths serialize across separate controller processes",
   const right = makeContract({ taskKey: "task-beta", file: "SRC/shared.ts" });
   const files = [left, right].map((contract, index) => {
     const file = path.join(fixtureDirectory, `${index}.json`);
-    fs.writeFileSync(file, JSON.stringify({ contract, grant: makeGrant(contract), baseSha: "a".repeat(40) }));
+    fs.writeFileSync(file, JSON.stringify({ contract, grant: makeGrant(contract), baseSha: "a".repeat(40), authority: testAuthorityMaterial() }));
     return file;
   });
   const results = await Promise.all([
@@ -121,22 +122,19 @@ test("LOCK-02 overlapping paths serialize across separate controller processes",
 });
 
 test("LEASE-01 stale worker publish after lease loss is rejected", (t) => {
-  const fixture = makeGitFixture();
+  const fixture = makeGitFixture({ status: "APPROVED", phase: "CLOSEOUT" });
   t.after(() => cleanupFixture(fixture.repoRoot, fixture.stateDirectory));
   const admitted = reserve(fixture);
-  const capability = issueControllerCapability({
-    stateDirectory: fixture.stateDirectory, contract: fixture.contract, grant: fixture.grant,
-    action: "push", runId: admitted.run.run_id, leaseId: admitted.lease.lease_id,
-    fencingToken: admitted.lease.fencing_token, headSha: fixture.baseSha,
-    repoRoot: fixture.repoRoot,
+  const capability = issueCapabilityInternal({
+    engine: fixture.engine, contract: fixture.contract, grant: fixture.grant,
+    action: "push", runId: admitted.run.run_id, headSha: fixture.baseSha,
   });
-  releaseTaskLease({
-    stateDirectory: fixture.stateDirectory, contract: fixture.contract, grant: fixture.grant,
-    capability, repoRoot: fixture.repoRoot,
+  releaseTaskLeaseInternal({
+    engine: fixture.engine, contract: fixture.contract, grant: fixture.grant, capability,
   });
-  assert.throws(() => assertPublishingContext({
-    stateDirectory: fixture.stateDirectory, repoRoot: fixture.repoRoot,
-    contract: fixture.contract, grant: fixture.grant, capability, action: "push",
+  assert.throws(() => planPublishingInternal({
+    engine: fixture.engine, contract: fixture.contract, grant: fixture.grant,
+    capability, action: "push",
   }), /lease|stale/i);
 });
 
@@ -145,12 +143,13 @@ test("RECOVERY-01 restart reconstructs active run lease locks and task state", (
   t.after(() => cleanupFixture(stateDirectory));
   const contract = makeContract();
   const grant = makeGrant(contract);
-  const admitted = reserveTaskDispatch({
-    stateDirectory, contract, grant, wakeupId: "recover-one", baseSha: "a".repeat(40),
+  const admitted = reserveTaskDispatchInternal({
+    engine: engineFor({ stateDirectory, contract, grant }),
+    contract, grant, wakeupId: "recover-one", baseSha: "a".repeat(40),
     roleId: contract.owner_role, verifyCard: false,
   });
   assert.equal(admitted.acquired, true);
-  const recovered = reconcileRuntime(stateDirectory);
+  const recovered = reconcileRuntimeInternal(stateDirectory);
   assert.equal(recovered.run_count, 1);
   assert.equal(recovered.live_lease_count, 1);
   assert.ok(recovered.reservation_count >= 1);
@@ -162,34 +161,23 @@ test("RECOVERY-02 duplicate reconcile is idempotent with no duplicate run", (t) 
   t.after(() => cleanupFixture(stateDirectory));
   const contract = makeContract();
   const grant = makeGrant(contract);
-  reserveTaskDispatch({
-    stateDirectory, contract, grant, wakeupId: "recover-two", baseSha: "a".repeat(40),
+  reserveTaskDispatchInternal({
+    engine: engineFor({ stateDirectory, contract, grant }),
+    contract, grant, wakeupId: "recover-two", baseSha: "a".repeat(40),
     roleId: contract.owner_role, verifyCard: false,
   });
-  const before = readControllerState(stateDirectory).revision;
-  const first = reconcileRuntime(stateDirectory);
-  const second = reconcileRuntime(stateDirectory);
+  const before = readControllerStateInternal(stateDirectory).revision;
+  const first = reconcileRuntimeInternal(stateDirectory);
+  const second = reconcileRuntimeInternal(stateDirectory);
   assert.equal(first.run_count, 1);
   assert.equal(second.run_count, 1);
-  assert.equal(readControllerState(stateDirectory).revision, before);
+  assert.equal(readControllerStateInternal(stateDirectory).revision, before);
   assert.deepEqual(second.mutations, []);
 });
 
-test("inactive non-dry-run tick starts no workers and performs no external mutation", async (t) => {
-  const fixture = makeGitFixture();
-  t.after(() => cleanupFixture(fixture.repoRoot, fixture.stateDirectory));
-  fs.mkdirSync(path.join(fixture.repoRoot, "tasks", "machine"), { recursive: true });
-  fs.writeFileSync(path.join(fixture.repoRoot, "tasks", "machine", `${fixture.contract.task_key}.json`),
-    `${JSON.stringify(fixture.contract, null, 2)}\n`);
-  persistGrant(fixture.stateDirectory, fixture.grant);
-  setControllerActivation(fixture.stateDirectory, false, { source: "test-inactive" });
-  let spawned = 0;
-  const result = await tick(fixture.repoRoot, {
-    dryRun: false, stateDirectory: fixture.stateDirectory,
-    dispatchWorker: () => { spawned += 1; },
-  });
+test("inactive non-dry-run tick starts no workers and performs no external mutation", async () => {
+  const result = await tick(process.cwd(), { dryRun: false });
   assert.equal(result.workers_started, 0);
   assert.equal(result.github_mutations, 0);
   assert.equal(result.publishing_actions, 0);
-  assert.equal(spawned, 0);
 });

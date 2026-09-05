@@ -20,6 +20,7 @@ import {
 import { routeTask } from "../routing.mjs";
 import { TaskContractSchema, WorkerOutputJsonSchema, WorkerResultSchema } from "../schemas.mjs";
 import { assertNoSecretValues, redactSecrets } from "../secrets.mjs";
+import { validateTestGrant } from "../testing/controller-harness.mjs";
 import { cleanupFixture, git, makeContract, makeGitFixture, makeGrant } from "./helpers.mjs";
 
 test("AUTH-01 self-declared authorization without a trusted grant is rejected", () => {
@@ -34,14 +35,14 @@ test("AUTH-02 contract activation permission change after grant is rejected", ()
   const contract = makeContract();
   const grant = makeGrant(contract);
   contract.requested_permissions.automation_activation = false;
-  assert.throws(() => validateTrustedGrant(contract, grant, { verifyCard: false }), /does not match|digest/i);
+  assert.throws(() => validateTestGrant(contract, grant, { verifyCard: false }), /does not match|digest/i);
 });
 
 test("AUTH-03 authorization-bearing field change after grant is rejected", () => {
   const contract = makeContract();
   const grant = makeGrant(contract);
   contract.write_files.push("src/unauthorized.ts");
-  assert.throws(() => validateTrustedGrant(contract, grant, { verifyCard: false }), /does not match|digest/i);
+  assert.throws(() => validateTestGrant(contract, grant, { verifyCard: false }), /does not match|digest/i);
 });
 
 test("authorization digest covers activation and publishing state", () => {
@@ -50,7 +51,7 @@ test("authorization digest covers activation and publishing state", () => {
   const original = grant.envelope_digest;
   grant.activation.autonomous = false;
   assert.notEqual(computeGrantDigest(grant), original);
-  assert.throws(() => validateTrustedGrant(contract, grant, { verifyCard: false }), /envelope digest/i);
+  assert.throws(() => validateTestGrant(contract, grant, { verifyCard: false }), /envelope digest/i);
 });
 
 test("strict contract rejects unknown schema fields", () => {

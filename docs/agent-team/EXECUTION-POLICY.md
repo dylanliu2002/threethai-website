@@ -167,8 +167,9 @@ migration must not make Hermes work appear to have been Codex work.
 
 SYS-AUTO-001 is a manually supervised bootstrap only. Its strict Task Contract
 records requested configuration but grants no authority. A controller-owned
-Authorization Grant outside the worker worktree binds the complete contract
-digest plus routing, model, sandbox, scope, permissions, activation and
+signed Authorization Grant in the canonical controller-owned root outside the
+worker worktree binds the complete contract digest plus routing, model, sandbox,
+scope, permissions, activation and
 publishing policy. A controller capability and current durable lease/fencing
 token are required for privileged use of the selected route. Changing a bound
 field requires a new Grant revision and invalidates incompatible review or

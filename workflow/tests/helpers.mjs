@@ -3,8 +3,12 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { createAuthorizationGrantRecord, grantPath } from "../authority.mjs";
-import { setControllerActivation } from "../controller-state.mjs";
+import {
+  createTestEngine,
+  createTestGrant,
+  setTestActivation,
+  testGrantPath,
+} from "../testing/controller-harness.mjs";
 
 const sourceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const rawContract = JSON.parse(fs.readFileSync(
@@ -61,11 +65,13 @@ export function makeGrant(contract, {
   authorizationRevision = 1,
   activation = { autonomous: true, worker_dispatch: true },
   publishing,
+  reviewTarget = null,
 } = {}) {
-  return createAuthorizationGrantRecord(contract, {
+  return createTestGrant(contract, {
     authorizationRevision,
     worktreeRealpath,
     activation,
+    reviewTarget,
     publishing: publishing ?? {
       commit: contract.requested_permissions.git_commit,
       push: contract.requested_permissions.branch_push,
@@ -87,18 +93,18 @@ export function makeGrant(contract, {
 
 export function makeStateDirectory({ active = true } = {}) {
   const stateDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "threethai-controller-state-"));
-  setControllerActivation(stateDirectory, active, { source: "test-controller" });
+  setTestActivation(stateDirectory, active, { source: "test-controller" });
   return stateDirectory;
 }
 
 export function persistGrant(stateDirectory, grant) {
-  const file = grantPath(stateDirectory, grant.task_key);
+  const file = testGrantPath(stateDirectory, grant.task_key);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, `${JSON.stringify(grant, null, 2)}\n`);
   return file;
 }
 
-export function makeGitFixture({ file = "allowed.txt", taskKey = "task-alpha" } = {}) {
+export function makeGitFixture({ file = "allowed.txt", taskKey = "task-alpha", ...contractOptions } = {}) {
   const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "threethai-test-repo-"));
   git(repoRoot, ["init", "-b", "main"]);
   git(repoRoot, ["config", "user.name", "dylanliu2002"]);
@@ -111,11 +117,16 @@ export function makeGitFixture({ file = "allowed.txt", taskKey = "task-alpha" } 
   git(repoRoot, ["switch", "-c", `codex/${taskKey}`]);
   const baseSha = git(repoRoot, ["rev-parse", "HEAD"]);
   const cardBlobSha = git(repoRoot, ["hash-object", `tasks/${taskKey}.md`]);
-  const contract = makeContract({ taskKey, file, baseSha, cardBlobSha });
+  const contract = makeContract({ taskKey, file, baseSha, cardBlobSha, ...contractOptions });
   const stateDirectory = makeStateDirectory({ active: true });
   const grant = makeGrant(contract, { worktreeRealpath: repoRoot });
   persistGrant(stateDirectory, grant);
-  return { repoRoot, stateDirectory, contract, grant, baseSha };
+  const engine = createTestEngine({ repoRoot, stateDirectory, taskKey, grant });
+  return { repoRoot, stateDirectory, contract, grant, baseSha, engine };
+}
+
+export function engineFor({ repoRoot, stateDirectory, contract, grant }) {
+  return createTestEngine({ repoRoot, stateDirectory, taskKey: contract.task_key, grant });
 }
 
 export function cleanupFixture(...directories) {

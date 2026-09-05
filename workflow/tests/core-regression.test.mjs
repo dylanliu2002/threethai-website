@@ -2,32 +2,40 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { validateTrustedGrant } from "../authority.mjs";
+import { validateTestGrant } from "../testing/controller-harness.mjs";
 import { assessExistingTaskAdoption } from "../adoption.mjs";
 import { buildCodexExecArgs, parseJsonl, threadIdFromEvents } from "../codex-exec.mjs";
 import { validateTaskGraph } from "../dependencies.mjs";
-import { reserveTaskDispatch } from "../durable-leases.mjs";
+import { reserveTaskDispatchInternal } from "../internal/lease-engine.mjs";
 import { routeTask } from "../routing.mjs";
 import { isDispatchEligible } from "../scheduler.mjs";
 import { transition } from "../state.mjs";
 import {
   cleanupFixture,
+  engineFor,
   makeContract,
   makeGitFixture,
   makeGrant,
   makeStateDirectory,
 } from "./helpers.mjs";
 
+function reserve({ stateDirectory, contract, grant, repoRoot, ...rest }) {
+  return reserveTaskDispatchInternal({
+    engine: engineFor({ stateDirectory, contract, grant, repoRoot }),
+    contract, grant, stateDirectory, repoRoot, ...rest,
+  });
+}
+
 test("disjoint durable reservations may coexist", (t) => {
   const stateDirectory = makeStateDirectory({ active: true });
   t.after(() => cleanupFixture(stateDirectory));
   const left = makeContract({ taskKey: "task-alpha", file: "src/alpha.ts" });
   const right = makeContract({ taskKey: "task-beta", file: "src/beta.ts" });
-  const first = reserveTaskDispatch({
+  const first = reserve({
     stateDirectory, contract: left, grant: makeGrant(left), wakeupId: "disjoint-a",
     baseSha: "a".repeat(40), roleId: left.owner_role, verifyCard: false,
   });
-  const second = reserveTaskDispatch({
+  const second = reserve({
     stateDirectory, contract: right, grant: makeGrant(right), wakeupId: "disjoint-b",
     baseSha: "a".repeat(40), roleId: right.owner_role, verifyCard: false,
   });
@@ -40,11 +48,11 @@ test("durable wakeup deduplication produces no second authoritative run", (t) =>
   t.after(() => cleanupFixture(stateDirectory));
   const contract = makeContract();
   const grant = makeGrant(contract);
-  const first = reserveTaskDispatch({
+  const first = reserve({
     stateDirectory, contract, grant, wakeupId: "same-wakeup", baseSha: "a".repeat(40),
     roleId: contract.owner_role, verifyCard: false,
   });
-  const second = reserveTaskDispatch({
+  const second = reserve({
     stateDirectory, contract, grant, wakeupId: "same-wakeup", baseSha: "a".repeat(40),
     roleId: contract.owner_role, verifyCard: false,
   });
@@ -118,7 +126,7 @@ test("current Task Card mutation invalidates external Grant", (t) => {
   const fixture = makeGitFixture();
   t.after(() => cleanupFixture(fixture.repoRoot, fixture.stateDirectory));
   fs.appendFileSync(path.join(fixture.repoRoot, fixture.contract.card_path), "changed\n");
-  assert.throws(() => validateTrustedGrant(fixture.contract, fixture.grant, {
-    repoRoot: fixture.repoRoot, stateDirectory: fixture.stateDirectory,
+  assert.throws(() => validateTestGrant(fixture.contract, fixture.grant, {
+    repoRoot: fixture.repoRoot,
   }), /card blob mismatch/i);
 });

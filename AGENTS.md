@@ -284,8 +284,11 @@ automation or adopt any existing Task.
   are never sufficient identity.
 - A supported Task Contract under `tasks/machine/` is only requested/declared
   configuration. It cannot authorize itself. Machine admission also requires a
-  matching controller-owned Authorization Grant outside the worker worktree.
-  The Grant binds the complete contract digest, card blob, revision, Roles,
+  matching controller-owned, signed Authorization Grant outside the worker
+  worktree. Production derives the canonical authority root from repository
+  identity and verifies Grants/capabilities against the pinned controller key;
+  caller-selected roots, state, keys or Grants cannot replace that trust. The
+  Grant binds the complete contract digest, card blob, revision, Roles,
   mode/risk/dependencies, branch/worktree, all write/admin/shared scopes,
   validation, routing, limits, permissions, activation and publishing policy.
 - Unknown schema versions/fields, scope/card digest mismatches, illegal states,
@@ -305,7 +308,8 @@ automation or adopt any existing Task.
 - Actual changes come from independent Git/filesystem evidence (including
   untracked and rename paths), never worker-reported `changed_files`.
 - Runtime state, Grants, leases, reservations, approvals and the append-only
-  journal live outside the worker worktree; cross-process admission is atomic.
+  journal live outside the worker worktree; cross-process admission, effective
+  worker limits and privileged lease/fence validation plus mutation are atomic.
   Runtime events remain outside tracked source;
   never introduce a continuously rewritten shared `tasks/state.json` on main.
 

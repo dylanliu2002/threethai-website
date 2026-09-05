@@ -1,13 +1,11 @@
-import { readControllerState } from "./controller-state.mjs";
+import { resolveCanonicalControllerContext } from "./controller-context.mjs";
+import { readControllerStateInternal } from "./internal/controller-state-engine.mjs";
 
-export function assertCurrentLease(stateDirectory, {
-  taskKey,
-  runId,
-  leaseId,
-  fencingToken,
-  now = new Date(),
+export function assertCurrentLease(repoRoot, {
+  taskKey, runId, leaseId, fencingToken, now = new Date(),
 }) {
-  const state = readControllerState(stateDirectory);
+  const context = resolveCanonicalControllerContext(repoRoot);
+  const state = readControllerStateInternal(context.state_directory);
   const lease = state.leases[leaseId];
   const task = state.tasks[taskKey];
   const run = state.runs[runId];

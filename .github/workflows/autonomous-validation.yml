@@ -25,9 +25,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --ignore-scripts
-      # CI has no controller-owned authorization Grant. It validates declarations
-      # and adversarial tests only; live authority remains unavailable/fail-closed.
-      - run: node workflow/cli.mjs validate --all --contracts-only
+      # CI has no controller-owned authorization Grant. Static validation and
+      # dry-run simulation remain read-only and fail closed for dispatch.
+      - run: node workflow/cli.mjs validate --all
       - run: node --test workflow/tests/*.test.mjs
       - run: node workflow/cli.mjs reconcile --dry-run
       - run: node workflow/cli.mjs tick --dry-run

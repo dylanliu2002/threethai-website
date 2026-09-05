@@ -71,8 +71,10 @@ The optional SYS-AUTO-001 controller owns external Authorization Grants,
 capabilities, admission, legal state transitions, dependency/concurrency
 scheduling, durable leases/fencing, path/shared/resource/Git reservations,
 validation eligibility, review/approval authority and publishing gates. Task
-Contracts are untrusted requested configuration until a matching external Grant
-is loaded. Codex workers retain reasoning and implementation judgment inside
+Contracts are untrusted requested configuration until a matching signed Grant
+from the pinned canonical controller authority is loaded. Production derives
+that authority root internally; caller-created roots, keys and Grants are not
+authority. Codex workers retain reasoning and implementation judgment inside
 the exact granted boundary. The controller must not turn reasoning into a rigid
 step-by-step state machine.
 

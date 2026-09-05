@@ -16,6 +16,7 @@ const { z } = require("zod");
 
 export const ShaSchema = z.string().regex(/^[0-9a-f]{40}$/);
 export const DigestSchema = z.string().regex(/^[0-9a-f]{64}$/);
+export const SignatureSchema = z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/).min(80);
 export const TaskKeySchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 export const RoleSchema = z.enum(ROLES);
 const status = z.enum(STATUSES);
@@ -113,12 +114,20 @@ export const AuthorizationGrantSchema = z.object({
     force: z.literal(false), allowed_branch: z.string().regex(/^codex\/[a-z0-9-]+$/),
     approval_required_actions: z.array(z.enum(["commit", "push", "pr"])),
   }).strict(),
+  review_target: z.object({
+    implementation_run_id: z.string().uuid(), implementation_worker_id: z.string().uuid(),
+    implementation_thread_id: z.string().min(1), reviewed_base_sha: ShaSchema,
+    reviewed_head_sha: ShaSchema, validation_digest: DigestSchema,
+    implementation_evidence_digest: DigestSchema,
+  }).strict().nullable(),
   provenance: z.object({
     authorized_by: z.string().min(1), source: z.string().min(1),
     issued_at: z.string().datetime(), expires_at: z.string().datetime().nullable(),
     non_expiring_policy: z.enum(["NONE", "UNTIL_REVOKED_BY_USER"]),
   }).strict(),
   envelope_digest: DigestSchema,
+  signer_fingerprint: DigestSchema,
+  signature: SignatureSchema,
 }).strict();
 
 export const RunIdentitySchema = z.object({
@@ -131,7 +140,10 @@ export const RunIdentitySchema = z.object({
   lease_id: z.string().uuid(), fencing_token: z.number().int().positive(),
   base_sha: ShaSchema, started_at: z.string().datetime(),
   completed_at: z.string().datetime().nullable(),
-  status: z.enum(["RESERVED", "RUNNING", "COMPLETED", "FAILED", "STALE"]),
+  status: z.enum([
+    "RESERVED", "RUNNING", "PROCESS_COMPLETED", "SUCCESS", "FAILED",
+    "INVALID_OUTPUT", "SCOPE_VIOLATION", "VALIDATION_FAILED", "STALE",
+  ]),
 }).strict();
 
 export const ControllerCapabilitySchema = z.object({
@@ -144,7 +156,8 @@ export const ControllerCapabilitySchema = z.object({
   branch: z.string().regex(/^codex\/[a-z0-9-]+$/), worktree: repoPath,
   role: RoleSchema, model: z.string().min(1), sandbox: z.enum(SANDBOXES),
   head_sha: ShaSchema, issued_at: z.string().datetime(), expires_at: z.string().datetime(),
-  signature: DigestSchema,
+  reviewed_base_sha: ShaSchema.nullable(), reviewed_head_sha: ShaSchema.nullable(),
+  signer_fingerprint: DigestSchema, signature: SignatureSchema,
 }).strict();
 
 export const WorkerResultSchema = z.object({

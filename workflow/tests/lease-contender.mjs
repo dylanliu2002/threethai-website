@@ -1,11 +1,19 @@
 import fs from "node:fs";
-import { reserveTaskDispatch } from "../durable-leases.mjs";
+import { reserveTaskDispatchInternal } from "../internal/lease-engine.mjs";
+import { createTestEngineWithAuthority } from "../testing/controller-harness.mjs";
 
 const [fixturePath, stateDirectory, wakeupId] = process.argv.slice(2);
 const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
 try {
-  const result = reserveTaskDispatch({
+  const engine = createTestEngineWithAuthority({
+    repoRoot: undefined,
     stateDirectory,
+    taskKey: fixture.contract.task_key,
+    grant: fixture.grant,
+    authority: fixture.authority,
+  });
+  const result = reserveTaskDispatchInternal({
+    engine,
     contract: fixture.contract,
     grant: fixture.grant,
     wakeupId,
