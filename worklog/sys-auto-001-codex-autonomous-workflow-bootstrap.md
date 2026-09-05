@@ -252,3 +252,33 @@ Stage Summary:
   #1 and #2 remain historical BLOCKED evidence and cannot be reused.
 - Autonomous workflow active: NO. Existing Tasks adopted: NO. PR/merge/
   production/GitHub mutation: NO.
+
+---
+Task Key: sys-auto-001-codex-autonomous-workflow-bootstrap
+Task ID: SYS-AUTO-001
+Role: ORCHESTRATOR
+Task: Codex Autonomous Workflow Bootstrap — final corrective authorization
+Branch: codex/sys-auto-001-bootstrap
+Review #3: BLOCKED
+Reviewed Head: 0801971513ece65f16c71e638dfe37eea5ccd959
+Base: b18e5630909e73c3fc6b4884a51d0b6daa89d20c
+Date: 2026-09-05
+
+Independent QA_PERFORMANCE Findings:
+- BLOCKER: submitted Review metadata could mix a capability from one reviewer
+  run, another reviewer run identity/evidence, and an outcome contradicting the
+  authoritative stored reviewer result, then advance the Task to APPROVED.
+- BLOCKER: production privileged facades accepted caller-selected `now`, which
+  could backdate Grant/capability/lease expiry validation.
+- MAJOR: the filesystem mutex deleted a lock based only on age, allowing a live
+  holder beyond 30 seconds to be evicted.
+- MAJOR: parseable structured strings/files with ordinary-looking values under
+  sensitive field names were missed or left unsanitized.
+
+Final Corrective Authorization:
+- The user authorized corrective pass #3 on this same branch/worktree. It is the
+  final corrective cycle under current policy; the correction counter is not
+  reset and prior BLOCKED reviews remain historical.
+- Status is `IN_PROGRESS / CORRECT`. No new Task/branch/worktree, fourth cycle,
+  autonomy activation, existing-task adoption, PR, merge, GitHub mutation,
+  production change or live worker is authorized.

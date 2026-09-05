@@ -12,8 +12,8 @@
 - **Reasoning Effort:** `high`
 - **Execution Assignment Recorded:** Yes
 - **Priority:** `P1`
-- **Status:** `REVIEW`
-- **Machine Phase:** `INDEPENDENT_REVIEW`
+- **Status:** `IN_PROGRESS`
+- **Machine Phase:** `CORRECT`
 - **Risk:** `HIGH`
 - **Branch:** `codex/sys-auto-001-bootstrap`
 - **Worktree:** `worktrees/sys-auto-001-bootstrap`
@@ -406,3 +406,42 @@ Final second-correction validation:
 Final handoff head is the administrative REVIEW commit that records this
 evidence and will be reported after push. The implementation author does not
 self-approve it.
+
+## Independent Review Record — Third Blocked Head
+
+Review #3:
+BLOCKED
+
+Reviewed Head:
+0801971513ece65f16c71e638dfe37eea5ccd959
+
+- **Reviewed Base:** `b18e5630909e73c3fc6b4884a51d0b6daa89d20c`
+- **Reviewer Role:** `QA_PERFORMANCE`
+- **Correction cycle:** `#3`, the final corrective cycle permitted by the
+  current SYS-AUTO-001 policy. Reviews #1 and #2 remain unchanged; no correction
+  counter is reset and no fourth cycle is implied or authorized.
+
+BLOCKER findings recorded by Review #3:
+
+1. Reviewer authority remained forgeable because a submitted Review Record
+   could name a reviewer run different from the current reviewer capability and
+   could claim `APPROVED` despite an authoritative reviewer result of `BLOCKED`.
+2. Production mutation facades accepted caller-supplied time, allowing
+   backdated validation attempts against expired Grant/capability/lease data.
+
+MAJOR findings recorded by Review #3:
+
+1. The filesystem mutex evicted a lock by age alone, so a live holder older than
+   30 seconds could lose its critical section to another process.
+2. String/file secret scanning did not recursively inspect parseable structured
+   content, and stringified JSON secrets could remain unsanitized.
+
+Final corrective authorization:
+
+- Status is `IN_PROGRESS / CORRECT`; this is corrective pass #3 and the final
+  governed corrective cycle.
+- The correction is limited to exact reviewer-run/outcome/evidence/approval
+  binding, trusted production time, ownership-aware non-evicting mutex behavior,
+  structured string/artifact secret handling and their minimal regressions.
+- Activation, worker dispatch, task adoption, PR creation, merge, GitHub writes,
+  production changes and a fourth corrective cycle remain unauthorized.
