@@ -25,6 +25,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --ignore-scripts
+      - run: npx --no-install prisma generate
       # CI has no controller-owned authorization Grant. Static validation and
       # dry-run simulation remain read-only and fail closed for dispatch.
       - run: node workflow/cli.mjs validate --all
