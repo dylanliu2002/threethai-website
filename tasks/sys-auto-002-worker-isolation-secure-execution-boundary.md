@@ -112,7 +112,7 @@ npm run typecheck
 ## Review Status
 
 - Outcome: Pending independent review
-- Repository implementation head: pending commit
+- Repository implementation commit: `9384c0db5c45e0931177614a199f8622a9cfaaa8`
 - Machine enforcement: `PENDING_MACHINE_AUTHORIZATION`
 
 ## Rollback

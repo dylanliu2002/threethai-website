@@ -32,6 +32,7 @@ Work Log:
   probes remain `PENDING_MACHINE_AUTHORIZATION`; no PASS was fabricated.
 
 Stage Summary:
+- Implementation commit: `9384c0db5c45e0931177614a199f8622a9cfaaa8`.
 - Repository implementation is ready for independent review. Machine setup and
   activation remain separate gates. No live worker, gateway, host mutation,
   existing-task adoption, PR, merge, deployment, or production action occurred.

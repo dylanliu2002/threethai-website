@@ -3,7 +3,7 @@
   "task_key": "sys-auto-002-worker-isolation-secure-execution-boundary",
   "task_id": "SYS-AUTO-002",
   "card_path": "tasks/sys-auto-002-worker-isolation-secure-execution-boundary.md",
-  "card_blob_sha": "65e0522373d69f2e6c799600fe5c043de4d29fef",
+  "card_blob_sha": "4dbb75e1573810b83bea4054ba2291095eeb0306",
   "contract_revision": 1,
   "status": "REVIEW",
   "phase": "INDEPENDENT_REVIEW",
