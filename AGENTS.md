@@ -300,7 +300,10 @@ automation or adopt any existing Task.
   Every privileged continuation requires a signed, expiring controller
   capability plus the current durable lease and monotonic fencing token.
 - Independent review requires a different Role, worker, thread and run, with no
-  implementation contribution and exact reviewed base/head evidence.
+  implementation contribution and exact reviewed base/head evidence. Review
+  acceptance and Approval creation must use the current reviewer capability and
+  exact controller-stored reviewer run/outcome/evidence; caller-selected review
+  metadata is never authority.
 - Closeout is administrative only and records separate Reviewed/Closeout Heads.
 - Live worker dispatch, Automation/heartbeat, GitHub writes, existing-task
   adoption, merge, production, DNS, secret and external actions require explicit
@@ -310,6 +313,9 @@ automation or adopt any existing Task.
 - Runtime state, Grants, leases, reservations, approvals and the append-only
   journal live outside the worker worktree; cross-process admission, effective
   worker limits and privileged lease/fence validation plus mutation are atomic.
+  A mutex records ownership and is released only by its owner token; age alone
+  never permits eviction. Production authority checks use controller time and
+  reject caller-supplied clocks/timestamps.
   Runtime events remain outside tracked source;
   never introduce a continuously rewritten shared `tasks/state.json` on main.
 

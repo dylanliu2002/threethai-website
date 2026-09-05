@@ -8,13 +8,13 @@ const PATTERNS = Object.freeze([
   ["cloud-access-key", /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g],
   ["jwt", /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g],
   ["credential-url", /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|https?):\/\/[^\s:/]+:[^\s/@]+@[^\s]+/gi],
-  ["credential-assignment", /\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|auth[_-]?token|client[_-]?secret|password|passwd|pwd|private[_-]?key|secret[_-]?key|credential)\b\s*[=:]\s*["']?[^\s"'<>{},]{3,}/gi],
+  ["credential-assignment", /["']?\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|auth[_-]?token|client[_-]?secret|password|passwd|pwd|private[_-]?key|secret[_-]?key|token[_-]?secret|credentials?)["']?\s*[=:]\s*["']?[^\s"'<>{},]{3,}/gi],
 ]);
 
 const SENSITIVE_KEYS = new Set([
   "password", "passwd", "pwd", "secret", "clientsecret", "apikey",
   "accesstoken", "refreshtoken", "privatekey", "authorization",
-  "credential", "credentials",
+  "credential", "credentials", "tokensecret",
 ]);
 
 function normalizedKey(key) {
@@ -22,6 +22,17 @@ function normalizedKey(key) {
 }
 
 function isSensitiveKey(key) { return SENSITIVE_KEYS.has(normalizedKey(key)); }
+
+function parseStructuredJson(text) {
+  const value = String(text).trim();
+  if (!(value.startsWith("{") || value.startsWith("["))) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 export function detectedSecretClasses(text) {
   const value = String(text);
@@ -47,6 +58,8 @@ export function detectedSecretsDeep(value, pathPrefix = "$") {
   function visit(item, currentPath) {
     if (typeof item === "string") {
       for (const label of detectedSecretClasses(item)) findings.push(`${currentPath}:${label}`);
+      const parsed = parseStructuredJson(item);
+      if (parsed) visit(parsed, `${currentPath}:json`);
       return;
     }
     if (Array.isArray(item)) {
@@ -66,7 +79,10 @@ export function detectedSecretsDeep(value, pathPrefix = "$") {
 }
 
 export function sanitizeForLog(value) {
-  if (typeof value === "string") return redactSecrets(value);
+  if (typeof value === "string") {
+    const parsed = parseStructuredJson(value);
+    return parsed ? JSON.stringify(sanitizeForLog(parsed)) : redactSecrets(value);
+  }
   if (Array.isArray(value)) return value.map(sanitizeForLog);
   if (value && typeof value === "object") {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [
@@ -78,8 +94,8 @@ export function sanitizeForLog(value) {
 }
 
 export function assertNoSecretValues(text, label = "artifact") {
-  const classes = detectedSecretClasses(text);
-  if (classes.length) throw new Error(`Possible secret value in ${label}: ${classes.join(",")}`);
+  const findings = detectedSecretsDeep(String(text));
+  if (findings.length) throw new Error(`Possible secret value in ${label}: ${findings.join(",")}`);
   return true;
 }
 

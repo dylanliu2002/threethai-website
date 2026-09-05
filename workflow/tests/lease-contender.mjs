@@ -22,7 +22,7 @@ try {
     verifyCard: false,
     now: new Date("2026-09-04T01:00:00.000Z"),
   });
-  process.stdout.write(`${JSON.stringify(result)}\n`);
+  process.stdout.write(`${JSON.stringify({ ...result, observed_at_ms: Date.now() })}\n`);
 } catch (error) {
   process.stdout.write(`${JSON.stringify({ acquired: false, error: error.message })}\n`);
 }

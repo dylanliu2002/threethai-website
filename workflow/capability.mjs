@@ -10,12 +10,12 @@ import { readControllerStateInternal } from "./internal/controller-state-engine.
 export function validateControllerCapability(taskKey, capability, {
   repoRoot,
   action,
-  now = new Date(),
   ...forbidden
 } = {}) {
   assertNoAuthorityOverrides(forbidden);
   if (!repoRoot || !action) throw new Error("Capability verification requires repoRoot and action.");
-  const trusted = loadTrustedTaskAuthority(repoRoot, taskKey, { now });
+  const now = new Date();
+  const trusted = loadTrustedTaskAuthority(repoRoot, taskKey);
   const engine = productionEngineInternal(repoRoot, taskKey);
   const state = readControllerStateInternal(engine.stateDirectory);
   return assertCapabilityAgainstStateInternal(capability, {

@@ -10,10 +10,11 @@ import {
 export const reviewEvidenceDigest = reviewEvidenceDigestInternal;
 
 export function recordIndependentReview(taskKey, review, capability, {
-  repoRoot, now = new Date(), ...forbidden
+  repoRoot, ...forbidden
 } = {}) {
   assertNoAuthorityOverrides(forbidden);
-  const trusted = loadTrustedTaskAuthority(repoRoot, taskKey, { now });
+  const now = new Date();
+  const trusted = loadTrustedTaskAuthority(repoRoot, taskKey);
   const engine = productionEngineInternal(repoRoot, taskKey);
   return recordIndependentReviewInternal(review, {
     engine, contract: trusted.contract, grant: trusted.grant, capability, now,
@@ -21,10 +22,11 @@ export function recordIndependentReview(taskKey, review, capability, {
 }
 
 export function issueApprovalRecord(taskKey, capability, {
-  repoRoot, now = new Date(), ...forbidden
+  repoRoot, ...forbidden
 } = {}) {
   assertNoAuthorityOverrides(forbidden);
-  const trusted = loadTrustedTaskAuthority(repoRoot, taskKey, { now });
+  const now = new Date();
+  const trusted = loadTrustedTaskAuthority(repoRoot, taskKey);
   const engine = productionEngineInternal(repoRoot, taskKey);
   return issueApprovalRecordInternal({
     engine, contract: trusted.contract, grant: trusted.grant, capability, now,

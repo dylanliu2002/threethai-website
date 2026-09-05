@@ -12,10 +12,11 @@ export const assertPublishingAllowed = assertPublishingAllowedInternal;
 export const verifyGitIdentity = verifyGitIdentityInternal;
 
 export function assertPublishingContext(taskKey, capability, action, {
-  repoRoot, now = new Date(), ...forbidden
+  repoRoot, ...forbidden
 } = {}) {
   assertNoAuthorityOverrides(forbidden);
-  const trusted = loadTrustedTaskAuthority(repoRoot, taskKey, { now });
+  const now = new Date();
+  const trusted = loadTrustedTaskAuthority(repoRoot, taskKey);
   const engine = productionEngineInternal(repoRoot, taskKey);
   return planPublishingInternal({
     engine, contract: trusted.contract, grant: trusted.grant,

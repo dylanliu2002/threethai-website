@@ -16,12 +16,12 @@ function head(repoRoot) {
 export function reserveTaskDispatch(taskKey, {
   repoRoot,
   wakeupId,
-  now = new Date(),
   ...forbidden
 } = {}) {
   assertNoAuthorityOverrides(forbidden);
   if (!repoRoot || !wakeupId) throw new Error("Dispatch admission requires repoRoot and wakeupId.");
-  const trusted = loadTrustedTaskAuthority(repoRoot, taskKey, { now });
+  const now = new Date();
+  const trusted = loadTrustedTaskAuthority(repoRoot, taskKey);
   const engine = productionEngineInternal(repoRoot, taskKey);
   const roleId = trusted.contract.phase === "INDEPENDENT_REVIEW"
     ? trusted.grant.reviewer_role
@@ -34,12 +34,12 @@ export function reserveTaskDispatch(taskKey, {
 
 export function releaseTaskLease(taskKey, capability, {
   repoRoot,
-  now = new Date(),
   ...forbidden
 } = {}) {
   assertNoAuthorityOverrides(forbidden);
   if (!repoRoot) throw new Error("Lease release requires repoRoot.");
-  const trusted = loadTrustedTaskAuthority(repoRoot, taskKey, { now });
+  const now = new Date();
+  const trusted = loadTrustedTaskAuthority(repoRoot, taskKey);
   const engine = productionEngineInternal(repoRoot, taskKey);
   return releaseTaskLeaseInternal({
     engine, contract: trusted.contract, grant: trusted.grant, capability, now,

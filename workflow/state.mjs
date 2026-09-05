@@ -81,6 +81,10 @@ export function approvalStillValid(approval, current) {
     && approval.contract_revision === current.contract_revision
     && approval.contract_digest === current.contract_digest
     && approval.authorization_revision === current.authorization_revision
+    && approval.reviewer_run_id === current.reviewer_run_id
+    && approval.reviewer_worker_id === current.reviewer_worker_id
+    && approval.reviewer_thread_id === current.reviewer_thread_id
+    && approval.reviewer_attempt === current.reviewer_attempt
     && approval.validation_digest === current.validation_digest
     && approval.review_evidence_digest === current.review_evidence_digest;
 }

@@ -12,7 +12,6 @@ import { assertPublishingAllowedInternal, planPublishingInternal } from "../inte
 import {
   issueApprovalRecordInternal,
   recordIndependentReviewInternal,
-  reviewEvidenceDigestInternal,
   validateIndependentReviewAgainstStateInternal,
 } from "../internal/review-engine.mjs";
 import { readControllerStateInternal } from "../internal/controller-state-engine.mjs";
@@ -39,7 +38,14 @@ function complete(fixture, admitted, cap, outcome, threadId, validationDigest = 
   return completeRunInternal({
     engine: fixture.engine, contract: fixture.contract, grant: fixture.grant,
     capability: cap, processExitCode: 0, outputValid: true,
-    output: { outcome, head_sha: fixture.baseSha },
+    output: {
+      outcome,
+      head_sha: fixture.baseSha,
+      summary: `authoritative ${outcome} review result`,
+      validation: [{ name: "review checks", outcome: "PASS", evidence: "controller test evidence" }],
+      findings: outcome === "APPROVED" ? [] : [{ severity: "MAJOR", message: "test finding" }],
+      requested_actions: [],
+    },
     actualHeadSha: fixture.baseSha,
     scopeEvidence: { ...scope, passed: true },
     validationEvidence: { passed: true, evidence_digest: validationDigest },
@@ -59,28 +65,10 @@ function setupReview(t, outcome = "APPROVED") {
   });
   const reviewer = reserve(fixture, fixture.contract.reviewer_role, "reviewer");
   const reviewerCapability = capability(fixture, reviewer, "review");
-  complete(fixture, reviewer, reviewerCapability, outcome, "thread-reviewer");
-  const evidence = ["diff inspected", "required validation passed"];
-  const review = {
-    schema_version: "2.0.0",
-    task_key: fixture.contract.task_key,
-    contract_revision: fixture.contract.contract_revision,
-    contract_digest: fixture.grant.contract_digest,
-    authorization_revision: fixture.grant.authorization_revision,
-    owner_role: fixture.grant.owner_role,
-    reviewer_role: fixture.grant.reviewer_role,
-    implementation_run_id: implementation.run.run_id,
-    reviewer_run_id: reviewer.run.run_id,
-    reviewer_thread_id: "thread-reviewer",
-    reviewer_worker_id: reviewer.run.worker_id,
-    reviewed_base_sha: fixture.baseSha,
-    reviewed_head_sha: fixture.baseSha,
-    validation_digest: VALIDATION_DIGEST,
-    review_evidence: evidence,
-    review_evidence_digest: reviewEvidenceDigestInternal(evidence),
-    review_completed_at: new Date().toISOString(),
-    outcome,
-  };
+  const completedReviewer = complete(
+    fixture, reviewer, reviewerCapability, outcome, "thread-reviewer",
+  );
+  const review = structuredClone(completedReviewer.review_result);
   return { fixture, implementation, implementationCapability, reviewer, reviewerCapability, review };
 }
 
@@ -103,7 +91,7 @@ test("REVIEW-03 same implementation and reviewer run is rejected", (t) => {
   assert.throws(() => validateIndependentReviewAgainstStateInternal(forged, {
     state: readControllerStateInternal(env.fixture.stateDirectory),
     contract: env.fixture.contract, grant: env.fixture.grant, capability: env.reviewerCapability,
-  }), /fresh run|authoritative/i);
+  }), /fresh run|authoritative|exactly match/i);
 });
 
 test("REVIEW-04 reviewer Role must match authorization grant", (t) => {

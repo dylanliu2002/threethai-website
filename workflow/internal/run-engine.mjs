@@ -10,7 +10,7 @@ import { bindReportedThread } from "../identity.mjs";
 import { KILL_SWITCH_ENV, KILL_SWITCH_VALUE } from "../constants.mjs";
 import { WorkerOutputJsonSchema, WorkerResultSchema } from "../schemas.mjs";
 import { assertNoSecretsDeep, assertNoSecretValues, redactSecrets, sanitizeForLog } from "../secrets.mjs";
-import { deriveValidationEvidence } from "../validation.mjs";
+import { deriveValidationEvidenceInternal } from "./validation-engine.mjs";
 
 function gitHead(repoRoot) {
   return execFileSync("git", ["rev-parse", "HEAD"], {
@@ -127,7 +127,7 @@ export async function runCodexExecInternal({
       const evidence = deriveActualChanges(engine.repoRoot, validated.run.base_sha);
       scopeEvidence = { ...evidence, passed: false, error: redactSecrets(error.message) };
     }
-    const validationEvidence = deriveValidationEvidence({
+    const validationEvidence = deriveValidationEvidenceInternal({
       repoRoot: engine.repoRoot,
       contract: validated.contract,
       actualHeadSha,

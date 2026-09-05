@@ -7,11 +7,12 @@ import { productionEngineInternal } from "./internal/production-engine.mjs";
 // approval, reviewed head, lease/fence and administrative scope are reloaded and
 // validated inside the single authoritative state transaction.
 export function finalizeCloseout(taskKey, capability, {
-  repoRoot, now = new Date(), ...forbidden
+  repoRoot, ...forbidden
 } = {}) {
   assertNoAuthorityOverrides(forbidden);
   if (typeof taskKey !== "string") throw new Error("Closeout requires a canonical task key.");
-  const trusted = loadTrustedTaskAuthority(repoRoot, taskKey, { now });
+  const now = new Date();
+  const trusted = loadTrustedTaskAuthority(repoRoot, taskKey);
   const engine = productionEngineInternal(repoRoot, taskKey);
   return finalizeCloseoutInternal({
     engine, contract: trusted.contract, grant: trusted.grant, capability, now,

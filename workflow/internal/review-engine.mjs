@@ -1,4 +1,4 @@
-import { sha256 } from "../canonical.mjs";
+import { equalCanonical, sha256 } from "../canonical.mjs";
 import { ApprovalRecordSchema, ReviewRecordSchema } from "../schemas.mjs";
 import { SCHEMA_VERSION } from "../constants.mjs";
 import { assertIndependentRoles } from "../roles.mjs";
@@ -19,7 +19,8 @@ export function validateIndependentReviewAgainstStateInternal(input, {
   }
   const implementation = state.runs[review.implementation_run_id];
   const reviewer = state.runs[review.reviewer_run_id];
-  const target = state.tasks[review.task_key]?.review_target;
+  const task = state.tasks[review.task_key];
+  const target = task?.review_target;
   if (!implementation || !reviewer || !target) throw new Error("Review lacks authoritative implementation/reviewer evidence.");
   if (review.implementation_run_id === review.reviewer_run_id) throw new Error("Reviewer must use a fresh run.");
   if (implementation.thread_id === reviewer.thread_id) throw new Error("Reviewer must use a fresh thread.");
@@ -27,21 +28,39 @@ export function validateIndependentReviewAgainstStateInternal(input, {
   if (implementation.status !== "SUCCESS" || reviewer.status !== "SUCCESS") {
     throw new Error("Review requires successful authoritative runs.");
   }
+  if (!reviewer.review_result) throw new Error("Reviewer run lacks an authoritative stored review result.");
+  if (!equalCanonical(review, reviewer.review_result)) {
+    throw new Error("Submitted review does not exactly match the authoritative reviewer run result.");
+  }
   const exact = review.task_key === contract.task_key
+    && review.task_key === capability.task_key
     && review.contract_revision === contract.contract_revision
     && review.contract_digest === grant.contract_digest
     && review.authorization_revision === grant.authorization_revision
     && review.owner_role === grant.owner_role
     && review.reviewer_role === grant.reviewer_role
+    && review.reviewer_role === capability.role
     && implementation.role_id === grant.owner_role
     && reviewer.role_id === grant.reviewer_role
+    && review.implementation_run_id === task.implementation_run_id
+    && review.implementation_run_id === target.implementation_run_id
+    && review.reviewer_run_id === capability.run_id
+    && review.reviewer_run_id === reviewer.run_id
     && review.reviewer_thread_id === reviewer.thread_id
     && review.reviewer_worker_id === reviewer.worker_id
+    && review.reviewer_attempt === reviewer.attempt
+    && review.reviewer_attempt === capability.attempt
     && review.reviewed_base_sha === target.reviewed_base_sha
     && review.reviewed_head_sha === target.reviewed_head_sha
     && review.validation_digest === target.validation_digest
-    && capability.reviewed_base_sha === target.reviewed_base_sha
-    && capability.reviewed_head_sha === target.reviewed_head_sha;
+    && review.review_completed_at === reviewer.completed_at
+    && review.review_evidence_digest === reviewer.review_result.review_evidence_digest
+    && review.outcome === reviewer.reported_outcome
+    && (capability.action === "approve" || (
+      capability.action === "review"
+      && capability.reviewed_base_sha === target.reviewed_base_sha
+      && capability.reviewed_head_sha === target.reviewed_head_sha
+    ));
   if (!exact) throw new Error("Review record/capability does not match authoritative reviewed-head evidence.");
   const previousReviewers = state.tasks[contract.task_key]?.reviewer_run_ids ?? [];
   if (!allowRecorded && previousReviewers.includes(review.reviewer_run_id)) {
@@ -88,7 +107,7 @@ export function issueApprovalRecordInternal({
     if (!review || review.outcome !== "APPROVED") throw new Error("Controller approval requires a stored APPROVED review.");
     validateIndependentReviewAgainstStateInternal(review, {
       state, contract, grant: validated.grant,
-      capability: { ...capability, reviewed_base_sha: review.reviewed_base_sha, reviewed_head_sha: review.reviewed_head_sha },
+      capability: validated.capability,
       allowRecorded: true,
     });
     const revision = (state.tasks[contract.task_key]?.approval_revision ?? 0) + 1;
@@ -101,6 +120,9 @@ export function issueApprovalRecordInternal({
       contract_revision: review.contract_revision,
       authorization_revision: review.authorization_revision,
       reviewer_run_id: review.reviewer_run_id,
+      reviewer_worker_id: review.reviewer_worker_id,
+      reviewer_thread_id: review.reviewer_thread_id,
+      reviewer_attempt: review.reviewer_attempt,
       validation_digest: review.validation_digest,
       review_evidence_digest: review.review_evidence_digest,
       approval_revision: revision,

@@ -97,8 +97,11 @@ signed capability, controller activation, dispatch permission, authoritative
 run, current lease/fence and exact worktree before invoking its controller-owned
 `spawn`. Production APIs reject caller-supplied state directories, Grants,
 keys, activation, leases, fences, approval plans, route, sandbox and spawn
-implementations. An environment variable may only disable execution as an
-emergency kill switch; it never enables execution.
+implementations. Authority checks use controller-resolved wall-clock time;
+production facades reject caller-supplied `now`, clock or timestamp values, so
+expired Grants, capabilities and leases cannot be revived by backdating. An
+environment variable may only disable execution as an emergency kill switch;
+it never enables execution.
 
 ## Durable state, leases and recovery
 
@@ -108,7 +111,13 @@ executor/provider/requested and reported model, configuration/contract digests,
 authorization revision, base/head, lease/fence, reviews, approvals, correction
 count, closeout and publishing facts.
 
-Admission uses an OS/filesystem atomic mutex plus atomic state replacement.
+Admission uses an ownership-aware OS/filesystem atomic mutex plus atomic state
+replacement. Each lock records a unique lock/owner token, PID, process-start
+identity and creation time; release requires the exact owner token. Lock age is
+never evidence of abandonment, so a live holder cannot be evicted merely for
+crossing a timeout. If owner death cannot be proven portably, contenders wait
+and then fail closed; orphan reclamation requires a separately authorized
+administrative recovery path.
 Durable reservations cover controller Task identity, task/worktree, case-folded
 paths, shared governance, resource/build and Git-operation classes. Lease expiry
 advances a monotonic fencing generation; a stale worker cannot validate,
@@ -147,13 +156,19 @@ run before validation or publishing.
 
 ## Review, approval and correction
 
-An `APPROVED` string in model output is not approval. Independent review
-requires authoritative completed implementation and reviewer runs with:
+An `APPROVED` string in model output is not approval. Reviewer completion stores
+one controller-derived Review Record on the authoritative reviewer run. Review
+acceptance requires the submitted record to equal that stored result and the
+current signed capability exactly; a caller cannot mix run, outcome or evidence
+from different reviewers. Independent review requires authoritative completed
+implementation and reviewer runs with:
 
 - different Owner/Reviewer Roles, run IDs, worker IDs and thread IDs;
+- exact current reviewer capability run, Role, attempt, worker and thread;
 - exact Task, contract digest/revision and authorization revision;
 - exact reviewed base/head and implementation validation digest;
-- non-empty review evidence and a recomputed evidence digest.
+- non-empty controller-stored review evidence, recomputed evidence digest,
+  completion time and authoritative reviewer outcome.
 
 A fresh controller may admit a Task already at `REVIEW /
 INDEPENDENT_REVIEW` only from signed implementation evidence whose reviewed
@@ -162,8 +177,11 @@ Reviewer Role from the phase; the Owner cannot take that review lease. The
 review capability binds the exact reviewer run plus reviewed base/head.
 
 Only after that record validates may the controller issue an Approval Record.
-The Approval binds reviewed base/head, contract and authorization revisions,
-reviewer run, validation/evidence digests and approval revision. A later
+Approval creation reloads the accepted Review Record and reviewer run in the
+same privileged transaction; no caller selects outcome, reviewer, evidence,
+head or approval revision. The Approval binds reviewed base/head, contract and
+authorization revisions, reviewer run/worker/thread/attempt,
+validation/evidence digests and approval revision. A later
 substantive head or authorization change invalidates it.
 
 `CHANGES_REQUESTED` increments the durable controller correction counter. The
@@ -199,8 +217,10 @@ Contracts, structured worker results, stdout, stderr, exceptions, controller
 event/log payloads and worklog candidates are scanned/sanitized recursively.
 Detection uses both value patterns and normalized field names, including
 password/passwd/pwd, secret, client_secret, api_key/apikey, access_token,
-refresh_token, private_key, authorization and credential(s). Sensitive values
-become `[REDACTED]` in logs and are blocked from tracked publication. Public
+refresh_token, private_key, authorization, credential(s) and token_secret.
+Parseable JSON strings and artifacts are recursively inspected; stringified
+structured logs are recursively sanitized before serialization. Sensitive
+values become `[REDACTED]` in logs and are blocked from tracked publication. Public
 ownership-verification values are not treated as credentials merely because
 they are short verification tokens. Full environment maps are never logged.
 

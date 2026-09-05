@@ -4,10 +4,11 @@ import { planCorrectionInternal } from "./internal/correction-engine.mjs";
 import { productionEngineInternal } from "./internal/production-engine.mjs";
 
 export function planCorrection(taskKey, capability, {
-  repoRoot, now = new Date(), ...forbidden
+  repoRoot, ...forbidden
 } = {}) {
   assertNoAuthorityOverrides(forbidden);
-  const trusted = loadTrustedTaskAuthority(repoRoot, taskKey, { now });
+  const now = new Date();
+  const trusted = loadTrustedTaskAuthority(repoRoot, taskKey);
   const engine = productionEngineInternal(repoRoot, taskKey);
   return planCorrectionInternal({
     engine, contract: trusted.contract, grant: trusted.grant, capability, now,

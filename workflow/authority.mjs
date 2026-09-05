@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { resolveCanonicalControllerContext } from "./controller-context.mjs";
+import { assertNoAuthorityOverrides, resolveCanonicalControllerContext } from "./controller-context.mjs";
 import { loadContracts } from "./contract.mjs";
 import {
   authorizationFieldsFromContractInternal,
@@ -37,11 +37,10 @@ export function loadAuthorizationGrant(repoRoot, taskKey) {
 
 // The caller supplies a claim (DATA); the trust anchor is always resolved from
 // reviewed controller code and cannot be replaced through this API.
-export function validateTrustedGrant(contractInput, grantInput, {
-  repoRoot,
-  verifyCard = true,
-  now = new Date(),
-} = {}) {
+export function validateTrustedGrant(contractInput, grantInput, options = {}) {
+  assertNoAuthorityOverrides(options);
+  const { repoRoot, verifyCard = true } = options;
+  const now = new Date();
   if (!repoRoot && verifyCard) throw new Error("repoRoot is required for trusted Grant validation.");
   const context = repoRoot ? resolveCanonicalControllerContext(repoRoot) : null;
   if (!context) throw new Error("Trusted Grant validation requires canonical repository context.");
@@ -54,15 +53,14 @@ export function validateTrustedGrant(contractInput, grantInput, {
   });
 }
 
-export function loadTrustedTaskAuthority(repoRoot, taskKey, {
-  verifyCard = true,
-  now = new Date(),
-} = {}) {
+export function loadTrustedTaskAuthority(repoRoot, taskKey, options = {}) {
+  assertNoAuthorityOverrides(options);
+  const { verifyCard = true } = options;
   const contracts = loadContracts(repoRoot, { verifyCard });
   const contract = contracts.find((item) => item.task_key === taskKey);
   if (!contract) throw new Error(`Unknown machine Task Contract: ${taskKey}`);
   const grant = loadAuthorizationGrant(repoRoot, taskKey);
-  const trusted = validateTrustedGrant(contract, grant, { repoRoot, verifyCard, now });
+  const trusted = validateTrustedGrant(contract, grant, { repoRoot, verifyCard });
   return { ...trusted, context: resolveCanonicalControllerContext(repoRoot) };
 }
 

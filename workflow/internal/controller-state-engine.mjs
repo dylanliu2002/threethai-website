@@ -7,6 +7,7 @@ import { RuntimeEventSchema } from "../schemas.mjs";
 import { assertNoSecretsDeep, sanitizeForLog } from "../secrets.mjs";
 
 const STATE_VERSION = "2.0.0";
+const PROCESS_START_IDENTITY = new Date(Date.now() - process.uptime() * 1000).toISOString();
 
 export function emptyControllerStateInternal() {
   return {
@@ -28,25 +29,56 @@ function sleep(milliseconds) {
   Atomics.wait(memory, 0, 0, milliseconds);
 }
 
-export function withStateMutexInternal(stateDirectory, operation, { timeoutMs = 5000 } = {}) {
+function mutexPath(stateDirectory) { return path.join(stateDirectory, ".controller-mutex"); }
+function mutexOwnerPath(stateDirectory) { return path.join(mutexPath(stateDirectory), "owner.json"); }
+
+export function releaseStateMutexInternal(stateDirectory, ownerToken) {
+  const mutex = mutexPath(stateDirectory);
+  const ownerFile = mutexOwnerPath(stateDirectory);
+  if (!fs.existsSync(ownerFile)) throw new Error("Controller mutex owner record is unavailable; refusing release.");
+  const owner = JSON.parse(fs.readFileSync(ownerFile, "utf8"));
+  if (!ownerToken || owner.owner_token !== ownerToken
+    || owner.owner_pid !== process.pid
+    || owner.owner_process_start_identity !== PROCESS_START_IDENTITY) {
+    throw new Error("Controller mutex release requires the exact owner process identity and token.");
+  }
+  fs.unlinkSync(ownerFile);
+  fs.rmdirSync(mutex);
+  return { released: true, lock_id: owner.lock_id, owner_pid: owner.owner_pid };
+}
+
+export function withStateMutexInternal(stateDirectory, operation, { timeoutMs = 45_000 } = {}) {
   fs.mkdirSync(stateDirectory, { recursive: true, mode: 0o700 });
-  const mutex = path.join(stateDirectory, ".controller-mutex");
+  const mutex = mutexPath(stateDirectory);
   const deadline = Date.now() + timeoutMs;
+  const ownerToken = crypto.randomUUID();
+  let acquired = false;
   for (;;) {
-    try { fs.mkdirSync(mutex); break; } catch (error) {
-      if (error.code !== "EEXIST") throw error;
-      try {
-        const age = Date.now() - fs.statSync(mutex).mtimeMs;
-        if (age > 30_000) fs.rmdirSync(mutex);
-      } catch (staleError) {
-        if (staleError.code !== "ENOENT" && staleError.code !== "ENOTEMPTY") throw staleError;
+    try {
+      fs.mkdirSync(mutex);
+      acquired = true;
+      fs.writeFileSync(mutexOwnerPath(stateDirectory), `${JSON.stringify({
+        lock_id: crypto.randomUUID(),
+        owner_pid: process.pid,
+        owner_process_start_identity: PROCESS_START_IDENTITY,
+        owner_token: ownerToken,
+        created_at: new Date().toISOString(),
+      }, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+      break;
+    } catch (error) {
+      if (acquired) {
+        try { fs.rmdirSync(mutex); } catch { /* fail closed if initialization was partial */ }
+        throw error;
       }
+      if (error.code !== "EEXIST") throw error;
       if (Date.now() >= deadline) throw new Error("Timed out acquiring controller state mutex.");
       sleep(10);
     }
   }
-  try { return operation(); } finally {
-    try { fs.rmdirSync(mutex); } catch (error) { if (error.code !== "ENOENT") throw error; }
+  try {
+    return operation({ ownerToken });
+  } finally {
+    releaseStateMutexInternal(stateDirectory, ownerToken);
   }
 }
 

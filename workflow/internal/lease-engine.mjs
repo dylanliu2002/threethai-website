@@ -1,7 +1,10 @@
 import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { createRunIdentity } from "../identity.mjs";
+import { createRunIdentityInternal } from "./identity-engine.mjs";
+import { canonicalJson, sha256 } from "../canonical.mjs";
 import { assertActualChangesAllowed } from "../git-evidence.mjs";
+import { ReviewRecordSchema } from "../schemas.mjs";
+import { SCHEMA_VERSION } from "../constants.mjs";
 import { contractLockRequests, lockRequestsConflict } from "../locks.mjs";
 import { validateGrantAgainstAnchorInternal } from "./authority-engine.mjs";
 import { privilegedMutationInternal } from "./capability-engine.mjs";
@@ -165,7 +168,7 @@ export function reserveTaskDispatchInternal({
       expires_at: new Date(expiresAtMs).toISOString(), expires_at_ms: expiresAtMs,
       max_workers: grant.limits.max_workers, requests,
     };
-    const run = createRunIdentity(contract, grant, lease, { roleId, workerId, runId, attempt, baseSha, now });
+    const run = createRunIdentityInternal(contract, grant, lease, { roleId, workerId, runId, attempt, baseSha, now });
     state.leases[leaseId] = lease;
     requests.forEach((request, index) => {
       state.reservations[`${leaseId}:${index}`] = {
@@ -208,6 +211,39 @@ function completionStatus({ processExitCode, outputValid, output, scopePassed, v
   return "SUCCESS";
 }
 
+function authoritativeReviewResult({ output, contract, grant, capability, run, task, now }) {
+  if (!output || typeof output.summary !== "string" || output.summary.length === 0) {
+    throw new Error("Authoritative reviewer output requires a non-empty summary.");
+  }
+  const reviewEvidence = [canonicalJson({
+    summary: output.summary,
+    validation: output.validation ?? [],
+    findings: output.findings ?? [],
+    requested_actions: output.requested_actions ?? [],
+  })];
+  return ReviewRecordSchema.parse({
+    schema_version: SCHEMA_VERSION,
+    task_key: contract.task_key,
+    contract_revision: contract.contract_revision,
+    contract_digest: grant.contract_digest,
+    authorization_revision: grant.authorization_revision,
+    owner_role: grant.owner_role,
+    reviewer_role: grant.reviewer_role,
+    implementation_run_id: task.review_target.implementation_run_id,
+    reviewer_run_id: run.run_id,
+    reviewer_thread_id: run.thread_id,
+    reviewer_worker_id: run.worker_id,
+    reviewer_attempt: run.attempt,
+    reviewed_base_sha: capability.reviewed_base_sha,
+    reviewed_head_sha: capability.reviewed_head_sha,
+    validation_digest: task.review_target.validation_digest,
+    review_evidence: reviewEvidence,
+    review_evidence_digest: sha256(reviewEvidence),
+    review_completed_at: now.toISOString(),
+    outcome: output.outcome,
+  });
+}
+
 export function completeRunInternal({
   engine, contract, grant, capability, processExitCode, outputValid, output,
   actualHeadSha, scopeEvidence, validationEvidence, threadId, reportedModel,
@@ -225,6 +261,7 @@ export function completeRunInternal({
     payload: { status, actual_head_sha: actualHeadSha }, now, verifyCard,
   }, (state, validated) => {
     const run = state.runs[validated.capability.run_id];
+    const task = state.tasks[validated.capability.task_key];
     if (!["RESERVED", "RUNNING"].includes(run.status)) {
       throw new Error("Run completion requires a current unfinished authoritative run.");
     }
@@ -259,8 +296,18 @@ export function completeRunInternal({
     run.scope_evidence_digest = observedScope?.evidence_digest ?? null;
     run.completed_at = now.toISOString();
     run.status = authoritativeStatus;
+    if (authoritativeStatus === "SUCCESS" && validated.capability.action === "review") {
+      run.review_result = authoritativeReviewResult({
+        output,
+        contract: validated.contract,
+        grant: validated.grant,
+        capability: validated.capability,
+        run,
+        task,
+        now,
+      });
+    }
     state.validation_evidence[run.run_id] = validationEvidence ?? null;
-    const task = state.tasks[validated.capability.task_key];
     if (authoritativeStatus === "SUCCESS" && run.role_id === task.owner_role) {
       task.status = "REVIEW";
       task.phase = "INDEPENDENT_REVIEW";

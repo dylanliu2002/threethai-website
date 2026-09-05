@@ -2,8 +2,12 @@ import { resolveCanonicalControllerContext } from "./controller-context.mjs";
 import { readControllerStateInternal } from "./internal/controller-state-engine.mjs";
 
 export function assertCurrentLease(repoRoot, {
-  taskKey, runId, leaseId, fencingToken, now = new Date(),
+  taskKey, runId, leaseId, fencingToken, ...forbidden
 }) {
+  if (Object.keys(forbidden).length) {
+    throw new Error(`Caller-selected lease authority input is forbidden: ${Object.keys(forbidden)[0]}`);
+  }
+  const now = new Date();
   const context = resolveCanonicalControllerContext(repoRoot);
   const state = readControllerStateInternal(context.state_directory);
   const lease = state.leases[leaseId];

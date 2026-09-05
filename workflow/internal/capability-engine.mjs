@@ -85,8 +85,8 @@ export function assertCapabilityAgainstStateInternal(capabilityInput, {
   if (!phasesByAction[action]?.includes(task.phase)) {
     throw new Error("Capability action is not valid for the authoritative task phase.");
   }
-  if (action === "review" && run.role_id !== trusted.grant.reviewer_role) {
-    throw new Error("Independent review requires the authorized reviewer Role.");
+  if (["review", "approve"].includes(action) && run.role_id !== trusted.grant.reviewer_role) {
+    throw new Error("Independent review/approval requires the authorized reviewer Role.");
   }
   if (["dispatch", "correct", "closeout"].includes(action)
     && run.role_id !== trusted.grant.owner_role) {

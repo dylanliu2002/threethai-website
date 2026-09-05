@@ -182,7 +182,8 @@ export const ReviewRecordSchema = z.object({
   authorization_revision: z.number().int().positive(), owner_role: RoleSchema,
   reviewer_role: RoleSchema, implementation_run_id: z.string().uuid(),
   reviewer_run_id: z.string().uuid(), reviewer_thread_id: z.string().min(1),
-  reviewer_worker_id: z.string().uuid(), reviewed_base_sha: ShaSchema,
+  reviewer_worker_id: z.string().uuid(), reviewer_attempt: z.number().int().positive(),
+  reviewed_base_sha: ShaSchema,
   reviewed_head_sha: ShaSchema, validation_digest: DigestSchema,
   review_evidence: z.array(z.string().min(1)).min(1),
   review_evidence_digest: DigestSchema, review_completed_at: z.string().datetime(),
@@ -194,6 +195,8 @@ export const ApprovalRecordSchema = z.object({
   reviewed_base_sha: ShaSchema, reviewed_head_sha: ShaSchema,
   contract_digest: DigestSchema, contract_revision: z.number().int().positive(),
   authorization_revision: z.number().int().positive(), reviewer_run_id: z.string().uuid(),
+  reviewer_worker_id: z.string().uuid(), reviewer_thread_id: z.string().min(1),
+  reviewer_attempt: z.number().int().positive(),
   validation_digest: DigestSchema, review_evidence_digest: DigestSchema,
   approval_revision: z.number().int().positive(), issued_at: z.string().datetime(),
 }).strict();

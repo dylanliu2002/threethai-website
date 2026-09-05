@@ -27,6 +27,10 @@ export function finalizeCloseoutInternal({
       contract_revision: contract.contract_revision,
       contract_digest: validated.grant.contract_digest,
       authorization_revision: validated.grant.authorization_revision,
+      reviewer_run_id: approval.reviewer_run_id,
+      reviewer_worker_id: approval.reviewer_worker_id,
+      reviewer_thread_id: approval.reviewer_thread_id,
+      reviewer_attempt: approval.reviewer_attempt,
       validation_digest: approval.validation_digest,
       review_evidence_digest: approval.review_evidence_digest,
     };

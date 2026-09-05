@@ -13,9 +13,12 @@ const AUTHORITY_OVERRIDE_KEYS = Object.freeze([
   "grantStore", "grant", "signingKey", "signingKeyPath", "privateKey",
   "publicKey", "activation", "lease", "fencingToken", "approval",
   "approvalPlan", "dispatchWorker", "spawnImpl",
+  "runCommand", "validationRunner",
   "model", "sandbox", "worktree", "cwd", "permission", "dangerouslyAllowAll",
   "reviewedHead", "reviewed_head_sha", "approvalRevision", "approval_revision",
   "allowedPaths", "allowed_paths", "plan",
+  "now", "time", "currentTime", "current_time", "timestamp",
+  "currentTimestamp", "current_timestamp", "clock", "dateNow",
 ]);
 
 // The reviewed controller installation selects the repository trust domain.
