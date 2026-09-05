@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0.0",
+  "status": "PENDING_MACHINE_AUTHORIZATION",
+  "service_name": "ThreeThaiCodexController",
+  "identity": "NT SERVICE\\ThreeThaiCodexController",
+  "account_type": "virtual-service-account",
+  "administrator": false,
+  "interactive_logon": false,
+  "load_user_profile": false,
+  "network_logon": false,
+  "working_directory": "C:\\ProgramData\\ThreeThai\\CodexController",
+  "secret_store": "Windows Credential Manager",
+  "signer": "Windows CNG non-exportable machine key",
+  "production_activation": false
+}

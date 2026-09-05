@@ -63,12 +63,16 @@ its audit.
 
 | Task key | Task card | Role | Branch | Status / Phase |
 | --- | --- | --- | --- | --- |
-| `sys-auto-001-codex-autonomous-workflow-bootstrap` | `sys-auto-001-codex-autonomous-workflow-bootstrap.md` | ORCHESTRATOR | `codex/sys-auto-001-bootstrap` | REVIEW / INDEPENDENT_REVIEW |
+| `sys-auto-001-codex-autonomous-workflow-bootstrap` | `sys-auto-001-codex-autonomous-workflow-bootstrap.md` | ORCHESTRATOR | `codex/sys-auto-001-bootstrap` | BLOCKED / PROVENANCE ONLY |
+| `sys-auto-002-worker-isolation-secure-execution-boundary` | `sys-auto-002-worker-isolation-secure-execution-boundary.md` | ORCHESTRATOR | `codex/sys-auto-002-worker-isolation` | REVIEW / INDEPENDENT_REVIEW; MACHINE SETUP PENDING |
 
 Infrastructure task keys are canonical machine identities. Numeric/display IDs
 are historical or UI metadata and must never be used alone for machine identity.
 SYS-AUTO-001 is a manually supervised bootstrap; its presence does not activate
-automation or adopt an existing task. There is no Task 53.
+automation or adopt an existing task. It remains blocked at reviewed provenance
+head `62d99d18f858fde6eee97559b8a9edec81d2a776`; do not create a fourth
+corrective pass or merge it. SYS-AUTO-002 is a new follow-up and does not adopt
+SYS-AUTO-001. There is no Task 53.
 
 ## Historical Records
 

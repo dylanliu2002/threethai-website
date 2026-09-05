@@ -1,0 +1,24 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+ARG CODEX_VERSION=0.153.0-alpha.5
+RUN npm install --global --ignore-scripts "@openai/codex@${CODEX_VERSION}" \
+    && npm cache clean --force \
+    && groupadd --gid 65532 codex \
+    && useradd --uid 65532 --gid 65532 --home-dir /home/codex --create-home --shell /usr/sbin/nologin codex \
+    && mkdir -p /workspace /run/codex-home /run/inference-gateway /etc/codex \
+    && chown -R 65532:65532 /workspace /run/codex-home /run/inference-gateway /home/codex
+
+COPY requirements.toml /etc/codex/requirements.toml
+RUN chmod 0444 /etc/codex/requirements.toml
+
+USER 65532:65532
+WORKDIR /workspace
+ENV HOME=/home/codex \
+    CODEX_HOME=/run/codex-home \
+    PATH=/usr/local/bin:/usr/bin:/bin \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    TMPDIR=/tmp
+
+ENTRYPOINT ["codex"]

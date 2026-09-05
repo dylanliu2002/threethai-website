@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { canonicalJson } from "../canonical.mjs";
 import { ControllerCapabilitySchema } from "../schemas.mjs";
 import { deriveSandbox, routeTask } from "../routing.mjs";
@@ -38,12 +37,10 @@ export function assertCapabilityAgainstStateInternal(capabilityInput, {
   if (capability.signer_fingerprint !== engine.keyFingerprint) {
     throw new Error("Capability signer is not the pinned controller trust anchor.");
   }
-  if (!crypto.verify(
-    null,
-    Buffer.from(signaturePayload(capability)),
-    engine.publicKeyPem,
-    Buffer.from(capability.signature, "base64"),
-  )) throw new Error("Controller capability signature is invalid.");
+  if (!engine.signer?.available || engine.signer.fingerprint !== engine.keyFingerprint
+    || !engine.signer.verify(signaturePayload(capability), capability.signature)) {
+    throw new Error("Controller capability signature is invalid or protected signer is unavailable.");
+  }
   if (Date.parse(capability.expires_at) <= now.getTime()) throw new Error("Controller capability expired.");
   const lease = state.leases[capability.lease_id];
   const task = state.tasks[capability.task_key];
@@ -110,7 +107,9 @@ export function issueCapabilityInternal({
   engine, contract, grant, action, runId, headSha, now = new Date(), ttlMs = 300_000,
   verifyCard = true,
 }) {
-  if (!engine.privateKeyPem) throw new Error("Controller signing credential is unavailable.");
+  if (!engine.signer?.available || engine.signer.fingerprint !== engine.keyFingerprint) {
+    throw new Error("Controller signing credential is unavailable.");
+  }
   return withStateMutexInternal(engine.stateDirectory, () => {
     const state = readControllerStateInternal(engine.stateDirectory);
     const trusted = validateGrant(engine, contract, grant, { now, verifyCard });
@@ -149,11 +148,7 @@ export function issueCapabilityInternal({
       signer_fingerprint: engine.keyFingerprint,
       signature: "A".repeat(88),
     };
-    capability.signature = crypto.sign(
-      null,
-      Buffer.from(signaturePayload(capability)),
-      engine.privateKeyPem,
-    ).toString("base64");
+    capability.signature = engine.signer.sign(signaturePayload(capability));
     return ControllerCapabilitySchema.parse(capability);
   });
 }

@@ -1,0 +1,31 @@
+allowed_approval_policies = ["never"]
+allowed_sandbox_modes = ["read-only"]
+allowed_web_search_modes = ["disabled"]
+allow_appshots = false
+allow_browser_and_computer_use = false
+allow_login_shell = false
+allow_managed_hooks_only = true
+allow_remote_control = false
+check_for_update_on_startup = false
+
+[features]
+apps = false
+browser_use = false
+browser_use_external = false
+browser_use_full_cdp_access = false
+computer_use = false
+in_app_browser = false
+multi_agent = false
+plugins = false
+remote_plugin = false
+skill_mcp_dependency_install = false
+web_search = false
+web_search_cached = false
+web_search_request = false
+
+[mcp_servers]
+
+[plugins]
+
+[marketplaces]
+restrict_to_allowed_sources = true

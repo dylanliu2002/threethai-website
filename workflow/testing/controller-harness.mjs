@@ -4,6 +4,7 @@ import path from "node:path";
 import { createSignedGrantInternal, validateGrantAgainstAnchorInternal } from "../internal/authority-engine.mjs";
 import { setActivationForAdministrationInternal } from "../internal/controller-state-engine.mjs";
 import { publicKeyFingerprint } from "../trust-anchor.mjs";
+import { createMemorySignerForTests } from "../isolation/signer.mjs";
 
 // TEST-ONLY trust domain. Production modules never import this file and never
 // accept this engine or its paths as authority.
@@ -23,11 +24,15 @@ export function createTestEngine({ repoRoot, stateDirectory, taskKey, grant }) {
 }
 
 export function createTestEngineWithAuthority({ repoRoot, stateDirectory, taskKey, grant, authority }) {
+  const signer = createMemorySignerForTests({
+    privateKeyPem: authority.privateKeyPem,
+    publicKeyPem: authority.publicKeyPem,
+  });
   return Object.freeze({
     repoRoot,
     stateDirectory,
     publicKeyPem: authority.publicKeyPem,
-    privateKeyPem: authority.privateKeyPem,
+    signer,
     keyFingerprint: authority.keyFingerprint,
     loadGrant: () => {
       const file = testGrantPath(stateDirectory, taskKey);

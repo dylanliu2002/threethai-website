@@ -8,6 +8,7 @@ on:
       - "tasks/machine/**"
       - "docs/agent-team/AUTONOMOUS-*.md"
       - "docs/agent-team/AUTONOMOUS-*.json"
+      - "docs/agent-team/WORKER-ISOLATION.md"
       - ".github/workflows/autonomous-validation.yml"
   workflow_dispatch:
 
@@ -27,6 +28,7 @@ jobs:
       - run: npm ci --ignore-scripts
       # CI has no controller-owned authorization Grant. Static validation and
       # dry-run simulation remain read-only and fail closed for dispatch.
+      - run: git diff --check
       - run: node workflow/cli.mjs validate --all
       - run: node --test workflow/tests/*.test.mjs
       - run: node workflow/cli.mjs reconcile --dry-run

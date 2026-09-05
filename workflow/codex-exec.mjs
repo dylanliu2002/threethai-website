@@ -1,11 +1,10 @@
-import { spawn } from "node:child_process";
 import { assertNoAuthorityOverrides } from "./controller-context.mjs";
 import { loadTrustedTaskAuthority } from "./authority.mjs";
 import { productionEngineInternal } from "./internal/production-engine.mjs";
+import { createProductionWorkerRunner } from "./isolation/worker-runner.mjs";
 import {
   buildCodexExecArgsInternal,
   parseJsonlInternal,
-  runCodexExecInternal,
   threadIdFromEventsInternal,
 } from "./internal/run-engine.mjs";
 
@@ -24,13 +23,13 @@ export async function runCodexExec(options = {}) {
   }
   const trusted = loadTrustedTaskAuthority(repoRoot, taskKey);
   const engine = productionEngineInternal(repoRoot, taskKey);
-  return runCodexExecInternal({
+  const runner = createProductionWorkerRunner();
+  return runner.run({
     engine,
     contract: trusted.contract,
     grant: trusted.grant,
     capability,
     prompt,
     signal,
-    spawnImpl: spawn,
   });
 }

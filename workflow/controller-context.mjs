@@ -7,11 +7,13 @@ import {
   PINNED_CONTROLLER_KEY_FINGERPRINT,
   PINNED_CONTROLLER_PUBLIC_KEY_PEM,
 } from "./trust-anchor.mjs";
+import { loadWorkerSecurityPolicy } from "./isolation/policy.mjs";
 
 const AUTHORITY_OVERRIDE_KEYS = Object.freeze([
   "stateDirectory", "authorityDirectory", "authorityRoot", "trustRoot",
   "grantStore", "grant", "signingKey", "signingKeyPath", "privateKey",
-  "publicKey", "activation", "lease", "fencingToken", "approval",
+  "publicKey", "signer", "secretStore", "inferenceGateway", "workspaceProjector",
+  "evidenceImporter", "workerRunner", "environment", "activation", "lease", "fencingToken", "approval",
   "approvalPlan", "dispatchWorker", "spawnImpl",
   "runCommand", "validationRunner",
   "model", "sandbox", "worktree", "cwd", "permission", "dangerouslyAllowAll",
@@ -70,6 +72,7 @@ export function repositoryIdentity(repoRoot) {
 }
 
 export function resolveCanonicalControllerContext(repoRoot) {
+  const isolationPolicy = loadWorkerSecurityPolicy();
   const controllerIdentity = repositoryIdentity(CONTROLLER_SOURCE_ROOT);
   const identity = repositoryIdentity(repoRoot);
   if (identity.common_git_directory.toLocaleLowerCase("en-US")
@@ -99,7 +102,8 @@ export function resolveCanonicalControllerContext(repoRoot) {
     authority_root: resolvedAuthority,
     state_directory: path.join(resolvedAuthority, "runtime"),
     grants_directory: path.join(resolvedAuthority, "grants"),
-    private_key_path: path.join(resolvedAuthority, "admin", "controller-private-key.pem"),
+    signer_reference: isolationPolicy.controller.signer_reference,
+    secret_store_reference: isolationPolicy.controller.secret_store_reference,
     pinned_public_key_pem: PINNED_CONTROLLER_PUBLIC_KEY_PEM,
     pinned_key_fingerprint: PINNED_CONTROLLER_KEY_FINGERPRINT,
     provisioned: fs.existsSync(resolvedAuthority),

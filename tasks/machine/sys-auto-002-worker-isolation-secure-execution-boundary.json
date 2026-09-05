@@ -1,0 +1,108 @@
+{
+  "schema_version": "2.0.0",
+  "task_key": "sys-auto-002-worker-isolation-secure-execution-boundary",
+  "task_id": "SYS-AUTO-002",
+  "card_path": "tasks/sys-auto-002-worker-isolation-secure-execution-boundary.md",
+  "card_blob_sha": "65e0522373d69f2e6c799600fe5c043de4d29fef",
+  "contract_revision": 1,
+  "status": "REVIEW",
+  "phase": "INDEPENDENT_REVIEW",
+  "mode": "IMPLEMENT",
+  "owner_role": "ORCHESTRATOR",
+  "reviewer_role": "QA_PERFORMANCE",
+  "execution_profile": "HIGH_RISK_CODE",
+  "risk": "HIGH",
+  "priority": "P0",
+  "request_provenance": {
+    "kind": "USER_REQUESTED",
+    "requested_by": "user",
+    "requested_at": "2026-09-05",
+    "source": "SYS-AUTO-002 bootstrap and repository implementation authorization",
+    "base_sha": "62d99d18f858fde6eee97559b8a9edec81d2a776"
+  },
+  "dependencies": [],
+  "branch": "codex/sys-auto-002-worker-isolation",
+  "worktree": "worktrees/sys-auto-002-worker-isolation",
+  "write_files": [
+    "docs/agent-team/WORKER-ISOLATION.md",
+    ".github/workflows/autonomous-validation.yml",
+    "tasks/README.md",
+    "tasks/TEMPLATE.md",
+    "tasks/sys-auto-002-worker-isolation-secure-execution-boundary.md",
+    "tasks/machine/sys-auto-002-worker-isolation-secure-execution-boundary.json",
+    "worklog/sys-auto-002-worker-isolation-secure-execution-boundary.md"
+  ],
+  "write_prefixes": [
+    "workflow/"
+  ],
+  "administrative_files": [
+    "tasks/sys-auto-002-worker-isolation-secure-execution-boundary.md",
+    "tasks/machine/sys-auto-002-worker-isolation-secure-execution-boundary.json",
+    "worklog/sys-auto-002-worker-isolation-secure-execution-boundary.md"
+  ],
+  "shared_file_grants": [
+    {
+      "path": "docs/agent-team/WORKER-ISOLATION.md",
+      "purpose": "Document the approved worker isolation architecture and pending machine-change boundary."
+    },
+    {
+      "path": ".github/workflows/autonomous-validation.yml",
+      "purpose": "Run repository validation for worker isolation changes."
+    },
+    {
+      "path": "tasks/README.md",
+      "purpose": "Record SYS-AUTO-001 as blocked and register SYS-AUTO-002 for independent review."
+    }
+  ],
+  "validation_profile": {
+    "name": "sys-auto-002-worker-isolation-v1",
+    "commands": [
+      "git diff --check",
+      "node workflow/cli.mjs validate --all",
+      "node --test workflow/tests/*.test.mjs",
+      "node workflow/cli.mjs reconcile --dry-run",
+      "node workflow/cli.mjs tick --dry-run",
+      "npm run lint",
+      "npm run typecheck"
+    ]
+  },
+  "requested_permissions": {
+    "repository_write": true,
+    "git_commit": true,
+    "branch_push": true,
+    "worker_dispatch": false,
+    "automation_activation": false,
+    "github_write": false,
+    "pr_create": false,
+    "merge": false,
+    "production": false,
+    "dns": false,
+    "secret_write": false,
+    "external_action": false,
+    "task_adoption": false
+  },
+  "requested_routing": {
+    "policy_revision": "model-routing-v1",
+    "executor_platform": "Codex",
+    "provider": "OpenAI",
+    "model_family": "GPT-5.6",
+    "requested_model": "gpt-5.6-sol",
+    "reasoning_effort": "high",
+    "fallback": "BLOCKED"
+  },
+  "limits": {
+    "max_workers": 2,
+    "max_correction_cycles": 3,
+    "timeout_seconds": 3600,
+    "lease_seconds": 900
+  },
+  "provenance": {
+    "proposal_names": [],
+    "historical_task_ids": [
+      "SYS-AUTO-001",
+      "10"
+    ],
+    "preserve_executor_metadata": true,
+    "automatic_existing_task_adoption": false
+  }
+}

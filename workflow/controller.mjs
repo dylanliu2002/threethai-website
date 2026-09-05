@@ -1,6 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { loadContracts } from "./contract.mjs";
 import { validateTaskGraph } from "./dependencies.mjs";
 import { loadAuthorizationGrant, validateTrustedGrant } from "./authority.mjs";
@@ -12,7 +12,7 @@ import { issueCapabilityInternal } from "./internal/capability-engine.mjs";
 import { readControllerStateInternal } from "./internal/controller-state-engine.mjs";
 import { productionEngineInternal } from "./internal/production-engine.mjs";
 import { reconcileRuntimeInternal } from "./internal/recovery-engine.mjs";
-import { runCodexExecInternal } from "./internal/run-engine.mjs";
+import { createProductionWorkerRunner } from "./isolation/worker-runner.mjs";
 import { planScheduleInternal } from "./internal/scheduler-engine.mjs";
 
 export function defaultRepoRoot() {
@@ -103,19 +103,20 @@ export async function tick(repoRoot = defaultRepoRoot(), options = {}) {
   }
   const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8", windowsHide: true }).trim();
   const schedulerEngine = productionEngineInternal(repoRoot, contracts[0]?.task_key ?? "missing-task");
+  const workerRunner = createProductionWorkerRunner();
   const plan = planScheduleInternal(schedulerEngine, contracts, grants, { dryRun: false, wakeupId, baseSha: head });
   let workersStarted = 0;
   const results = [];
   for (const dispatch of plan.dispatches) {
     const contract = contracts.find((item) => item.task_key === dispatch.run.task_key);
     const grant = grants.get(contract.task_key);
-    const engine = productionEngineInternal(repoRoot, contract.task_key, { requirePrivateKey: true });
+    const engine = productionEngineInternal(repoRoot, contract.task_key, { requireSigner: true });
     const action = dispatch.run.role_id === grant.reviewer_role ? "review" : "dispatch";
     const capability = issueCapabilityInternal({
       engine, contract, grant, action, runId: dispatch.run.run_id, headSha: head,
     });
-    results.push(await runCodexExecInternal({
-      engine, contract, grant, capability, prompt: workerPrompt(contract), spawnImpl: spawn,
+    results.push(await workerRunner.run({
+      engine, contract, grant, capability, prompt: workerPrompt(contract),
     }));
     workersStarted += 1;
   }
