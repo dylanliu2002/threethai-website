@@ -12,8 +12,8 @@
 - **Reasoning Effort:** `high`
 - **Execution Assignment Recorded:** Yes
 - **Priority:** `P1`
-- **Status:** `IN_PROGRESS`
-- **Machine Phase:** `CORRECT`
+- **Status:** `REVIEW`
+- **Machine Phase:** `INDEPENDENT_REVIEW`
 - **Risk:** `HIGH`
 - **Branch:** `codex/sys-auto-001-bootstrap`
 - **Worktree:** `worktrees/sys-auto-001-bootstrap`
@@ -113,7 +113,7 @@ npm run typecheck
 
 - [x] Diff scope reviewed
 - [x] Machine contract and authorization-card blob binding validated
-- [x] Required test matrix passed: 41/41
+- [x] Required test matrix passed: 65/65
 - [x] Dry-run mutation boundary verified
 - [x] Git identity verified exactly for authored commits; repeat after handoff
 
@@ -335,3 +335,74 @@ Second corrective authorization:
   trust anchor, separate administration boundary, controller-derived completion
   evidence, atomic fencing, authoritative closeout and all required second-pass
   regressions before returning to a fresh independent review.
+
+## Corrective Pass #2 Evidence
+
+- **Corrected implementation commit:**
+  `c66872a057a6625016389a84b5f2028dfa56f640`
+- **Prior blocked reviewed head:**
+  `efe26f4b51214ab576b51927f504a0bbc39180a2`
+- **Contract revision:** `5` (second-correction independent-review handoff).
+- **Fresh review required:** `QA_PERFORMANCE`, new Codex run/thread with no
+  implementation contribution. Neither historical blocked review is reusable.
+
+Second-review BLOCKER closure:
+
+1. PASS — production authority is fixed by the reviewed controller
+   installation's Git common repository identity, kept outside task worktrees,
+   and verified against a pinned Ed25519 identity. Caller-selected stores,
+   Grants, keys, activation, leases and capabilities cannot redirect trust.
+2. PASS — process exit, actual Git head/scope and deterministic validation are
+   controller-derived. `FAILED`, invalid, stale, scope-violating or
+   validation-failing runs cannot advance to review; reported head is telemetry.
+3. PASS — production closeout takes only Task key/capability data and, inside
+   the authoritative transaction, reloads the current Approval, Grant,
+   lease/fence, reviewed head, Git state and administrative scope.
+
+Second-review MAJOR closure:
+
+1. PASS — each privileged continuation validates capability, lease, run, phase
+   and fence and performs its mutation inside one locked state transaction.
+2. PASS — secret handling recursively detects/redacts normalized sensitive
+   field names and value patterns across structured data and event/log paths.
+3. PASS — expired leases are removed and effective `max_workers` is durably
+   counted/enforced inside admission; two of three test workers were admitted.
+4. PASS — fresh `REVIEW / INDEPENDENT_REVIEW` admission derives the signed
+   Reviewer Role and requires signed implementation/head/Git-scope evidence.
+5. PASS — clean static validation and dry-run reconciliation/tick require no
+   live authority, manufacture no Grant and perform zero mutation.
+
+Manual A–H reproduction evidence:
+
+- A `TRUST-01/02/03`: caller-owned trust root/key/Grant and root replacement
+  rejected; production spawn count remained zero.
+- B `RUN-01`: worker `FAILED` did not advance the Task to review.
+- C `RUN-02`: nonexistent reported head was ignored; actual Git HEAD stored.
+- D `CLOSEOUT-01/02`: missing stored Approval and forged reviewed head rejected.
+- E `WORKERS-01`: `max_workers=2` admitted two and deferred the third.
+- F `REVIEW-ADMISSION-01/02`: authorized fresh Reviewer admitted; Owner rejected.
+- G `CI-01`: clean-authority dry-run passed with zero mutation/workers/Grants.
+- H `SECRET-01/02`: structured password and nested credential fields detected
+  and redacted.
+
+Final second-correction validation:
+
+- `node --test workflow/tests/*.test.mjs`: PASS, 65/65, including all required
+  second-review regressions and prior cross-process/recovery/path/Git evidence.
+- `node workflow/cli.mjs validate --all`: PASS; static validation works with
+  canonical authority unavailable and creates no Grant.
+- `node workflow/cli.mjs reconcile --dry-run`: PASS; zero mutations/workers.
+- `node workflow/cli.mjs tick --dry-run`: PASS; zero workers, GitHub mutations,
+  publishing actions or Grants.
+- Inactive `node workflow/cli.mjs tick`: PASS; zero live workers, GitHub
+  mutations and publishing actions.
+- `npm run lint`, `npm run typecheck`, `git diff --check`: PASS.
+- Scope: PASS. Only SYS-AUTO-001 allowlisted governance/workflow paths changed;
+  no application, public, Prisma, environment, package/lock, deployment,
+  production or existing Task artifact changed.
+- Task 16 remains `ON_HOLD`; Task 48 is untouched; no existing Task was adopted
+  or launched. Autonomous workflow active: NO. PR/merge: NO.
+
+Final handoff head is the administrative REVIEW commit that records this
+evidence and will be reported after push. The implementation author does not
+self-approve it.

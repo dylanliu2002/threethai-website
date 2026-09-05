@@ -199,3 +199,56 @@ Corrective Authorization:
   Status is `IN_PROGRESS / CORRECT`.
 - No new Task/branch/worktree, autonomy activation, existing-task adoption, PR,
   merge, GitHub mutation, production change or live worker is authorized.
+
+---
+Task Key: sys-auto-001-codex-autonomous-workflow-bootstrap
+Task ID: SYS-AUTO-001
+Role: ORCHESTRATOR
+Task: Codex Autonomous Workflow Bootstrap — corrective pass #2 handoff
+Branch: codex/sys-auto-001-bootstrap
+Prior Reviewed Head: efe26f4b51214ab576b51927f504a0bbc39180a2
+Corrected Implementation Commit: c66872a057a6625016389a84b5f2028dfa56f640
+Base: b18e5630909e73c3fc6b4884a51d0b6daa89d20c
+Date: 2026-09-05
+
+Corrective Work:
+- Established one canonical controller authority root from the reviewed
+  controller installation's Git common repository identity. A target worktree
+  must be in that repository and match the signed Grant realpath; production
+  privileged APIs reject caller-selected stores, Grants, keys, activation,
+  lease/fence, approval plans, route/sandbox and process injection.
+- Pinned an Ed25519 controller identity and separated ordinary runtime,
+  inactive-only administration and test-only dependency injection. No matching
+  private key or live authority was provisioned and activation remains off.
+- Made process exit, actual Git HEAD/scope and deterministic validation evidence
+  authoritative. Worker outcome/head/change/validation prose is advisory and
+  cannot advance a failed, invalid, stale or validation-failing run.
+- Redesigned closeout to reload the stored Approval and all authority in one
+  transaction. Applied atomic capability/lease/run/phase/fence validation to
+  every privileged mutation and durably enforced effective `max_workers`.
+- Added signed fresh-review prerequisites, exact reviewer run/head binding,
+  clean-checkout dry-run behavior, recursive sensitive-field redaction and all
+  required second-review regression cases.
+
+Validation and Reproduction:
+- Tests PASS, 65/65. `TRUST-01/02/03`, `ACTIVATION-01`, `RUN-01/02/03`,
+  `REVIEW-01`, `CLOSEOUT-01/02`, `FENCE-01`, `WORKERS-01`,
+  `REVIEW-ADMISSION-01/02`, `CI-01`, and `SECRET-01/02` all passed alongside
+  the prior cross-process, recovery, correction, path, Git scope/identity and
+  publishing regressions.
+- Manual A–H evidence is recorded on the Task Card: fake trust root rejected
+  with zero spawn; FAILED did not reach review; actual head won; forged closeout
+  rejected; worker limit was 2/3; fresh Reviewer admitted and Owner rejected;
+  clean dry-run was mutation-free; structured credentials were redacted.
+- `validate --all`, reconcile/tick dry-run, inactive live tick, lint, typecheck
+  and `git diff --check` PASS. Live workers, GitHub mutations, publishing,
+  existing-task adoption and Grant creation were all zero.
+- Scope PASS. No application/public/Prisma/environment/package/lock/deployment,
+  Task 48 or other existing Task artifact changed. Task 16 remains `ON_HOLD`.
+
+Stage Summary:
+- Status `REVIEW / INDEPENDENT_REVIEW`. A completely fresh QA_PERFORMANCE Codex
+  reviewer run/thread must bind the final administrative handoff head; Reviews
+  #1 and #2 remain historical BLOCKED evidence and cannot be reused.
+- Autonomous workflow active: NO. Existing Tasks adopted: NO. PR/merge/
+  production/GitHub mutation: NO.
