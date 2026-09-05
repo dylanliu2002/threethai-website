@@ -282,3 +282,45 @@ Final Corrective Authorization:
 - Status is `IN_PROGRESS / CORRECT`. No new Task/branch/worktree, fourth cycle,
   autonomy activation, existing-task adoption, PR, merge, GitHub mutation,
   production change or live worker is authorized.
+
+---
+Task Key: sys-auto-001-codex-autonomous-workflow-bootstrap
+Task ID: SYS-AUTO-001
+Role: ORCHESTRATOR
+Task: Codex Autonomous Workflow Bootstrap — corrective pass #3 final handoff
+Branch: codex/sys-auto-001-bootstrap
+Prior Reviewed Head: 0801971513ece65f16c71e638dfe37eea5ccd959
+Corrected Implementation Commit: 4bfcae4600f3c39a9d2b7e19d9e8465d2015b03c
+Base: b18e5630909e73c3fc6b4884a51d0b6daa89d20c
+Date: 2026-09-05
+
+Corrective Work:
+- Bound review acceptance, reported outcome, canonical evidence and Approval to
+  the exact controller-stored reviewer run/worker/thread/attempt and current
+  reviewer capability; caller-selected mixed review authority is rejected.
+- Moved production expiry checks to controller-owned time and rejected caller
+  clock/timestamp injection across privileged public facades.
+- Replaced age-based mutex eviction with owner PID/process-start/token records,
+  owner-only release and fail-closed uncertain-orphan handling. Long live
+  holders remain exclusive and fencing advances only after release.
+- Added recursive detection and redaction for parseable structured strings and
+  artifact JSON sensitive fields while preserving public verification metadata.
+
+Validation and Reproduction:
+- Tests PASS, 86/86, including all Review #3 reviewer binding, Approval binding,
+  trusted-time/backdating, owner/long-holder/fencing, cross-process lease and
+  worker-limit, and structured secret/artifact/log regressions.
+- `validate --all`, reconcile/tick dry-run, inactive live tick, lint, typecheck
+  and `git diff --check` PASS. Live workers, automations, GitHub mutations,
+  publishing actions, task adoption and Grant creation were all zero.
+- Scope PASS. No application/public/Prisma/environment/package/lock/deployment,
+  Task 48 or other existing Task artifact changed. Task 16 remains `ON_HOLD`.
+
+Stage Summary:
+- Status `REVIEW / INDEPENDENT_REVIEW`. Fresh independent QA_PERFORMANCE
+  Reviewer #4 must bind the final administrative handoff head. Reviews #1–#3
+  remain historical `BLOCKED` records and cannot be reused.
+- Corrective pass #3 is the final governed cycle. No fourth corrective cycle is
+  automatically authorized.
+- Autonomous workflow active: NO. Existing Tasks adopted: NO. PR/merge/
+  production/GitHub mutation: NO.

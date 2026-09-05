@@ -12,8 +12,8 @@
 - **Reasoning Effort:** `high`
 - **Execution Assignment Recorded:** Yes
 - **Priority:** `P1`
-- **Status:** `IN_PROGRESS`
-- **Machine Phase:** `CORRECT`
+- **Status:** `REVIEW`
+- **Machine Phase:** `INDEPENDENT_REVIEW`
 - **Risk:** `HIGH`
 - **Branch:** `codex/sys-auto-001-bootstrap`
 - **Worktree:** `worktrees/sys-auto-001-bootstrap`
@@ -445,3 +445,59 @@ Final corrective authorization:
   structured string/artifact secret handling and their minimal regressions.
 - Activation, worker dispatch, task adoption, PR creation, merge, GitHub writes,
   production changes and a fourth corrective cycle remain unauthorized.
+
+## Corrective Pass #3 Evidence
+
+- **Corrected implementation commit:**
+  `4bfcae4600f3c39a9d2b7e19d9e8465d2015b03c`
+- **Prior blocked reviewed head:**
+  `0801971513ece65f16c71e638dfe37eea5ccd959`
+- **Contract revision:** `7` (final-correction independent-review handoff).
+- **Fresh review required:** `QA_PERFORMANCE`, new Codex run/thread with no
+  implementation contribution. Reviews #1, #2 and #3 remain historical
+  `BLOCKED` evidence and cannot authorize this corrected head.
+
+Review #3 BLOCKER closure:
+
+1. PASS — review acceptance is bound to the current reviewer capability and
+   exact controller-stored reviewer run, worker, thread, attempt, target,
+   outcome and canonical evidence. Approval is created from that same accepted
+   result in the authoritative transaction and cannot substitute caller data.
+2. PASS — production privileged facades use controller time and reject caller
+   clock/timestamp injection. Backdating cannot revive an expired Grant,
+   capability or lease.
+
+Review #3 MAJOR closure:
+
+1. PASS — the filesystem mutex records owner PID, process-start identity and a
+   random owner token. Age never evicts a live or uncertain holder; non-owner
+   release fails closed, including with a copied token. More than 31 seconds of
+   live ownership remained exclusive, and fencing advanced only after release.
+2. PASS — parseable JSON strings and tracked artifact content are inspected
+   recursively for normalized sensitive field names. Structured log strings
+   are recursively redacted while public site-verification metadata remains
+   allowed.
+
+Final third-correction validation:
+
+- `node --test workflow/tests/*.test.mjs`: PASS, 86/86, including exact review/
+  approval binding, trusted time, live long-holder, owner-only release,
+  atomic-fence, cross-process dispatch/worker-limit and structured-secret
+  regressions.
+- `node workflow/cli.mjs validate --all`: PASS; one contract statically
+  validated, authority unavailable, zero Grants and 73 tracked files scanned.
+- `node workflow/cli.mjs reconcile --dry-run`: PASS; zero mutations/workers.
+- `node workflow/cli.mjs tick --dry-run`: PASS; zero workers, automations,
+  GitHub mutations, publishing actions or Grants.
+- Inactive `node workflow/cli.mjs tick`: PASS; zero live workers, automations,
+  GitHub mutations, publishing actions or Grants.
+- `npm run lint`, `npm run typecheck`, `git diff --check`: PASS.
+- Scope: PASS. Only SYS-AUTO-001 allowlisted governance/workflow paths changed;
+  no application, public, Prisma, environment, package/lock, deployment,
+  production or existing Task artifact changed.
+- Task 16 remains `ON_HOLD`; Task 48 is untouched; no existing Task was adopted
+  or launched. Autonomous workflow active: NO. PR/merge: NO.
+
+Status is `REVIEW / INDEPENDENT_REVIEW`. A fresh QA_PERFORMANCE Reviewer #4
+must review the final administrative handoff head. No fourth corrective cycle
+is authorized automatically if that review is not approved.
