@@ -324,3 +324,62 @@ Stage Summary:
   automatically authorized.
 - Autonomous workflow active: NO. Existing Tasks adopted: NO. PR/merge/
   production/GitHub mutation: NO.
+
+---
+Task Key: sys-auto-001-codex-autonomous-workflow-bootstrap
+Task ID: SYS-AUTO-001
+Role: ORCHESTRATOR
+Task: Codex Autonomous Workflow Bootstrap — human risk acceptance and inactive merge preparation
+Branch: codex/sys-auto-001-bootstrap
+Technical Reviewed Head: 62d99d18f858fde6eee97559b8a9edec81d2a776
+Base: b18e5630909e73c3fc6b4884a51d0b6daa89d20c
+Date: 2026-09-06
+
+Decision Type:
+- HUMAN RISK ACCEPTANCE.
+
+Reviewer #4:
+- Outcome remains `BLOCKED` at technical reviewed head
+  `62d99d18f858fde6eee97559b8a9edec81d2a776`.
+- Residual finding: Controller-to-worker OS/security isolation is not proven to
+  activation-grade standards.
+- This administrative record does not relabel Reviewer #4 as approved or claim
+  that all security findings are closed.
+
+Human Decision:
+- `ACCEPTED FOR INACTIVE MERGE ONLY`.
+- Rationale: the remaining finding is an activation prerequisite rather than a
+  blocker for storing inactive controller infrastructure in main.
+- Accepted residual risk is limited to worker OS isolation not yet independently
+  proven, controller credential/read isolation not yet activation-grade, and
+  the need to harden the future worker security profile before live use.
+- Risk is explicitly not accepted for unattended worker execution, production
+  credentials, GitHub write authority in workers, deployment, DNS, production
+  systems, or external autonomous actions.
+
+Activation Boundary:
+- Before any live worker dispatch, a separate human-authorized lightweight
+  activation-hardening and pilot review is required.
+- Autonomous workflow active: NO.
+- Existing tasks adopted: NO.
+- SYS-AUTO-002 is `DEFERRED HARDENING / NOT REQUIRED FOR CURRENT INACTIVE MERGE`;
+  it is preserved, unmodified, and excluded from this merge preparation.
+- Human merge is required. Automatic merge and later activation remain
+  unauthorized.
+
+Administrative Contract Sync and Validation:
+- Task Card blob binding PASS at
+  `d0afd355835e21ffae6eeeb39723c95d4e676ee8`; contract revision advanced from
+  7 to 8 without changing `REVIEW / INDEPENDENT_REVIEW`.
+- Only `requested_permissions.pr_create` was enabled for the human-reviewed PR.
+  Worker dispatch, automation activation, GitHub write, merge, production, DNS,
+  secret write, external action and task adoption remain disabled.
+- `node workflow/cli.mjs validate --all`: PASS; one contract, zero Grants and
+  tracked secret scan PASS across 73 files.
+- `node --test workflow/tests/*.test.mjs`: PASS, 86/86.
+- `node workflow/cli.mjs reconcile --dry-run`: PASS; zero mutations/workers.
+- `node workflow/cli.mjs tick --dry-run`: PASS; zero workers, automations,
+  GitHub mutations, publishing actions or Grants.
+- `npm run lint`, `npm run typecheck` and `git diff --check`: PASS.
+- Diff scope: PASS; exactly the three authorized SYS-AUTO-001 administrative
+  files changed. No implementation or SYS-AUTO-002 file changed.

@@ -501,3 +501,47 @@ Final third-correction validation:
 Status is `REVIEW / INDEPENDENT_REVIEW`. A fresh QA_PERFORMANCE Reviewer #4
 must review the final administrative handoff head. No fourth corrective cycle
 is authorized automatically if that review is not approved.
+
+## Human Risk Acceptance — Inactive Merge Only
+
+- **Decision Type:** `HUMAN RISK ACCEPTANCE`
+- **Technical Reviewed Head:**
+  `62d99d18f858fde6eee97559b8a9edec81d2a776`
+- **Reviewer #4 Outcome:** `BLOCKED`
+- **Reviewer #4 residual finding:** Controller-to-worker OS/security isolation
+  is not proven to activation-grade standards.
+- **Human decision:** `ACCEPTED FOR INACTIVE MERGE ONLY`
+- **Rationale:** The remaining finding is treated as an activation prerequisite
+  rather than a blocker for storing inactive controller infrastructure in main.
+
+Accepted residual risk includes:
+
+- worker OS isolation not yet independently proven;
+- controller credential/read isolation not yet activation-grade;
+- future worker security profile requires additional hardening before live use.
+
+Risk explicitly NOT accepted for:
+
+- unattended worker execution;
+- production credentials;
+- GitHub write authority in workers;
+- deployment;
+- DNS;
+- production systems;
+- external autonomous actions.
+
+Activation prerequisite:
+
+A separate human-authorized lightweight activation-hardening and pilot review
+must occur before any live worker dispatch.
+
+- **Autonomous workflow active:** `NO`
+- **Existing tasks adopted:** `NO`
+- **SYS-AUTO-002:** `DEFERRED HARDENING / NOT REQUIRED FOR CURRENT INACTIVE MERGE`.
+  Its evidence and implementation remain preserved for possible future use; it
+  is not part of this merge preparation.
+- **Merge boundary:** This decision does not relabel Reviewer #4 as approved,
+  close the isolation finding, authorize automatic merge, or make the workflow
+  activation-ready, unattended-execution-ready, or production-credential-ready.
+  Human merge is required, and any later activation requires separate explicit
+  human authorization.
