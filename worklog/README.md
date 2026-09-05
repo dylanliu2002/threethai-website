@@ -15,7 +15,13 @@ worklog/agent-13-cro.md
 worklog/agent-14-brand-ux.md
 worklog/agent-15-qa-performance.md
 worklog/agent-16-backlink.md
+worklog/sys-auto-001-codex-autonomous-workflow-bootstrap.md
 ```
+
+Machine-managed infrastructure worklogs use their full canonical task key; they
+do not reuse a numeric/display Task ID as machine identity. Existing historical
+worklog names are preserved. Runtime event journals are operational state outside
+the tracked repository and are not appended to task worklogs automatically.
 
 New entries are appended in this form:
 

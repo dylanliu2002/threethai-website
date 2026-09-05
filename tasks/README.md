@@ -59,6 +59,17 @@ task also automatically owns its own task card and append-only matching worklog
 under the model in `AGENTS.md`. Creating a card does not authorize performing
 its audit.
 
+## Infrastructure Tasks
+
+| Task key | Task card | Role | Branch | Status / Phase |
+| --- | --- | --- | --- | --- |
+| `sys-auto-001-codex-autonomous-workflow-bootstrap` | `sys-auto-001-codex-autonomous-workflow-bootstrap.md` | ORCHESTRATOR | `codex/sys-auto-001-bootstrap` | REVIEW / INDEPENDENT_REVIEW |
+
+Infrastructure task keys are canonical machine identities. Numeric/display IDs
+are historical or UI metadata and must never be used alone for machine identity.
+SYS-AUTO-001 is a manually supervised bootstrap; its presence does not activate
+automation or adopt an existing task. There is no Task 53.
+
 ## Historical Records
 
 Older cards and reports remain as historical evidence. Their former `agent/*`

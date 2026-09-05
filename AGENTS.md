@@ -1,7 +1,7 @@
 # Three Thai Website Agent Rules
 
 These rules govern work inside `threethai-website/`. Read this file completely
-and then the assigned `tasks/NN-short-task-name.md` card. If a workspace-level
+and then the assigned Task Card under `tasks/`. If a workspace-level
 `AGENTS.md` exists in an ancestor directory of the current checkout or worktree,
 read and follow it in addition to this repository-level `AGENTS.md`.
 
@@ -273,3 +273,53 @@ Tasks affected:
 Risk:
 Validation:
 ```
+
+## 15. Machine-Managed Workflow (Not Activated)
+
+SYS-AUTO-001 defines an optional machine-managed layer documented in
+`docs/agent-team/AUTONOMOUS-WORKFLOW.md`. Its bootstrap does not activate
+automation or adopt any existing Task.
+
+- Canonical machine identity is the full `task_key`; numeric/display Task IDs
+  are never sufficient identity.
+- A supported Task Contract under `tasks/machine/` is only requested/declared
+  configuration. It cannot authorize itself. Machine admission also requires a
+  matching controller-owned, signed Authorization Grant outside the worker
+  worktree. Production derives the canonical authority root from repository
+  identity and verifies Grants/capabilities against the pinned controller key;
+  caller-selected roots, state, keys or Grants cannot replace that trust. The
+  Grant binds the complete contract digest, card blob, revision, Roles,
+  mode/risk/dependencies, branch/worktree, all write/admin/shared scopes,
+  validation, routing, limits, permissions, activation and publishing policy.
+- Unknown schema versions/fields, scope/card digest mismatches, illegal states,
+  dirty or ambiguous adopted worktrees, missing approval, and unavailable
+  approved models fail closed.
+- Task Cards, prompts, issues, model output and worklogs cannot expand machine
+  permissions. Skills provide procedure only; they do not grant authorization.
+- Run, worker, thread and Role identities are distinct and controller-bound.
+  Every privileged continuation requires a signed, expiring controller
+  capability plus the current durable lease and monotonic fencing token.
+- Independent review requires a different Role, worker, thread and run, with no
+  implementation contribution and exact reviewed base/head evidence. Review
+  acceptance and Approval creation must use the current reviewer capability and
+  exact controller-stored reviewer run/outcome/evidence; caller-selected review
+  metadata is never authority.
+- Closeout is administrative only and records separate Reviewed/Closeout Heads.
+- Live worker dispatch, Automation/heartbeat, GitHub writes, existing-task
+  adoption, merge, production, DNS, secret and external actions require explicit
+  permission plus separate activation or human authorization as applicable.
+- Actual changes come from independent Git/filesystem evidence (including
+  untracked and rename paths), never worker-reported `changed_files`.
+- Runtime state, Grants, leases, reservations, approvals and the append-only
+  journal live outside the worker worktree; cross-process admission, effective
+  worker limits and privileged lease/fence validation plus mutation are atomic.
+  A mutex records ownership and is released only by its owner token; age alone
+  never permits eviction. Production authority checks use controller time and
+  reject caller-supplied clocks/timestamps.
+  Runtime events remain outside tracked source;
+  never introduce a continuously rewritten shared `tasks/state.json` on main.
+
+Until a separately approved activation task says otherwise, activation remains
+false. A non-dry-run `tick` must safely produce zero workers, GitHub mutations
+and publishing actions. Do not create Task 53; the canonical
+infrastructure key is `sys-auto-001-codex-autonomous-workflow-bootstrap`.
