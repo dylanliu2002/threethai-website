@@ -1,0 +1,40 @@
+{
+  "fixture_version": "1.0.0",
+  "task_key": "sys-auto-pilot-001-synthetic-fixture",
+  "intent": "Create a deterministic timestamp-free JSON result in the disposable pilot output path.",
+  "execute_now": false,
+  "requires_separate_activation_authorization": true,
+  "write_files": [
+    "workflow/fixtures/pilot/output/synthetic-result.json"
+  ],
+  "write_prefixes": [],
+  "forbidden_prefixes": [
+    "src/",
+    "public/",
+    ".github/",
+    "prisma/"
+  ],
+  "network": false,
+  "secrets": false,
+  "git_commit": false,
+  "git_push": false,
+  "pull_request": false,
+  "merge": false,
+  "deployment": false,
+  "dns": false,
+  "production": false,
+  "validation": [
+    "git diff --check",
+    "node workflow/cli.mjs validate --all",
+    "node --test workflow/tests/*.test.mjs",
+    "node workflow/cli.mjs reconcile --dry-run",
+    "node workflow/cli.mjs tick --dry-run",
+    "npm run lint",
+    "npm run typecheck"
+  ],
+  "expected_result": {
+    "fixture_version": "1.0.0",
+    "result": "PASS",
+    "task_key": "sys-auto-pilot-001-synthetic-fixture"
+  }
+}
