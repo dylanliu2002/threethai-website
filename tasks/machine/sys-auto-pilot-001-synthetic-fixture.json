@@ -1,0 +1,94 @@
+{
+  "schema_version": "2.0.0",
+  "task_key": "sys-auto-pilot-001-synthetic-fixture",
+  "task_id": "SYS-AUTO-PILOT-001",
+  "card_path": "tasks/sys-auto-pilot-001-synthetic-fixture.md",
+  "card_blob_sha": "9700ff95859b4016d4abd73c69d53c781f2014f6",
+  "contract_revision": 1,
+  "status": "READY",
+  "phase": "QUEUED",
+  "mode": "IMPLEMENT",
+  "owner_role": "ORCHESTRATOR",
+  "reviewer_role": "QA_PERFORMANCE",
+  "execution_profile": "HIGH_RISK_CODE",
+  "risk": "LOW",
+  "priority": "P1",
+  "request_provenance": {
+    "kind": "USER_REQUESTED",
+    "requested_by": "user",
+    "requested_at": "2026-09-06",
+    "source": "AUTHORIZED SYS-AUTO-004 one-time synthetic pilot fixture",
+    "base_sha": "2ca8c8f7b5d521bbcf1b14b5e02c546bd14b4680"
+  },
+  "dependencies": [],
+  "branch": "codex/sys-auto-pilot-001-synthetic-fixture",
+  "worktree": "worktrees/sys-auto-pilot-001-synthetic-fixture",
+  "write_files": [
+    "workflow/fixtures/pilot/output/synthetic-result.json"
+  ],
+  "write_prefixes": [],
+  "administrative_files": [],
+  "shared_file_grants": [],
+  "validation_profile": {
+    "name": "synthetic-pilot-deterministic-output",
+    "commands": [
+      "git diff --check",
+      "node workflow/fixtures/pilot/validate-synthetic-result.mjs"
+    ]
+  },
+  "requested_permissions": {
+    "repository_write": true,
+    "git_commit": false,
+    "branch_push": false,
+    "worker_dispatch": true,
+    "automation_activation": false,
+    "github_write": false,
+    "pr_create": false,
+    "merge": false,
+    "production": false,
+    "dns": false,
+    "secret_write": false,
+    "external_action": false,
+    "task_adoption": false
+  },
+  "requested_routing": {
+    "policy_revision": "model-routing-v1",
+    "executor_platform": "Codex",
+    "provider": "OpenAI",
+    "model_family": "GPT-5.6",
+    "requested_model": "gpt-5.6-sol",
+    "reasoning_effort": "high",
+    "fallback": "BLOCKED"
+  },
+  "limits": {
+    "max_workers": 1,
+    "max_correction_cycles": 0,
+    "timeout_seconds": 300,
+    "lease_seconds": 420
+  },
+  "synthetic_pilot": {
+    "task_key": "sys-auto-pilot-001-synthetic-fixture",
+    "write_files": [
+      "workflow/fixtures/pilot/output/synthetic-result.json"
+    ],
+    "write_prefixes": [],
+    "network": false,
+    "secrets": false,
+    "git_commit": false,
+    "push": false,
+    "pr": false,
+    "merge": false,
+    "production": false,
+    "dns": false,
+    "deployment": false,
+    "task_adoption": false,
+    "max_workers": 1,
+    "timeout_seconds": 300
+  },
+  "provenance": {
+    "proposal_names": [],
+    "historical_task_ids": [],
+    "preserve_executor_metadata": true,
+    "automatic_existing_task_adoption": false
+  }
+}

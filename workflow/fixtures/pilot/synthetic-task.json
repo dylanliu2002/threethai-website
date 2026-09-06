@@ -23,6 +23,9 @@
   "deployment": false,
   "dns": false,
   "production": false,
+  "task_adoption": false,
+  "max_workers": 1,
+  "timeout_seconds": 300,
   "validation": [
     "git diff --check",
     "node workflow/cli.mjs validate --all",

@@ -3,6 +3,13 @@ export const GRANT_SCHEMA_VERSION = "1.0.0";
 export const POLICY_REVISION = "autonomous-policy-v2";
 export const MODEL_ROUTING_REVISION = "model-routing-v1";
 
+export const SYNTHETIC_PILOT_TASK_KEY = "sys-auto-pilot-001-synthetic-fixture";
+export const SYNTHETIC_PILOT_CARD_PATH = "tasks/sys-auto-pilot-001-synthetic-fixture.md";
+export const SYNTHETIC_PILOT_BRANCH = "codex/sys-auto-pilot-001-synthetic-fixture";
+export const SYNTHETIC_PILOT_WORKTREE = "worktrees/sys-auto-pilot-001-synthetic-fixture";
+export const SYNTHETIC_PILOT_OUTPUT_PATH =
+  "workflow/fixtures/pilot/output/synthetic-result.json";
+
 export const ROLES = Object.freeze([
   "ORCHESTRATOR",
   "TECHNICAL_SEO",

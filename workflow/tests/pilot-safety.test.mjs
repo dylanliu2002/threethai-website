@@ -6,6 +6,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { tick } from "../controller.mjs";
+import { computeContractDigest } from "../contract.mjs";
 import { superviseChildProcessInternal } from "../internal/run-engine.mjs";
 import { reserveTaskDispatchInternal } from "../internal/lease-engine.mjs";
 import {
@@ -76,14 +77,54 @@ function activePilotPolicy(taskKeys = [PILOT_TASK_KEY]) {
 
 function pilotAuthority({ taskKey = PILOT_TASK_KEY, repoRoot = path.resolve("C:/pilot-worktree") } = {}) {
   const contract = makeContract({ taskKey, file: "workflow/fixtures/pilot/output/synthetic-result.json" });
+  contract.write_files = ["workflow/fixtures/pilot/output/synthetic-result.json"];
+  contract.administrative_files = [];
   contract.limits.max_workers = 1;
+  contract.limits.max_correction_cycles = 0;
+  contract.limits.timeout_seconds = 300;
+  contract.limits.lease_seconds = 420;
   for (const permission of [
     "git_commit", "branch_push", "github_write", "pr_create", "merge", "production",
     "dns", "secret_write", "external_action", "task_adoption",
   ]) contract.requested_permissions[permission] = false;
+  contract.requested_permissions.automation_activation = false;
   contract.provenance.automatic_existing_task_adoption = false;
+  contract.synthetic_pilot = {
+    task_key: PILOT_TASK_KEY,
+    write_files: ["workflow/fixtures/pilot/output/synthetic-result.json"],
+    write_prefixes: [],
+    network: false,
+    secrets: false,
+    git_commit: false,
+    push: false,
+    pr: false,
+    merge: false,
+    production: false,
+    dns: false,
+    deployment: false,
+    task_adoption: false,
+    max_workers: 1,
+    timeout_seconds: contract.limits.timeout_seconds,
+  };
+  const contractDigest = computeContractDigest(contract);
   const grant = makeGrant(contract, {
     worktreeRealpath: repoRoot,
+    activation: {
+      autonomous: false,
+      worker_dispatch: true,
+      synthetic_pilot_once: {
+        task_key: PILOT_TASK_KEY,
+        contract_digest: contractDigest,
+        card_blob_sha: contract.card_blob_sha,
+        max_dispatch_attempts: 1,
+        max_workers: 1,
+        publishing: false,
+        network: false,
+        production: false,
+        dns: false,
+        deployment: false,
+      },
+    },
     publishing: {
       commit: false,
       push: false,

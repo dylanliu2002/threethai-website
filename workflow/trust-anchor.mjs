@@ -5,12 +5,12 @@ import crypto from "node:crypto";
 // state. A future, separately authorized administration task must provision a
 // matching controller credential before live activation can be considered.
 export const PINNED_CONTROLLER_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
-MCowBQYDK2VwAyEAzVfk3s1jkjyGDXUvf3z/IWt3Z+jp/9pjSV0+ctl3QS4=
+MCowBQYDK2VwAyEADnuvxytb2I4tzwiZ4lkIUYiw4tMtFzZai+OoLIkthWk=
 -----END PUBLIC KEY-----
 `;
 
 export const PINNED_CONTROLLER_KEY_FINGERPRINT =
-  "61c82a021e0af9d63fe1e714132beae2f266547221fa9c11e564d003f301196c";
+  "2b083b22e59b767683b38c305683b69511ba80956e9ac1d6efe7bc9f331806a1";
 
 export function publicKeyFingerprint(publicKeyPem) {
   const der = crypto.createPublicKey(publicKeyPem).export({ type: "spki", format: "der" });
