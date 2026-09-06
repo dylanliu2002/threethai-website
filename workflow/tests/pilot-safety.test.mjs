@@ -186,7 +186,8 @@ test("PILOT-PROFILE-01 danger-full-access request is rejected", () => {
     sandbox: "danger-full-access",
   }, requiredProfile()), /sandbox/);
   const args = buildPilotCliSecurityArgs(requiredProfile(), { PATH: "C:\\tools" });
-  assert.ok(args.includes("never"));
+  assert.ok(args.includes('approval_policy="never"'));
+  assert.equal(args.includes("--ask-for-approval"), false);
   assert.ok(args.includes("skip_host_skill_discovery"));
   assert.equal(args.includes("untrusted"), false);
   assert.equal(args.includes("danger-full-access"), false);
@@ -194,6 +195,55 @@ test("PILOT-PROFILE-01 danger-full-access request is rejected", () => {
     assert.ok(args.includes(feature));
   }
   assert.equal(args.includes("--search"), false);
+});
+
+test("PILOT-PROFILE-07 approval policy uses one supported config override", () => {
+  const profile = requiredProfile();
+  const args = buildPilotCliSecurityArgs(profile, { PATH: "C:\\tools" });
+  const configOverrides = args.flatMap((value, index) =>
+    args[index - 1] === "-c" ? [value] : []);
+  const approvalOverrides = configOverrides.filter((value) =>
+    value.startsWith("approval_policy="));
+  assert.equal(profile.approval_policy, "never");
+  assert.deepEqual(approvalOverrides, ['approval_policy="never"']);
+  assert.equal(args.includes("--ask-for-approval"), false);
+  assert.equal(args.includes("danger-full-access"), false);
+  assert.deepEqual(
+    configOverrides.filter((value) => value === "sandbox_workspace_write.network_access=false"),
+    ["sandbox_workspace_write.network_access=false"],
+  );
+});
+
+test("PILOT-CLI-COMPAT-01 Codex 0.153.4 accepts generated approval config without a thread", () => {
+  const args = buildPilotCliSecurityArgs(requiredProfile(), { PATH: "C:\\tools" });
+  const approvalIndex = args.findIndex((value) => value === 'approval_policy="never"');
+  assert.ok(approvalIndex > 0);
+  assert.equal(args[approvalIndex - 1], "-c");
+  const environment = safeParentEnvironment();
+  const version = spawnSync("codex", ["--version"], {
+    env: environment,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  assert.equal(version.status, 0, version.stderr);
+  assert.match(version.stdout, /codex-cli 0\.153\.4(?:\s|$)/);
+  const result = spawnSync("codex", [
+    "exec",
+    "--strict-config",
+    "--ignore-user-config",
+    "--ignore-rules",
+    "--ephemeral",
+    "-c",
+    args[approvalIndex],
+    "--help",
+  ], {
+    env: environment,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /Run Codex non-interactively/);
+  assert.equal(`${result.stdout}\n${result.stderr}`.includes("thread.started"), false);
 });
 
 test("PILOT-PROFILE-02 alternate model is rejected", () => {

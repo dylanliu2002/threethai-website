@@ -508,7 +508,7 @@ export function buildPilotCliSecurityArgs(profile, workerShellEnvironment) {
     "--ignore-user-config",
     "--ignore-rules",
     "--ephemeral",
-    "--ask-for-approval", profile.approval_policy,
+    "-c", `approval_policy=${tomlString(profile.approval_policy)}`,
     "-c", `model_provider=${tomlString(profile.provider)}`,
     "-c", `model_reasoning_effort=${tomlString(profile.reasoning_effort)}`,
     "-c", `windows.sandbox=${tomlString(profile.windows_sandbox)}`,
