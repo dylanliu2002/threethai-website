@@ -249,14 +249,25 @@ test("REVIEW-ADMISSION-02 owner cannot perform independent review", (t) => {
   assert.equal(admitted.reason, "role-not-authorized-for-phase");
 });
 
-test("CI-01 clean authority state tick dry-run exits with zero mutation and no Grant", async () => {
+test("CI-01 tick dry-run exits with zero mutation and creates no Grant", async () => {
   const context = resolveCanonicalControllerContext(process.cwd());
-  assert.equal(fs.existsSync(context.authority_root), false);
+  const grantsBefore = fs.existsSync(context.grants_directory)
+    ? fs.readdirSync(context.grants_directory).sort()
+    : [];
+  const statePath = path.join(context.state_directory, "controller-state.json");
+  const journalPath = path.join(context.state_directory, "controller-journal.jsonl");
+  const stateBefore = fs.existsSync(statePath) ? fs.readFileSync(statePath, "utf8") : null;
+  const journalBefore = fs.existsSync(journalPath) ? fs.readFileSync(journalPath, "utf8") : null;
   const result = await tick(process.cwd(), { dryRun: true });
   assert.equal(result.workers_started, 0);
   assert.deepEqual(result.mutations, []);
   assert.equal(result.grants_created, 0);
-  assert.equal(fs.existsSync(context.authority_root), false);
+  const grantsAfter = fs.existsSync(context.grants_directory)
+    ? fs.readdirSync(context.grants_directory).sort()
+    : [];
+  assert.deepEqual(grantsAfter, grantsBefore);
+  assert.equal(fs.existsSync(statePath) ? fs.readFileSync(statePath, "utf8") : null, stateBefore);
+  assert.equal(fs.existsSync(journalPath) ? fs.readFileSync(journalPath, "utf8") : null, journalBefore);
 });
 
 test("SECRET-01 structured password field is detected and redacted", () => {

@@ -2,6 +2,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { computeContractDigest } from "./contract.mjs";
+import {
+  SYNTHETIC_PILOT_BRANCH,
+  SYNTHETIC_PILOT_CARD_PATH,
+  SYNTHETIC_PILOT_OUTPUT_PATH,
+  SYNTHETIC_PILOT_TASK_KEY,
+  SYNTHETIC_PILOT_WORKTREE,
+} from "./constants.mjs";
 import { deriveSandbox, routeTask } from "./routing.mjs";
 
 export const PILOT_SANDBOX_UNAVAILABLE = "PILOT_SANDBOX_UNAVAILABLE";
@@ -11,7 +19,7 @@ export const PILOT_MODE = Object.freeze({
   activation_enabled: false,
   max_workers: 1,
   authorized_task_keys: Object.freeze([
-    "sys-auto-pilot-001-synthetic-fixture",
+    SYNTHETIC_PILOT_TASK_KEY,
   ]),
   automatic_existing_task_adoption: false,
   scheduler_heartbeat: false,
@@ -100,6 +108,128 @@ const FORBIDDEN_PILOT_PERMISSIONS = Object.freeze([
   "external_action",
   "task_adoption",
 ]);
+
+const REQUIRED_FALSE_PILOT_PERMISSIONS = Object.freeze([
+  "git_commit",
+  "branch_push",
+  "automation_activation",
+  "github_write",
+  "pr_create",
+  "merge",
+  "production",
+  "dns",
+  "secret_write",
+  "external_action",
+  "task_adoption",
+]);
+
+export function assertSyntheticPilotContract(contract) {
+  if (contract.task_key !== SYNTHETIC_PILOT_TASK_KEY
+    || contract.card_path !== SYNTHETIC_PILOT_CARD_PATH
+    || contract.branch !== SYNTHETIC_PILOT_BRANCH
+    || contract.worktree !== SYNTHETIC_PILOT_WORKTREE) {
+    throw new Error("Synthetic pilot identity, card, branch, and worktree must be exact.");
+  }
+  if (contract.status !== "READY" || contract.phase !== "QUEUED"
+    || contract.mode !== "IMPLEMENT" || contract.owner_role !== "ORCHESTRATOR"
+    || contract.reviewer_role !== "QA_PERFORMANCE") {
+    throw new Error("Synthetic pilot lifecycle and Roles must be exact.");
+  }
+  if (contract.dependencies.length !== 0
+    || contract.write_files.length !== 1
+    || contract.write_files[0] !== SYNTHETIC_PILOT_OUTPUT_PATH
+    || contract.write_prefixes.length !== 0
+    || contract.administrative_files.length !== 0
+    || contract.shared_file_grants.length !== 0) {
+    throw new Error("Synthetic pilot write scope must contain only the deterministic output file.");
+  }
+  if (!contract.requested_permissions.repository_write
+    || !contract.requested_permissions.worker_dispatch) {
+    throw new Error("Synthetic pilot requires only repository write and one-time worker dispatch.");
+  }
+  for (const permission of REQUIRED_FALSE_PILOT_PERMISSIONS) {
+    if (contract.requested_permissions[permission] !== false) {
+      throw new Error(`Synthetic pilot permission must remain false: ${permission}`);
+    }
+  }
+  if (contract.provenance.automatic_existing_task_adoption
+    || contract.limits.max_workers !== 1
+    || contract.limits.max_correction_cycles !== 0
+    || !Number.isInteger(contract.limits.timeout_seconds)
+    || contract.limits.timeout_seconds <= 0
+    || contract.limits.lease_seconds <= contract.limits.timeout_seconds + 5) {
+    throw new Error("Synthetic pilot limits or adoption policy are broader than authorized.");
+  }
+  const constraints = contract.synthetic_pilot;
+  if (!constraints
+    || constraints.task_key !== contract.task_key
+    || constraints.write_files.length !== 1
+    || constraints.write_files[0] !== SYNTHETIC_PILOT_OUTPUT_PATH
+    || constraints.write_prefixes.length !== 0
+    || constraints.max_workers !== 1
+    || constraints.timeout_seconds !== contract.limits.timeout_seconds) {
+    throw new Error("Synthetic pilot machine constraints are missing or inconsistent.");
+  }
+  for (const field of [
+    "network", "secrets", "git_commit", "push", "pr", "merge", "production",
+    "dns", "deployment", "task_adoption",
+  ]) {
+    if (constraints[field] !== false) {
+      throw new Error(`Synthetic pilot constraint must remain false: ${field}`);
+    }
+  }
+  const routed = routeTask(contract, { availableModels: ["gpt-5.6-sol"] });
+  if (routed.executor_platform !== "Codex" || routed.provider !== "OpenAI"
+    || routed.model !== "gpt-5.6-sol" || routed.reasoning_effort !== "high"
+    || routed.fallback !== "BLOCKED") {
+    throw new Error("Synthetic pilot routing must remain pinned to Codex/OpenAI/gpt-5.6-sol/high.");
+  }
+  return true;
+}
+
+export function assertSyntheticPilotGrant(contract, grant) {
+  assertSyntheticPilotContract(contract);
+  const activation = grant.activation.synthetic_pilot_once;
+  if (!activation
+    || grant.task_key !== contract.task_key
+    || grant.contract_digest !== computeContractDigest(contract)
+    || grant.card_blob_sha !== contract.card_blob_sha
+    || grant.synthetic_pilot?.task_key !== contract.task_key
+    || activation.task_key !== contract.task_key
+    || activation.contract_digest !== grant.contract_digest
+    || activation.card_blob_sha !== grant.card_blob_sha
+    || activation.max_dispatch_attempts !== 1
+    || activation.max_workers !== 1
+    || grant.limits.max_workers !== 1) {
+    throw new Error("Synthetic pilot Grant does not bind the exact contract, card, and one-shot limits.");
+  }
+  if (grant.activation.autonomous || !grant.activation.worker_dispatch
+    || grant.permissions.automation_activation || !grant.permissions.worker_dispatch) {
+    throw new Error("Synthetic pilot Grant must authorize one-shot dispatch without autonomous activation.");
+  }
+  assertNoForbiddenPermissions(grant.permissions);
+  for (const field of ["publishing", "network", "production", "dns", "deployment"]) {
+    if (activation[field] !== false) {
+      throw new Error(`Synthetic pilot activation constraint must remain false: ${field}`);
+    }
+  }
+  if (grant.publishing.commit || grant.publishing.push || grant.publishing.pr
+    || grant.publishing.merge || grant.publishing.force
+    || grant.publishing.approval_required_actions.length !== 0) {
+    throw new Error("Synthetic pilot Grant cannot authorize publishing.");
+  }
+  return true;
+}
+
+export function oneTimePilotPolicy(activation) {
+  const enabled = activation?.status === "READY"
+    || (activation?.status === "CONSUMED" && Boolean(activation.consumed_run_id));
+  return Object.freeze({
+    ...PILOT_MODE,
+    activation_enabled: enabled,
+    authorized_task_keys: Object.freeze(enabled ? [activation.task_key] : []),
+  });
+}
 
 function unavailable(reason, cause) {
   const error = new Error(`${PILOT_SANDBOX_UNAVAILABLE}: ${reason}`, { cause });
@@ -292,8 +422,10 @@ export function assertPilotDispatchProfile({
   }
   assertNoForbiddenPermissions(contract.requested_permissions);
   assertNoForbiddenPermissions(grant.permissions);
-  if (!grant.permissions.worker_dispatch || !grant.activation.worker_dispatch || !grant.activation.autonomous) {
-    throw new Error("Pilot dispatch requires a separate active worker grant.");
+  assertSyntheticPilotGrant(contract, grant);
+  if (!grant.permissions.worker_dispatch || !grant.activation.worker_dispatch
+    || grant.activation.autonomous) {
+    throw new Error("Pilot dispatch requires a separate one-shot worker Grant.");
   }
   if (Object.entries(grant.publishing).some(([key, value]) =>
     key !== "allowed_branch" && key !== "approval_required_actions"

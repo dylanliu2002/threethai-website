@@ -1,9 +1,15 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { canonicalJson } from "../canonical.mjs";
 import { SCHEMA_VERSION } from "../constants.mjs";
-import { RuntimeEventSchema } from "../schemas.mjs";
+import {
+  DigestSchema,
+  RuntimeEventSchema,
+  ShaSchema,
+  SyntheticPilotActivationRequestSchema,
+} from "../schemas.mjs";
 import { assertNoSecretsDeep, sanitizeForLog } from "../secrets.mjs";
 
 const STATE_VERSION = "2.0.0";
@@ -16,6 +22,21 @@ export function emptyControllerStateInternal() {
     next_sequence: 1,
     fencing_generation: 0,
     activation: { authorized: false, revision: 1, updated_at: null, source: "SYS-AUTO-001 bootstrap default" },
+    pilot_activation: {
+      status: "DISABLED",
+      activation_id: null,
+      human_authorization_id: null,
+      task_key: null,
+      authorization_id: null,
+      contract_digest: null,
+      card_blob_sha: null,
+      max_workers: 1,
+      dispatch_attempts: 0,
+      activated_at: null,
+      consumed_at: null,
+      consumed_run_id: null,
+    },
+    pilot_authorization_history: {},
     wakeups: {}, tasks: {}, runs: {}, leases: {}, reservations: {}, approvals: {},
     closeouts: {}, publishing: {}, validation_evidence: {},
   };
@@ -171,7 +192,7 @@ export function mutateControllerStateInternal(stateDirectory, {
   });
 }
 
-export function setActivationForAdministrationInternal(stateDirectory, authorized, {
+function setActivationInternal(stateDirectory, authorized, {
   source = "controller-admin", now = new Date(),
 } = {}) {
   return mutateControllerStateInternal(stateDirectory, {
@@ -183,5 +204,95 @@ export function setActivationForAdministrationInternal(stateDirectory, authorize
       updated_at: now.toISOString(), source,
     };
     return structuredClone(state.activation);
+  }).result;
+}
+
+export function setActivationForAdministrationInternal(stateDirectory, authorized, options = {}) {
+  if (authorized) {
+    throw new Error("Generic or permanent autonomous activation is unavailable.");
+  }
+  return setActivationInternal(stateDirectory, false, options);
+}
+
+export function setActivationForTestingInternal(stateDirectory, authorized, options = {}) {
+  const temporaryRoot = fs.realpathSync.native(os.tmpdir());
+  const candidate = path.resolve(stateDirectory);
+  const relative = path.relative(temporaryRoot, candidate);
+  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error("Test activation is restricted to disposable temporary state.");
+  }
+  return setActivationInternal(stateDirectory, authorized, {
+    ...options,
+    source: options.source ?? "test-controller",
+  });
+}
+
+export function enableSyntheticPilotOnceInternal(stateDirectory, {
+  request,
+  authorizationId,
+  contractDigest,
+  cardBlobSha,
+  now = new Date(),
+} = {}) {
+  const parsed = SyntheticPilotActivationRequestSchema.parse(request);
+  const authorizationIdValue = authorizationId;
+  if (typeof authorizationIdValue !== "string"
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(authorizationIdValue)) {
+    throw new Error("Synthetic pilot activation requires the installed Grant authorization ID.");
+  }
+  DigestSchema.parse(contractDigest);
+  ShaSchema.parse(cardBlobSha);
+  return mutateControllerStateInternal(stateDirectory, {
+    type: "controller.synthetic-pilot.enabled",
+    taskKey: parsed.task_key,
+    payload: {
+      task_key: parsed.task_key,
+      human_authorization_id: parsed.human_authorization_id,
+      authorization_id: authorizationIdValue,
+      contract_digest: contractDigest,
+      card_blob_sha: cardBlobSha,
+    },
+  }, (state) => {
+    if (state.activation?.authorized) {
+      throw new Error("General autonomous activation must remain disabled for the synthetic pilot.");
+    }
+    if (state.pilot_activation?.status === "READY") {
+      throw new Error("A one-time synthetic pilot activation is already pending.");
+    }
+    state.pilot_authorization_history ??= {};
+    if (state.pilot_authorization_history[parsed.human_authorization_id]) {
+      throw new Error("Synthetic pilot human authorization ID has already been used.");
+    }
+    const activeWorkers = Object.values(state.leases ?? {})
+      .filter((lease) => lease.kind === "worker");
+    if (activeWorkers.length > 0) {
+      throw new Error("Synthetic pilot activation requires zero existing worker leases.");
+    }
+    const activation = {
+      status: "READY",
+      activation_id: crypto.randomUUID({ disableEntropyCache: true }),
+      human_authorization_id: parsed.human_authorization_id,
+      task_key: parsed.task_key,
+      authorization_id: authorizationIdValue,
+      contract_digest: contractDigest,
+      card_blob_sha: cardBlobSha,
+      max_workers: parsed.max_workers,
+      dispatch_attempts: 0,
+      publishing: parsed.publishing,
+      network: parsed.network,
+      production: parsed.production,
+      dns: parsed.dns,
+      deployment: parsed.deployment,
+      activated_at: now.toISOString(),
+      consumed_at: null,
+      consumed_run_id: null,
+    };
+    state.pilot_activation = activation;
+    state.pilot_authorization_history[parsed.human_authorization_id] = {
+      activation_id: activation.activation_id,
+      task_key: activation.task_key,
+      activated_at: activation.activated_at,
+    };
+    return structuredClone(activation);
   }).result;
 }

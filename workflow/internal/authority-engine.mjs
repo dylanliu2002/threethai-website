@@ -40,6 +40,7 @@ export function authorizationFieldsFromContractInternal(contract) {
     permissions: contract.requested_permissions,
     routing: contract.requested_routing,
     limits: contract.limits,
+    synthetic_pilot: contract.synthetic_pilot,
   });
 }
 
@@ -156,6 +157,24 @@ export function validateGrantAgainstAnchorInternal(contractInput, grantInput, {
   }
   if (grant.permissions.task_adoption || contract.provenance.automatic_existing_task_adoption) {
     throw new Error("Existing-task adoption is not authorized.");
+  }
+  const pilotActivation = grant.activation.synthetic_pilot_once;
+  if (pilotActivation) {
+    if (grant.activation.autonomous || grant.permissions.automation_activation) {
+      throw new Error("Synthetic pilot Grant cannot authorize general autonomous activation.");
+    }
+    if (!grant.synthetic_pilot
+      || pilotActivation.task_key !== grant.task_key
+      || pilotActivation.contract_digest !== grant.contract_digest
+      || pilotActivation.card_blob_sha !== grant.card_blob_sha
+      || pilotActivation.max_workers !== grant.limits.max_workers) {
+      throw new Error("Synthetic pilot activation does not bind the exact Grant and contract.");
+    }
+    if (grant.publishing.commit || grant.publishing.push || grant.publishing.pr
+      || grant.publishing.merge || grant.publishing.force
+      || grant.publishing.approval_required_actions.length > 0) {
+      throw new Error("Synthetic pilot Grant cannot authorize publishing.");
+    }
   }
   if (repoRoot) {
     const actualRoot = fs.realpathSync.native(repoRoot);

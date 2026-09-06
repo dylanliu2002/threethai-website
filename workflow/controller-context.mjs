@@ -100,13 +100,15 @@ export function resolveCanonicalControllerContext(repoRoot) {
   return Object.freeze({
     ...identity,
     controller_source_root: CONTROLLER_SOURCE_ROOT,
+    workspace_directory: workspaceDirectory,
     authority_root: resolvedAuthority,
     state_directory: path.join(resolvedAuthority, "runtime"),
     grants_directory: path.join(resolvedAuthority, "grants"),
     private_key_path: path.join(resolvedAuthority, "admin", "controller-private-key.pem"),
+    public_key_path: path.join(resolvedAuthority, "admin", "controller-public-key.pem"),
     pinned_public_key_pem: PINNED_CONTROLLER_PUBLIC_KEY_PEM,
     pinned_key_fingerprint: PINNED_CONTROLLER_KEY_FINGERPRINT,
-    provisioned: fs.existsSync(resolvedAuthority),
+    provisioned: fs.existsSync(path.join(resolvedAuthority, "admin", "controller-private-key.pem")),
   });
 }
 

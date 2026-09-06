@@ -5,7 +5,12 @@ import { loadContracts } from "./contract.mjs";
 import { validateTaskGraph } from "./dependencies.mjs";
 import { loadAuthorizationGrant, validateTrustedGrant } from "./authority.mjs";
 import { assertNoAuthorityOverrides, resolveCanonicalControllerContext } from "./controller-context.mjs";
-import { KILL_SWITCH_ENV, KILL_SWITCH_VALUE, POLICY_REVISION } from "./constants.mjs";
+import {
+  KILL_SWITCH_ENV,
+  KILL_SWITCH_VALUE,
+  POLICY_REVISION,
+  SYNTHETIC_PILOT_TASK_KEY,
+} from "./constants.mjs";
 import { pathAllowed } from "./paths.mjs";
 import { scanArtifactFiles } from "./secrets.mjs";
 import { issueCapabilityInternal } from "./internal/capability-engine.mjs";
@@ -14,7 +19,11 @@ import { productionEngineInternal } from "./internal/production-engine.mjs";
 import { reconcileRuntimeInternal } from "./internal/recovery-engine.mjs";
 import { runCodexExecInternal } from "./internal/run-engine.mjs";
 import { planScheduleInternal } from "./internal/scheduler-engine.mjs";
-import { PILOT_MODE } from "./pilot-security.mjs";
+import {
+  assertSyntheticPilotGrant,
+  oneTimePilotPolicy,
+  PILOT_MODE,
+} from "./pilot-security.mjs";
 
 export function defaultRepoRoot() {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -65,12 +74,13 @@ export function reconcile(repoRoot = defaultRepoRoot(), options = {}) {
   };
 }
 
-function inactiveTick(dryRun, runtime, activation, contracts = []) {
+function inactiveTick(dryRun, runtime, activation, contracts = [], pilotActivation = null) {
   return {
     command: "tick", dry_run: dryRun, activation, runtime,
     pilot_mode: {
       name: PILOT_MODE.name,
-      activation_enabled: PILOT_MODE.activation_enabled,
+      activation_enabled: pilotActivation?.status === "READY",
+      activation_status: pilotActivation?.status ?? "NOT_EVALUATED",
       max_workers: PILOT_MODE.max_workers,
     },
     dispatches: [],
@@ -99,40 +109,53 @@ export async function tick(repoRoot = defaultRepoRoot(), options = {}) {
   if (process.env[KILL_SWITCH_ENV] === KILL_SWITCH_VALUE) return inactiveTick(false, runtime, "KILL_SWITCH", contracts);
   if (!context.provisioned) return inactiveTick(false, runtime, "AUTHORITY_UNAVAILABLE", contracts);
   const state = readControllerStateInternal(context.state_directory);
-  if (!state.activation.authorized) return inactiveTick(false, runtime, "DISABLED", contracts);
-  if (!PILOT_MODE.activation_enabled) return inactiveTick(false, runtime, "PILOT_MODE_INACTIVE", contracts);
-
-  const grants = new Map();
-  for (const contract of contracts) {
-    const grant = loadAuthorizationGrant(repoRoot, contract.task_key);
-    validateTrustedGrant(contract, grant, { repoRoot });
-    grants.set(contract.task_key, grant);
+  if (state.activation.authorized) {
+    return inactiveTick(false, runtime, "GENERAL_AUTONOMOUS_ACTIVATION_FORBIDDEN", contracts, state.pilot_activation);
   }
+  if (state.pilot_activation?.status !== "READY") {
+    const status = state.pilot_activation?.status === "CONSUMED" ? "PILOT_CONSUMED" : "DISABLED";
+    return inactiveTick(false, runtime, status, contracts, state.pilot_activation);
+  }
+  if (state.pilot_activation.task_key !== SYNTHETIC_PILOT_TASK_KEY) {
+    throw new Error("One-time pilot activation names an unauthorized task.");
+  }
+
+  const contract = contracts.find((item) => item.task_key === SYNTHETIC_PILOT_TASK_KEY);
+  if (!contract) throw new Error("Synthetic pilot machine contract is unavailable.");
+  const grant = loadAuthorizationGrant(repoRoot, contract.task_key);
+  validateTrustedGrant(contract, grant, { repoRoot });
+  assertSyntheticPilotGrant(contract, grant);
+  const grants = new Map();
+  grants.set(contract.task_key, grant);
   const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8", windowsHide: true }).trim();
-  const schedulerEngine = productionEngineInternal(repoRoot, contracts[0]?.task_key ?? "missing-task");
+  const schedulerEngine = productionEngineInternal(repoRoot, contract.task_key);
+  const pilotPolicy = oneTimePilotPolicy(state.pilot_activation);
   const plan = planScheduleInternal(schedulerEngine, contracts, grants, {
     dryRun: false,
     wakeupId,
     baseSha: head,
-    pilotPolicy: PILOT_MODE,
+    pilotPolicy,
   });
   let workersStarted = 0;
   const results = [];
   for (const dispatch of plan.dispatches) {
-    const contract = contracts.find((item) => item.task_key === dispatch.run.task_key);
-    const grant = grants.get(contract.task_key);
-    const engine = productionEngineInternal(repoRoot, contract.task_key, { requirePrivateKey: true });
-    const action = dispatch.run.role_id === grant.reviewer_role ? "review" : "dispatch";
+    const dispatchContract = contracts.find((item) => item.task_key === dispatch.run.task_key);
+    const dispatchGrant = grants.get(dispatchContract.task_key);
+    const engine = productionEngineInternal(repoRoot, dispatchContract.task_key, { requirePrivateKey: true });
+    const action = dispatch.run.role_id === dispatchGrant.reviewer_role ? "review" : "dispatch";
     const capability = issueCapabilityInternal({
-      engine, contract, grant, action, runId: dispatch.run.run_id, headSha: head,
+      engine, contract: dispatchContract, grant: dispatchGrant, action,
+      runId: dispatch.run.run_id, headSha: head,
+      ttlMs: (dispatchGrant.limits.timeout_seconds + 60) * 1000,
     });
     results.push(await runCodexExecInternal({
-      engine, contract, grant, capability, prompt: workerPrompt(contract), spawnImpl: spawn,
+      engine, contract: dispatchContract, grant: dispatchGrant, capability,
+      prompt: workerPrompt(dispatchContract), spawnImpl: spawn,
     }));
     workersStarted += 1;
   }
   return {
-    command: "tick", dry_run: false, activation: "AUTHORIZED", ...plan,
+    command: "tick", dry_run: false, activation: "ONE_TIME_SYNTHETIC_PILOT_CONSUMED", ...plan,
     results, mutations: plan.dispatches.length, workers_started: workersStarted,
     github_mutations: 0, publishing_actions: 0, grants_created: 0,
   };

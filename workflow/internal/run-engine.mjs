@@ -4,7 +4,11 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { assertCapabilityAgainstStateInternal } from "./capability-engine.mjs";
 import { readControllerStateInternal } from "./controller-state-engine.mjs";
-import { completeRunInternal, markRunStartedInternal } from "./lease-engine.mjs";
+import {
+  completeRunInternal,
+  isConsumedSyntheticPilotRunInternal,
+  markRunStartedInternal,
+} from "./lease-engine.mjs";
 import { assertActualChangesAllowed, deriveActualChanges } from "../git-evidence.mjs";
 import { bindReportedThread } from "../identity.mjs";
 import { KILL_SWITCH_ENV, KILL_SWITCH_VALUE } from "../constants.mjs";
@@ -13,6 +17,7 @@ import { assertNoSecretsDeep, assertNoSecretValues, redactSecrets, sanitizeForLo
 import { deriveValidationEvidenceInternal } from "./validation-engine.mjs";
 import {
   assertPilotWorkerRequestedActions,
+  oneTimePilotPolicy,
   PILOT_MODE,
   preparePilotWorkerLaunch,
 } from "../pilot-security.mjs";
@@ -157,15 +162,24 @@ export async function runCodexExecInternal({
     engine, state, contract, grant, action: capability.action, now,
   });
   if (process.env[KILL_SWITCH_ENV] === KILL_SWITCH_VALUE) throw new Error("Controller kill switch is active.");
-  if (!state.activation.authorized
-    || !validated.grant.activation.autonomous
-    || !validated.grant.activation.worker_dispatch
-    || !validated.grant.permissions.worker_dispatch) {
+  const generalAuthorized = state.activation.authorized
+    && validated.grant.activation.autonomous
+    && validated.grant.activation.worker_dispatch
+    && validated.grant.permissions.worker_dispatch;
+  const oneTimePilotAuthorized = isConsumedSyntheticPilotRunInternal(
+    state,
+    validated.grant,
+    validated.run,
+  );
+  if (!generalAuthorized && !oneTimePilotAuthorized) {
     throw new Error("Controller activation/worker dispatch is not authorized.");
   }
   assertNoSecretsDeep(contract, "Task Contract");
   assertNoSecretsDeep(grant, "authorization Grant");
   assertNoSecretValues(prompt, "worker prompt");
+  const effectivePilotPolicy = oneTimePilotAuthorized
+    ? oneTimePilotPolicy(state.pilot_activation)
+    : pilotPolicy;
   const launch = preparePilotWorkerLaunch({
     contract: validated.contract,
     grant: validated.grant,
@@ -173,7 +187,7 @@ export async function runCodexExecInternal({
     repoRoot: engine.repoRoot,
     parentEnvironment,
     codexHome,
-    policy: pilotPolicy,
+    policy: effectivePilotPolicy,
     sandboxInspector,
   });
   markRunStartedInternal({ engine, contract, grant, capability, now });

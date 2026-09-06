@@ -118,6 +118,7 @@ export function reserveTaskDispatchInternal({
   verifyCard = true,
   now = new Date(),
   maxWorkersCeiling = Number.POSITIVE_INFINITY,
+  pilotActivationId = null,
 }) {
   if (maxWorkersCeiling !== Number.POSITIVE_INFINITY
     && (!Number.isInteger(maxWorkersCeiling) || maxWorkersCeiling < 1)) {
@@ -131,7 +132,28 @@ export function reserveTaskDispatchInternal({
     expireStale(state, nowMs);
     if (state.wakeups[wakeupId]) return { acquired: false, duplicate: true, reason: "duplicate-wakeup" };
     state.wakeups[wakeupId] = { task_key: contract.task_key, observed_at: now.toISOString() };
-    if (!state.activation.authorized || !grant.activation.autonomous || !grant.activation.worker_dispatch) {
+    const pilotActivation = state.pilot_activation;
+    const oneTimePilotAuthorized = Boolean(pilotActivationId)
+      && pilotActivation?.status === "READY"
+      && pilotActivation.activation_id === pilotActivationId
+      && pilotActivation.task_key === contract.task_key
+      && pilotActivation.authorization_id === grant.authorization_id
+      && pilotActivation.contract_digest === grant.contract_digest
+      && pilotActivation.card_blob_sha === grant.card_blob_sha
+      && pilotActivation.max_workers === 1
+      && pilotActivation.dispatch_attempts === 0
+      && grant.activation.synthetic_pilot_once?.task_key === contract.task_key
+      && grant.activation.synthetic_pilot_once?.contract_digest === grant.contract_digest
+      && grant.activation.synthetic_pilot_once?.card_blob_sha === grant.card_blob_sha
+      && grant.activation.synthetic_pilot_once?.max_dispatch_attempts === 1
+      && grant.activation.synthetic_pilot_once?.max_workers === 1
+      && !grant.activation.autonomous
+      && grant.activation.worker_dispatch
+      && grant.permissions.worker_dispatch;
+    const generalActivationAuthorized = state.activation.authorized
+      && grant.activation.autonomous
+      && grant.activation.worker_dispatch;
+    if (!oneTimePilotAuthorized && !generalActivationAuthorized) {
       return { acquired: false, duplicate: false, reason: "activation-disabled" };
     }
     const currentTask = state.tasks[contract.task_key];
@@ -167,6 +189,15 @@ export function reserveTaskDispatchInternal({
     const leaseId = crypto.randomUUID();
     const runId = crypto.randomUUID();
     const workerId = crypto.randomUUID();
+    if (oneTimePilotAuthorized) {
+      state.pilot_activation = {
+        ...pilotActivation,
+        status: "CONSUMED",
+        dispatch_attempts: 1,
+        consumed_at: now.toISOString(),
+        consumed_run_id: runId,
+      };
+    }
     const expiresAtMs = nowMs + grant.limits.lease_seconds * 1000;
     const lease = {
       kind: "worker", lease_id: leaseId, task_key: contract.task_key, run_id: runId,
@@ -175,6 +206,9 @@ export function reserveTaskDispatchInternal({
       max_workers: effectiveMaximum, requests,
     };
     const run = createRunIdentityInternal(contract, grant, lease, { roleId, workerId, runId, attempt, baseSha, now });
+    if (oneTimePilotAuthorized) {
+      run.one_time_pilot_activation_id = pilotActivation.activation_id;
+    }
     state.leases[leaseId] = lease;
     requests.forEach((request, index) => {
       state.reservations[`${leaseId}:${index}`] = {
@@ -201,6 +235,25 @@ export function reserveTaskDispatchInternal({
     };
     return { acquired: true, duplicate: false, lease: structuredClone(lease), run: structuredClone(run) };
   }).result;
+}
+
+export function isConsumedSyntheticPilotRunInternal(state, grant, run) {
+  const activation = state.pilot_activation;
+  return Boolean(run?.one_time_pilot_activation_id)
+    && activation?.status === "CONSUMED"
+    && activation.activation_id === run.one_time_pilot_activation_id
+    && activation.consumed_run_id === run.run_id
+    && activation.task_key === run.task_key
+    && activation.authorization_id === grant.authorization_id
+    && activation.contract_digest === grant.contract_digest
+    && activation.card_blob_sha === grant.card_blob_sha
+    && activation.dispatch_attempts === 1
+    && grant.activation.synthetic_pilot_once?.task_key === run.task_key
+    && grant.activation.synthetic_pilot_once?.max_dispatch_attempts === 1
+    && grant.activation.synthetic_pilot_once?.max_workers === 1
+    && !grant.activation.autonomous
+    && grant.activation.worker_dispatch
+    && grant.permissions.worker_dispatch;
 }
 
 function completionStatus({ processExitCode, outputValid, output, scopePassed, validationPassed, stale, action }) {
@@ -340,10 +393,16 @@ export function markRunStartedInternal({
     type: "run.started", taskKey: capability.task_key, runId: capability.run_id,
     now, verifyCard,
   }, (state, validated) => {
-    if (!state.activation.authorized
-      || !validated.grant.activation.autonomous
-      || !validated.grant.activation.worker_dispatch
-      || !validated.grant.permissions.worker_dispatch) {
+    const generalAuthorized = state.activation.authorized
+      && validated.grant.activation.autonomous
+      && validated.grant.activation.worker_dispatch
+      && validated.grant.permissions.worker_dispatch;
+    const oneTimePilotAuthorized = isConsumedSyntheticPilotRunInternal(
+      state,
+      validated.grant,
+      state.runs[validated.capability.run_id],
+    );
+    if (!generalAuthorized && !oneTimePilotAuthorized) {
       throw new Error("Controller activation/worker dispatch is not authorized.");
     }
     const run = state.runs[validated.capability.run_id];

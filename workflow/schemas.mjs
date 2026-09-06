@@ -9,6 +9,8 @@ import {
   SANDBOXES,
   SCHEMA_VERSION,
   STATUSES,
+  SYNTHETIC_PILOT_OUTPUT_PATH,
+  SYNTHETIC_PILOT_TASK_KEY,
 } from "./constants.mjs";
 
 const require = createRequire(import.meta.url);
@@ -66,6 +68,48 @@ export const LimitsSchema = z.object({
   lease_seconds: z.number().int().min(1),
 }).strict();
 
+export const SyntheticPilotConstraintsSchema = z.object({
+  task_key: z.literal(SYNTHETIC_PILOT_TASK_KEY),
+  write_files: z.tuple([z.literal(SYNTHETIC_PILOT_OUTPUT_PATH)]),
+  write_prefixes: z.tuple([]),
+  network: z.literal(false),
+  secrets: z.literal(false),
+  git_commit: z.literal(false),
+  push: z.literal(false),
+  pr: z.literal(false),
+  merge: z.literal(false),
+  production: z.literal(false),
+  dns: z.literal(false),
+  deployment: z.literal(false),
+  task_adoption: z.literal(false),
+  max_workers: z.literal(1),
+  timeout_seconds: z.number().int().positive(),
+}).strict();
+
+export const SyntheticPilotActivationRequestSchema = z.object({
+  human_authorization_id: z.string().uuid(),
+  task_key: z.literal(SYNTHETIC_PILOT_TASK_KEY),
+  max_workers: z.literal(1),
+  publishing: z.literal(false),
+  network: z.literal(false),
+  production: z.literal(false),
+  dns: z.literal(false),
+  deployment: z.literal(false),
+}).strict();
+
+export const SyntheticPilotGrantActivationSchema = z.object({
+  task_key: z.literal(SYNTHETIC_PILOT_TASK_KEY),
+  contract_digest: DigestSchema,
+  card_blob_sha: ShaSchema,
+  max_dispatch_attempts: z.literal(1),
+  max_workers: z.literal(1),
+  publishing: z.literal(false),
+  network: z.literal(false),
+  production: z.literal(false),
+  dns: z.literal(false),
+  deployment: z.literal(false),
+}).strict();
+
 export const TaskContractSchema = z.object({
   schema_version: z.literal(SCHEMA_VERSION),
   task_key: TaskKeySchema, task_id: z.string().min(1), card_path: repoPath,
@@ -88,6 +132,7 @@ export const TaskContractSchema = z.object({
   requested_permissions: PermissionsSchema,
   requested_routing: RoutingSchema,
   limits: LimitsSchema,
+  synthetic_pilot: SyntheticPilotConstraintsSchema.optional(),
   provenance: z.object({
     proposal_names: z.array(z.string()), historical_task_ids: z.array(z.string()),
     preserve_executor_metadata: z.boolean(), automatic_existing_task_adoption: z.boolean(),
@@ -108,7 +153,12 @@ export const AuthorizationGrantSchema = z.object({
   administrative_files: z.array(repoPath), shared_file_grants: z.array(SharedFileGrantSchema),
   validation_profile: ValidationProfileSchema, permissions: PermissionsSchema,
   routing: RoutingSchema, limits: LimitsSchema,
-  activation: z.object({ autonomous: z.boolean(), worker_dispatch: z.boolean() }).strict(),
+  synthetic_pilot: SyntheticPilotConstraintsSchema.optional(),
+  activation: z.object({
+    autonomous: z.boolean(),
+    worker_dispatch: z.boolean(),
+    synthetic_pilot_once: SyntheticPilotGrantActivationSchema.optional(),
+  }).strict(),
   publishing: z.object({
     commit: z.boolean(), push: z.boolean(), pr: z.boolean(), merge: z.literal(false),
     force: z.literal(false), allowed_branch: z.string().regex(/^codex\/[a-z0-9-]+$/),

@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { createSignedGrantInternal, validateGrantAgainstAnchorInternal } from "../internal/authority-engine.mjs";
-import { setActivationForAdministrationInternal } from "../internal/controller-state-engine.mjs";
+import { setActivationForTestingInternal } from "../internal/controller-state-engine.mjs";
 import { publicKeyFingerprint } from "../trust-anchor.mjs";
 
 // TEST-ONLY trust domain. Production modules never import this file and never
@@ -57,7 +57,7 @@ export function validateTestGrant(contract, grant, { repoRoot, verifyCard = true
 }
 
 export function setTestActivation(stateDirectory, active, options) {
-  return setActivationForAdministrationInternal(stateDirectory, active, options);
+  return setActivationForTestingInternal(stateDirectory, active, options);
 }
 
 export function testTrustAnchor() {
