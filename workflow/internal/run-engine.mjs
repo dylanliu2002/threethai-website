@@ -11,6 +11,11 @@ import { KILL_SWITCH_ENV, KILL_SWITCH_VALUE } from "../constants.mjs";
 import { WorkerOutputJsonSchema, WorkerResultSchema } from "../schemas.mjs";
 import { assertNoSecretsDeep, assertNoSecretValues, redactSecrets, sanitizeForLog } from "../secrets.mjs";
 import { deriveValidationEvidenceInternal } from "./validation-engine.mjs";
+import {
+  assertPilotWorkerRequestedActions,
+  PILOT_MODE,
+  preparePilotWorkerLaunch,
+} from "../pilot-security.mjs";
 
 function gitHead(repoRoot) {
   return execFileSync("git", ["rev-parse", "HEAD"], {
@@ -18,13 +23,27 @@ function gitHead(repoRoot) {
   }).trim();
 }
 
-export function buildCodexExecArgsInternal({ worktree, model, sandbox, schemaPath, outputPath }) {
+export function buildCodexExecArgsInternal({
+  worktree,
+  model,
+  sandbox,
+  schemaPath,
+  outputPath,
+  securityArgs = [],
+}) {
   if (!path.isAbsolute(worktree)) throw new Error("Codex working directory must be absolute.");
   if (!path.isAbsolute(schemaPath) || !path.isAbsolute(outputPath)) throw new Error("Schema and output paths must be absolute.");
   if (sandbox === "danger-full-access") throw new Error("danger-full-access is forbidden.");
   return [
-    "exec", "-", "--cd", worktree, "--model", model, "--sandbox", sandbox,
-    "--json", "--output-schema", schemaPath, "--output-last-message", outputPath,
+    "exec",
+    ...securityArgs,
+    "--cd", worktree,
+    "--model", model,
+    "--sandbox", sandbox,
+    "--json",
+    "--output-schema", schemaPath,
+    "--output-last-message", outputPath,
+    "-",
   ];
 }
 
@@ -39,18 +58,124 @@ export function threadIdFromEventsInternal(events) {
   return started.thread_id;
 }
 
+export async function superviseChildProcessInternal({
+  command,
+  args,
+  cwd,
+  env,
+  input,
+  signal,
+  spawnImpl,
+  timeoutMs,
+  forceKillAfterMs = 5_000,
+}) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error("Worker timeout must be finite and positive.");
+  return new Promise((resolve, reject) => {
+    let child;
+    let stdout = "";
+    let stderr = "";
+    let closed = false;
+    let timedOut = false;
+    let terminationRequested = false;
+    let forceTimer = null;
+    const finish = (result) => {
+      if (closed) return;
+      closed = true;
+      clearTimeout(timeoutTimer);
+      if (forceTimer) clearTimeout(forceTimer);
+      signal?.removeEventListener("abort", forwardAbort);
+      resolve({ ...result, stdout, stderr, timedOut, terminationRequested });
+    };
+    const terminate = (reason) => {
+      if (closed || terminationRequested) return;
+      terminationRequested = true;
+      timedOut = reason === "timeout";
+      try {
+        child?.kill("SIGTERM");
+      } catch (error) {
+        stderr += `\n${error instanceof Error ? error.message : String(error)}`;
+      }
+      forceTimer = setTimeout(() => {
+        if (!closed) {
+          try {
+            child?.kill("SIGKILL");
+          } catch (error) {
+            stderr += `\n${error instanceof Error ? error.message : String(error)}`;
+          }
+        }
+      }, forceKillAfterMs);
+      forceTimer.unref?.();
+    };
+    const forwardAbort = () => terminate("cancelled");
+    const timeoutTimer = setTimeout(() => terminate("timeout"), timeoutMs);
+    timeoutTimer.unref?.();
+    try {
+      if (signal?.aborted) {
+        clearTimeout(timeoutTimer);
+        reject(signal.reason ?? new Error("Codex run cancelled."));
+        return;
+      }
+      child = spawnImpl(command, args, {
+        cwd,
+        env,
+        stdio: ["pipe", "pipe", "pipe"],
+        windowsHide: true,
+      });
+      signal?.addEventListener("abort", forwardAbort, { once: true });
+      child.stdout.setEncoding("utf8");
+      child.stderr.setEncoding("utf8");
+      child.stdout.on("data", (chunk) => { stdout += chunk; });
+      child.stderr.on("data", (chunk) => { stderr += chunk; });
+      child.on("error", (error) => {
+        stderr += `\n${error instanceof Error ? error.message : String(error)}`;
+        finish({ code: -1, closeSignal: null });
+      });
+      child.on("close", (code, closeSignal) => finish({
+        code: code ?? -1,
+        closeSignal: closeSignal ?? null,
+      }));
+      child.stdin.end(input);
+    } catch (error) {
+      clearTimeout(timeoutTimer);
+      if (forceTimer) clearTimeout(forceTimer);
+      signal?.removeEventListener("abort", forwardAbort);
+      reject(error);
+    }
+  });
+}
+
 export async function runCodexExecInternal({
   engine, contract, grant, capability, prompt, signal, spawnImpl,
   validationRunner, now = new Date(),
+  parentEnvironment = process.env,
+  codexHome,
+  pilotPolicy = PILOT_MODE,
+  sandboxInspector,
 }) {
   const state = readControllerStateInternal(engine.stateDirectory);
   const validated = assertCapabilityAgainstStateInternal(capability, {
     engine, state, contract, grant, action: capability.action, now,
   });
   if (process.env[KILL_SWITCH_ENV] === KILL_SWITCH_VALUE) throw new Error("Controller kill switch is active.");
+  if (!state.activation.authorized
+    || !validated.grant.activation.autonomous
+    || !validated.grant.activation.worker_dispatch
+    || !validated.grant.permissions.worker_dispatch) {
+    throw new Error("Controller activation/worker dispatch is not authorized.");
+  }
   assertNoSecretsDeep(contract, "Task Contract");
   assertNoSecretsDeep(grant, "authorization Grant");
   assertNoSecretValues(prompt, "worker prompt");
+  const launch = preparePilotWorkerLaunch({
+    contract: validated.contract,
+    grant: validated.grant,
+    capability: validated.capability,
+    repoRoot: engine.repoRoot,
+    parentEnvironment,
+    codexHome,
+    policy: pilotPolicy,
+    sandboxInspector,
+  });
   markRunStartedInternal({ engine, contract, grant, capability, now });
 
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "threethai-codex-run-"));
@@ -63,11 +188,8 @@ export async function runCodexExecInternal({
     sandbox: validated.capability.sandbox,
     schemaPath,
     outputPath,
+    securityArgs: launch.cli_security_args,
   });
-  const abortController = new AbortController();
-  const timer = setTimeout(() => abortController.abort(new Error("Codex run timeout.")), validated.grant.limits.timeout_seconds * 1000);
-  const forwardAbort = () => abortController.abort(signal.reason ?? new Error("Codex run cancelled."));
-  signal?.addEventListener("abort", forwardAbort, { once: true });
   let result = { code: null, closeSignal: null, stdout: "", stderr: "" };
   let output = null;
   let outputValid = false;
@@ -75,27 +197,15 @@ export async function runCodexExecInternal({
   let threadId = null;
   let parseFailure = null;
   try {
-    result = await new Promise((resolve, reject) => {
-      const child = spawnImpl("codex", args, {
-        cwd: validated.grant.worktree_realpath,
-        stdio: ["pipe", "pipe", "pipe"],
-        windowsHide: true,
-        signal: abortController.signal,
-      });
-      let stdout = "";
-      let stderr = "";
-      child.stdout.setEncoding("utf8");
-      child.stderr.setEncoding("utf8");
-      child.stdout.on("data", (chunk) => { stdout += chunk; });
-      child.stderr.on("data", (chunk) => { stderr += chunk; });
-      child.on("error", (error) => resolve({
-        code: -1,
-        closeSignal: null,
-        stdout,
-        stderr: redactSecrets(error instanceof Error ? error.message : String(error)),
-      }));
-      child.on("close", (code, closeSignal) => resolve({ code, closeSignal, stdout, stderr }));
-      child.stdin.end(prompt);
+    result = await superviseChildProcessInternal({
+      command: "codex",
+      args,
+      cwd: validated.grant.worktree_realpath,
+      env: launch.process_environment,
+      input: prompt,
+      signal,
+      spawnImpl,
+      timeoutMs: validated.grant.limits.timeout_seconds * 1000,
     });
     try {
       assertNoSecretValues(result.stdout, "worker stdout");
@@ -106,6 +216,7 @@ export async function runCodexExecInternal({
       if (!fs.existsSync(outputPath)) throw new Error("Codex final structured output is missing.");
       output = WorkerResultSchema.parse(JSON.parse(fs.readFileSync(outputPath, "utf8")));
       assertNoSecretsDeep(output, "worker structured result");
+      assertPilotWorkerRequestedActions(output.requested_actions);
       const bound = bindReportedThread(validated.run, threadId);
       if (output.task_key !== bound.task_key || output.run_id !== bound.run_id || output.role_id !== bound.role_id) {
         throw new Error("Worker output does not match authoritative controller identity.");
@@ -156,11 +267,13 @@ export async function runCodexExecInternal({
       events: sanitizeForLog(events),
       parse_failure: parseFailure,
       stderr: redactSecrets(result.stderr),
+      timed_out: result.timedOut,
+      termination_requested: result.terminationRequested,
+      worker_security_profile: launch.profile,
+      sandbox_evidence: launch.sandbox_evidence,
       identity: completed,
     };
   } finally {
-    clearTimeout(timer);
-    signal?.removeEventListener("abort", forwardAbort);
     fs.rmSync(temporary, { recursive: true, force: true });
   }
 }

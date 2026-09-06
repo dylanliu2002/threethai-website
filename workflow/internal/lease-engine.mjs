@@ -117,7 +117,12 @@ export function reserveTaskDispatchInternal({
   roleId,
   verifyCard = true,
   now = new Date(),
+  maxWorkersCeiling = Number.POSITIVE_INFINITY,
 }) {
+  if (maxWorkersCeiling !== Number.POSITIVE_INFINITY
+    && (!Number.isInteger(maxWorkersCeiling) || maxWorkersCeiling < 1)) {
+    throw new Error("Worker ceiling must be a positive integer.");
+  }
   const nowMs = now.getTime();
   return mutateControllerStateInternal(engine.stateDirectory, {
     type: "scheduler.admission", taskKey: contractInput.task_key, payload: { wakeup_id: wakeupId },
@@ -140,6 +145,7 @@ export function reserveTaskDispatchInternal({
     }
     const activeWorkerLeases = Object.values(state.leases).filter((lease) => lease.kind === "worker");
     const effectiveMaximum = Math.min(
+      maxWorkersCeiling,
       grant.limits.max_workers,
       ...activeWorkerLeases.map((lease) => lease.max_workers ?? grant.limits.max_workers),
     );
@@ -166,7 +172,7 @@ export function reserveTaskDispatchInternal({
       kind: "worker", lease_id: leaseId, task_key: contract.task_key, run_id: runId,
       attempt, fencing_token: state.fencing_generation, issued_at: now.toISOString(),
       expires_at: new Date(expiresAtMs).toISOString(), expires_at_ms: expiresAtMs,
-      max_workers: grant.limits.max_workers, requests,
+      max_workers: effectiveMaximum, requests,
     };
     const run = createRunIdentityInternal(contract, grant, lease, { roleId, workerId, runId, attempt, baseSha, now });
     state.leases[leaseId] = lease;

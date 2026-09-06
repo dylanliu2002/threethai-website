@@ -14,6 +14,7 @@ import { productionEngineInternal } from "./internal/production-engine.mjs";
 import { reconcileRuntimeInternal } from "./internal/recovery-engine.mjs";
 import { runCodexExecInternal } from "./internal/run-engine.mjs";
 import { planScheduleInternal } from "./internal/scheduler-engine.mjs";
+import { PILOT_MODE } from "./pilot-security.mjs";
 
 export function defaultRepoRoot() {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -67,6 +68,11 @@ export function reconcile(repoRoot = defaultRepoRoot(), options = {}) {
 function inactiveTick(dryRun, runtime, activation, contracts = []) {
   return {
     command: "tick", dry_run: dryRun, activation, runtime,
+    pilot_mode: {
+      name: PILOT_MODE.name,
+      activation_enabled: PILOT_MODE.activation_enabled,
+      max_workers: PILOT_MODE.max_workers,
+    },
     dispatches: [],
     blocked: contracts.map((contract) => ({ task_key: contract.task_key, reason: "authority-unavailable-or-inactive" })),
     mutations: [], workers_started: 0, automations_started: 0,
@@ -94,6 +100,7 @@ export async function tick(repoRoot = defaultRepoRoot(), options = {}) {
   if (!context.provisioned) return inactiveTick(false, runtime, "AUTHORITY_UNAVAILABLE", contracts);
   const state = readControllerStateInternal(context.state_directory);
   if (!state.activation.authorized) return inactiveTick(false, runtime, "DISABLED", contracts);
+  if (!PILOT_MODE.activation_enabled) return inactiveTick(false, runtime, "PILOT_MODE_INACTIVE", contracts);
 
   const grants = new Map();
   for (const contract of contracts) {
@@ -103,7 +110,12 @@ export async function tick(repoRoot = defaultRepoRoot(), options = {}) {
   }
   const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8", windowsHide: true }).trim();
   const schedulerEngine = productionEngineInternal(repoRoot, contracts[0]?.task_key ?? "missing-task");
-  const plan = planScheduleInternal(schedulerEngine, contracts, grants, { dryRun: false, wakeupId, baseSha: head });
+  const plan = planScheduleInternal(schedulerEngine, contracts, grants, {
+    dryRun: false,
+    wakeupId,
+    baseSha: head,
+    pilotPolicy: PILOT_MODE,
+  });
   let workersStarted = 0;
   const results = [];
   for (const dispatch of plan.dispatches) {
