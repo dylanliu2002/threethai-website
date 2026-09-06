@@ -62,4 +62,3 @@ npm run typecheck
 - Real worker executed during SYS-AUTO-004: `NO`
 - Expected output is tracked under `workflow/fixtures/pilot/expected/`; the live
   output path must remain absent until a separate pilot authorization.
-
