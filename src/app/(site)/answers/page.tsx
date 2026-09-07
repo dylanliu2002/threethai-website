@@ -12,7 +12,6 @@ export const metadata: Metadata = buildMetadata({
     "Evidence-led answers to 30 common sourcing questions about water-soluble PVA yarn, sewing thread, staple fiber and filament yarn — supplier selection, testing, MOQ, documents and audits.",
   path: "/answers",
   locale: "en",
-  alternates: { en: "/answers" },
 });
 
 export default function AnswersPage() {

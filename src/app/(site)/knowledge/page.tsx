@@ -12,7 +12,6 @@ export const metadata: Metadata = buildMetadata({
     "Technical articles for PVA buyers: dissolution temperature guide, buyer specification checklist, batch consistency evaluation and staple fiber vs filament selection.",
   path: "/knowledge",
   locale: "en",
-  alternates: { en: "/knowledge", zh: "/zh" },
 });
 
 export default function KnowledgePage() {

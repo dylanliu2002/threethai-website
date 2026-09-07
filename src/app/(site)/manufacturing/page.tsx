@@ -9,7 +9,6 @@ export const metadata: Metadata = buildMetadata({
     "Inside the Three Thai production base: 30,000 m², 120,000 spindles, integrated blow room to automatic winding line producing water-soluble PVA yarn, thread, fiber and filament.",
   path: "/manufacturing",
   locale: "en",
-  alternates: { en: "/manufacturing", zh: "/zh/manufacturing" },
 });
 
 export default function ManufacturingPage() {

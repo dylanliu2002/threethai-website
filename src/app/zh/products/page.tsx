@@ -13,7 +13,6 @@ export const metadata: Metadata = buildMetadata({
   description: "按材料形态与水溶温度（20°C–90°C）浏览水溶性 PVA 纱线、缝纫线、短纤和长丝，均支持批次级质检与样品验证。",
   path: "/products",
   locale: "zh",
-  alternates: { en: "/products", zh: "/zh/products" },
 });
 
 export default function ZhProductsPage() {

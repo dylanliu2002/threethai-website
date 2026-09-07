@@ -20,7 +20,6 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     description: product.metaDescription.en,
     path: `/products/${product.slug}`,
     locale: "en",
-    alternates: { en: `/products/${product.slug}`, zh: `/zh/products/${product.slug}` },
     image: product.image,
     keywords: product.keywords,
   });

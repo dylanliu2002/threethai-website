@@ -12,7 +12,6 @@ export const metadata: Metadata = buildMetadata({
     "Where water-soluble PVA yarn, thread and fiber are used: towel weaving and zero-twist, embroidery and sewing, knitting, papermaking and technical textiles — with selection guidance.",
   path: "/applications",
   locale: "en",
-  alternates: { en: "/applications", zh: "/zh/applications" },
 });
 
 export default function ApplicationsPage() {

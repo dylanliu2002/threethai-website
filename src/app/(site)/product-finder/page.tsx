@@ -12,7 +12,6 @@ export const metadata: Metadata = buildMetadata({
     "Answer four questions about your process and get a suggested water-soluble PVA product family: yarn, sewing thread, staple fiber or filament — then confirm the grade with a sample.",
   path: "/product-finder",
   locale: "en",
-  alternates: { en: "/product-finder" },
 });
 
 export default function ProductFinderPage() {

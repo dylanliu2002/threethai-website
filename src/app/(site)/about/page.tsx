@@ -9,7 +9,6 @@ export const metadata: Metadata = buildMetadata({
     "Three Thai Textile (山东荣沣纺织有限公司): a specialist water-soluble PVA manufacturer established in 2006 in Huimin County, Shandong — products, philosophy, positioning and company identity.",
   path: "/about",
   locale: "en",
-  alternates: { en: "/about", zh: "/zh/about" },
 });
 
 export default function AboutPage() {

@@ -8,7 +8,6 @@ export const metadata: Metadata = buildMetadata({
   description: "走进荣沣生产基地：30,000 平方米、120,000 锭，从清花到自动络筒的完整生产线，制造水溶性 PVA 纱线、缝纫线、短纤和长丝。",
   path: "/manufacturing",
   locale: "zh",
-  alternates: { en: "/manufacturing", zh: "/zh/manufacturing" },
 });
 
 export default function ZhManufacturingPage() {

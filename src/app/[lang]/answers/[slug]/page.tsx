@@ -4,8 +4,8 @@ import { notFound } from "next/navigation";
 import Breadcrumbs from "@/components/layout/breadcrumbs";
 import AnswerArticle from "@/components/answers/answer-article";
 import { buyerAnswers, answerBySlug, expandedAnswerFor } from "@/content/answers";
-import { articleSchema, breadcrumbSchema, buildMetadata, faqSchema, jsonLd } from "@/lib/seo";
-import { localePath, siteUrl, contentLocaleOf } from "@/content/company";
+import { articleSchema, breadcrumbSchema, buildMetadata, faqSchema, jsonLd, webPageSchema } from "@/lib/seo";
+import { localePath, contentLocaleOf } from "@/content/company";
 import { langParams, resolveLang } from "../../_lang";
 
 type Props = { params: Promise<{ lang: string; slug: string }> };
@@ -50,6 +50,7 @@ export default async function LangAnswerPage({ params }: Props) {
           datePublished: "2026-08-15",
           dateModified: "2026-08-29",
           section: "answers",
+          locale,
         }),
         faqSchema(faqs),
         breadcrumbSchema([
@@ -57,12 +58,12 @@ export default async function LangAnswerPage({ params }: Props) {
           { name: dict.breadcrumbs.answers, path: lp("/answers") },
           { name: answer.question[cl], path: lp(`/answers/${answer.slug}`) },
         ]),
-        {
-          "@context": "https://schema.org",
-          "@type": "WebPage",
-          url: `${siteUrl}${lp(`/answers/${answer.slug}`)}`,
-          inLanguage: locale,
-        },
+        webPageSchema({
+          path: `/answers/${answer.slug}`,
+          locale,
+          name: answer.question[cl],
+          description: expanded?.metaDescription ?? answer.shortAnswer[cl],
+        }),
       ])}
       <div className="container-site max-w-3xl py-12 sm:py-16">
         <Breadcrumbs

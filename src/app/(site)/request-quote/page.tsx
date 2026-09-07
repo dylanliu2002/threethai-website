@@ -14,7 +14,6 @@ export const metadata: Metadata = buildMetadata({
     "Request a quotation for water-soluble PVA yarn, sewing thread, staple fiber or filament. Share your count, application and target dissolution temperature for a matched specification.",
   path: "/request-quote",
   locale: "en",
-  alternates: { en: "/request-quote", zh: "/zh/request-quote" },
   noindex: false,
 });
 

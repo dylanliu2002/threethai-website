@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
-import { dynamicLocales, htmlLang, localePath, siteUrl, type Locale } from "@/content/company";
+import { localePath, siteUrl } from "@/content/company";
+import { hreflangForPath } from "@/content/availability";
 import { products } from "@/content/products";
 import { applications } from "@/content/applications";
 import { articles } from "@/content/articles";
@@ -11,7 +12,10 @@ import { buyerAnswers } from "@/content/answers";
  * journey; the eight additional UI locales live under /{lang} for the core
  * buyer journey (deep content falls back to English on those routes).
  *
- * Entries use `alternates.languages` to declare the full hreflang graph.
+ * Entries use `alternates.languages` to declare the hreflang graph. That graph
+ * comes from the shared content-availability policy rather than a local loop,
+ * so the sitemap can never advertise an untranslated fallback copy as a
+ * localised page while the page itself points elsewhere.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
   const updated = new Date("2026-09-01");
@@ -40,26 +44,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...buyerAnswers.map(({ slug }) => `/answers/${slug}`),
   ];
 
-  const entry = (path: string, priority: number, changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"]): MetadataRoute.Sitemap[number] => {
-    const languages: Record<string, string> = {};
-    for (const l of ["en", ...dynamicLocales] as Locale[]) {
-      languages[htmlLang[l]] = `${siteUrl}${localePath(path, l)}`;
-    }
-    languages["x-default"] = `${siteUrl}${localePath(path, "en")}`;
-    return {
-      url: `${siteUrl}${localePath(path, "en")}`,
-      lastModified: updated,
-      changeFrequency,
-      priority,
-      alternates: { languages },
-    };
-  };
+  const entry = (path: string, priority: number, changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"]): MetadataRoute.Sitemap[number] => ({
+    url: `${siteUrl}${localePath(path, "en")}`,
+    lastModified: updated,
+    changeFrequency,
+    priority,
+    alternates: { languages: hreflangForPath(path) },
+  });
 
   const enOnlyEntry = (path: string, priority: number): MetadataRoute.Sitemap[number] => ({
     url: `${siteUrl}${path}`,
     lastModified: updated,
     changeFrequency: "monthly",
     priority,
+    alternates: { languages: hreflangForPath(path) },
   });
 
   const priorities: Record<string, { priority: number; changeFrequency: NonNullable<MetadataRoute.Sitemap[number]["changeFrequency"]> }> = {

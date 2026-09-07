@@ -20,7 +20,6 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     description: product.metaDescription.zh,
     path: `/products/${product.slug}`,
     locale: "zh",
-    alternates: { en: `/products/${product.slug}`, zh: `/zh/products/${product.slug}` },
     image: product.image,
   });
 }
@@ -32,7 +31,7 @@ export default async function ZhProductPage({ params }: ProductPageProps) {
   return (
     <>
       {jsonLd([
-        productSchema({ name: product.name.zh, description: product.metaDescription.zh, image: product.image, slug: product.slug }),
+        productSchema({ name: product.name.zh, description: product.metaDescription.zh, image: product.image, slug: product.slug, locale: "zh" }),
         faqSchema(product.faqs.zh),
         breadcrumbSchema([
           { name: zh.breadcrumbs.home, path: "/zh" },

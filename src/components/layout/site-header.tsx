@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 import type { Dictionary } from "@/content/i18n";
 import { company, htmlLang, localeLabels, localePath, locales, type Locale } from "@/content/company";
+import { localizedLocalesFor } from "@/content/availability";
 
 const UI_PREFIXES = locales.filter((l) => l !== "en");
 
@@ -64,6 +65,12 @@ export default function SiteHeader({ locale, dict }: { locale: Locale; dict: Dic
     const href = localePath(path, target);
     return `${href}${target === "en" ? "?_locale=en" : ""}`;
   };
+
+  // Locales that genuinely have this page. The switcher keeps linking users to
+  // every language (English-fallback copies included), but `hreflang`/`lang`
+  // are only claims we can honour — advertising them on a fallback copy is what
+  // tells Google the copy is an independent localised document.
+  const localizedTargets = localizedLocalesFor(currentPath);
 
   const currentLabel = localeLabels[locale];
 
@@ -123,8 +130,8 @@ export default function SiteHeader({ locale, dict }: { locale: Locale; dict: Dic
                 <li key={l}>
                   <Link
                     href={switchHref(l)}
-                    hrefLang={htmlLang[l]}
-                    lang={htmlLang[l]}
+                    hrefLang={localizedTargets.includes(l) ? htmlLang[l] : undefined}
+                    lang={localizedTargets.includes(l) ? htmlLang[l] : undefined}
                     aria-current={l === locale ? "true" : undefined}
                     className={`flex items-center justify-between px-3 py-2 text-sm ${l === locale ? "bg-secondary font-semibold text-primary" : "text-foreground/80 hover:bg-secondary/60 hover:text-primary"}`}
                     onClick={(e) => {
@@ -225,8 +232,8 @@ export default function SiteHeader({ locale, dict }: { locale: Locale; dict: Dic
                   <Link
                     key={l}
                     href={switchHref(l)}
-                    hrefLang={htmlLang[l]}
-                    lang={htmlLang[l]}
+                    hrefLang={localizedTargets.includes(l) ? htmlLang[l] : undefined}
+                    lang={localizedTargets.includes(l) ? htmlLang[l] : undefined}
                     className={`rounded px-2 py-1.5 text-sm ${l === locale ? "bg-primary font-semibold text-primary-foreground" : "bg-secondary/60 text-foreground/80"}`}
                     onClick={(e) => {
                       if (l === locale) e.preventDefault();

@@ -11,7 +11,6 @@ export const metadata: Metadata = buildMetadata({
   description: "水溶性 PVA 纱线、缝纫线和纤维的典型应用：毛巾织造与无捻毛巾、刺绣与缝纫、针织、造纸及产业用纺织品——附选型要点。",
   path: "/applications",
   locale: "zh",
-  alternates: { en: "/applications", zh: "/zh/applications" },
 });
 
 export default function ZhApplicationsPage() {
