@@ -23,6 +23,7 @@ export const PILOT_MODE = Object.freeze({
   ]),
   automatic_existing_task_adoption: false,
   scheduler_heartbeat: false,
+  network_access: true,
   publishing: false,
   production_actions: false,
 });
@@ -170,8 +171,11 @@ export function assertSyntheticPilotContract(contract) {
     || constraints.timeout_seconds !== contract.limits.timeout_seconds) {
     throw new Error("Synthetic pilot machine constraints are missing or inconsistent.");
   }
+  if (constraints.network !== true) {
+    throw new Error("Synthetic pilot network permission must be true for remote model transport.");
+  }
   for (const field of [
-    "network", "secrets", "git_commit", "push", "pr", "merge", "production",
+    "secrets", "git_commit", "push", "pr", "merge", "production",
     "dns", "deployment", "task_adoption",
   ]) {
     if (constraints[field] !== false) {
@@ -203,12 +207,16 @@ export function assertSyntheticPilotGrant(contract, grant) {
     || grant.limits.max_workers !== 1) {
     throw new Error("Synthetic pilot Grant does not bind the exact contract, card, and one-shot limits.");
   }
+  if (grant.synthetic_pilot.network !== true
+    || activation.network !== grant.synthetic_pilot.network) {
+    throw new Error("Synthetic pilot Grant network permission must match the network-enabled contract.");
+  }
   if (grant.activation.autonomous || !grant.activation.worker_dispatch
     || grant.permissions.automation_activation || !grant.permissions.worker_dispatch) {
     throw new Error("Synthetic pilot Grant must authorize one-shot dispatch without autonomous activation.");
   }
   assertNoForbiddenPermissions(grant.permissions);
-  for (const field of ["publishing", "network", "production", "dns", "deployment"]) {
+  for (const field of ["publishing", "production", "dns", "deployment"]) {
     if (activation[field] !== false) {
       throw new Error(`Synthetic pilot activation constraint must remain false: ${field}`);
     }
@@ -228,6 +236,7 @@ export function oneTimePilotPolicy(activation) {
     ...PILOT_MODE,
     activation_enabled: enabled,
     authorized_task_keys: Object.freeze(enabled ? [activation.task_key] : []),
+    network_access: activation?.network === true,
   });
 }
 
@@ -320,11 +329,15 @@ export function detectWindowsElevatedSandbox({
   platform = process.platform,
   parentEnvironment = process.env,
   codexHome,
+  networkAccess = true,
   readFile = (file) => fs.readFileSync(file, "utf8"),
   fileExists = fs.existsSync,
   execFile = execFileSync,
 } = {}) {
   if (platform !== "win32") throw unavailable("native Windows elevated sandbox is required");
+  if (typeof networkAccess !== "boolean") {
+    throw unavailable("sandbox network selection must be boolean");
+  }
   const resolvedCodexHome = resolveCodexHome(parentEnvironment, codexHome);
   const processEnvironment = buildWorkerProcessEnvironment(parentEnvironment, {
     platform,
@@ -358,7 +371,7 @@ export function detectWindowsElevatedSandbox({
     || marker.allow_local_binding !== false
     || !Array.isArray(marker.proxy_ports)
     || marker.proxy_ports.length !== 0) {
-    throw unavailable("elevated sandbox setup marker does not describe the required offline profile");
+    throw unavailable("elevated sandbox setup marker does not describe the required network profiles");
   }
   for (const username of [marker.offline_username, marker.online_username]) {
     try {
@@ -375,7 +388,8 @@ export function detectWindowsElevatedSandbox({
   return Object.freeze({
     passed: true,
     backend: "elevated",
-    network_profile: "offline",
+    network_profile: networkAccess ? "online" : "offline",
+    sandbox_username: networkAccess ? marker.online_username : marker.offline_username,
     cli_version: version.raw.replace(/^codex-cli\s+/i, ""),
     marker_version: marker.version,
   });
@@ -423,6 +437,12 @@ export function assertPilotDispatchProfile({
   assertNoForbiddenPermissions(contract.requested_permissions);
   assertNoForbiddenPermissions(grant.permissions);
   assertSyntheticPilotGrant(contract, grant);
+  const contractNetwork = contract.synthetic_pilot.network;
+  const grantNetwork = grant.activation.synthetic_pilot_once.network;
+  if (contractNetwork !== true || grantNetwork !== contractNetwork
+    || policy.network_access !== grantNetwork) {
+    throw new Error("Pilot contract, Grant, activation, and runtime network permissions must match.");
+  }
   if (!grant.permissions.worker_dispatch || !grant.activation.worker_dispatch
     || grant.activation.autonomous) {
     throw new Error("Pilot dispatch requires a separate one-shot worker Grant.");
@@ -460,7 +480,7 @@ export function assertPilotDispatchProfile({
     windows_sandbox: "elevated",
     cwd: path.resolve(grant.worktree_realpath),
     approval_policy: "never",
-    network_access: false,
+    network_access: policy.network_access,
     model_fallback: false,
     max_workers: 1,
     user_config: "ignored",
@@ -503,6 +523,9 @@ function tomlString(value) {
 }
 
 export function buildPilotCliSecurityArgs(profile, workerShellEnvironment) {
+  if (profile.network_access !== true) {
+    throw new Error("Synthetic pilot launcher requires network access for remote model transport.");
+  }
   const args = [
     "--strict-config",
     "--ignore-user-config",
@@ -512,7 +535,7 @@ export function buildPilotCliSecurityArgs(profile, workerShellEnvironment) {
     "-c", `model_provider=${tomlString(profile.provider)}`,
     "-c", `model_reasoning_effort=${tomlString(profile.reasoning_effort)}`,
     "-c", `windows.sandbox=${tomlString(profile.windows_sandbox)}`,
-    "-c", "sandbox_workspace_write.network_access=false",
+    "-c", "sandbox_workspace_write.network_access=true",
     "-c", "shell_environment_policy.inherit=\"none\"",
     "-c", "shell_environment_policy.ignore_default_excludes=false",
   ];
@@ -543,14 +566,20 @@ export function preparePilotWorkerLaunch({
       platform: process.platform,
       parentEnvironment,
       codexHome: processEnvironment.CODEX_HOME,
+      networkAccess: profile.network_access,
     });
   } catch (error) {
     if (error?.code === PILOT_SANDBOX_UNAVAILABLE) throw error;
     throw unavailable("elevated sandbox inspection failed", error);
   }
+  const requiredNetworkProfile = profile.network_access ? "online" : "offline";
+  const requiredSandboxUsername = profile.network_access
+    ? "CodexSandboxOnline"
+    : "CodexSandboxOffline";
   if (!sandboxEvidence?.passed || sandboxEvidence.backend !== "elevated"
-    || sandboxEvidence.network_profile !== "offline") {
-    throw unavailable("required elevated/offline sandbox could not be verified");
+    || sandboxEvidence.network_profile !== requiredNetworkProfile
+    || sandboxEvidence.sandbox_username !== requiredSandboxUsername) {
+    throw unavailable(`required elevated/${requiredNetworkProfile} sandbox could not be verified`);
   }
   const shellEnvironment = buildWorkerShellEnvironment(processEnvironment);
   return Object.freeze({

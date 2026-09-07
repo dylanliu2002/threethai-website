@@ -77,7 +77,7 @@ function activationRequest(overrides = {}) {
     task_key: TASK_KEY,
     max_workers: 1,
     publishing: false,
-    network: false,
+    network: true,
     production: false,
     dns: false,
     deployment: false,
@@ -190,6 +190,7 @@ test("PILOT-CONTRACT-01 machine contract allows only the expected output file", 
   assert.equal(assertSyntheticPilotContract(machineContract), true);
   assert.deepEqual(machineContract.write_files, [OUTPUT_PATH]);
   assert.deepEqual(machineContract.write_prefixes, []);
+  assert.equal(machineContract.synthetic_pilot.network, true);
 });
 
 test("PILOT-CONTRACT-02 wrong branch or worktree fails closed", () => {
@@ -236,11 +237,14 @@ test("PILOT-GRANT-03 Grant cannot authorize publishing", () => {
   }
 });
 
-test("PILOT-GRANT-04 Grant cannot authorize network", () => {
+test("PILOT-GRANT-04 Grant network permission must match the network-enabled contract", () => {
   const fixture = pilotFixture();
   try {
     const altered = structuredClone(fixture.grant);
-    altered.activation.synthetic_pilot_once.network = true;
+    assert.equal(fixture.machineContract.synthetic_pilot.network, true);
+    assert.equal(fixture.grant.synthetic_pilot.network, true);
+    assert.equal(fixture.grant.activation.synthetic_pilot_once.network, true);
+    altered.activation.synthetic_pilot_once.network = false;
     assert.throws(() => assertSyntheticPilotGrant(fixture.machineContract, altered), /network/);
   } finally {
     cleanupFixture(fixture.stateDirectory);
@@ -275,7 +279,7 @@ test("PILOT-ACTIVATION-05 broader administration parameters fail closed", (t) =>
   const stateDirectory = makeStateDirectory({ active: false });
   t.after(() => cleanupFixture(stateDirectory));
   assert.throws(() => enableSyntheticPilotOnceInternal(stateDirectory, {
-    request: activationRequest({ network: true }),
+    request: activationRequest({ network: false }),
     authorizationId: crypto.randomUUID(),
     contractDigest: "a".repeat(64),
     cardBlobSha: "b".repeat(40),
@@ -289,7 +293,40 @@ test("PILOT-WORKERS-02 contract, Grant, activation, and policy all bind MAX_WORK
     assert.equal(fixture.machineContract.limits.max_workers, 1);
     assert.equal(fixture.grant.limits.max_workers, 1);
     assert.equal(fixture.activation.max_workers, 1);
+    assert.equal(fixture.grant.activation.synthetic_pilot_once.max_dispatch_attempts, 1);
     assert.equal(oneTimePilotPolicy(fixture.activation).max_workers, 1);
+  } finally {
+    cleanupFixture(fixture.stateDirectory);
+  }
+});
+
+test("PILOT-NETWORK-01 activation network permission matches the Grant", () => {
+  const fixture = pilotFixture();
+  try {
+    assert.equal(fixture.activation.network, true);
+    assert.equal(
+      fixture.activation.network,
+      fixture.grant.activation.synthetic_pilot_once.network,
+    );
+    assert.equal(oneTimePilotPolicy(fixture.activation).network_access, true);
+  } finally {
+    cleanupFixture(fixture.stateDirectory);
+  }
+});
+
+test("PILOT-NETWORK-02 activation and Grant network mismatch blocks dispatch", () => {
+  const fixture = pilotFixture();
+  try {
+    mutateControllerStateInternal(fixture.stateDirectory, {
+      type: "test.pilot-network-mismatch",
+      taskKey: TASK_KEY,
+    }, (state) => {
+      state.pilot_activation.network = false;
+      return { simulated: true };
+    });
+    const result = reservePilot(fixture, "network-mismatch");
+    assert.equal(result.acquired, false);
+    assert.equal(result.reason, "activation-disabled");
   } finally {
     cleanupFixture(fixture.stateDirectory);
   }

@@ -59,7 +59,7 @@ function requiredProfile(overrides = {}) {
     provider: "openai",
     cwd: path.resolve("C:/pilot-worktree"),
     approval_policy: "never",
-    network_access: false,
+    network_access: true,
     max_workers: 1,
     reasoning_effort: "high",
     windows_sandbox: "elevated",
@@ -72,6 +72,7 @@ function activePilotPolicy(taskKeys = [PILOT_TASK_KEY]) {
     ...PILOT_MODE,
     activation_enabled: true,
     authorized_task_keys: taskKeys,
+    network_access: true,
   };
 }
 
@@ -93,7 +94,7 @@ function pilotAuthority({ taskKey = PILOT_TASK_KEY, repoRoot = path.resolve("C:/
     task_key: PILOT_TASK_KEY,
     write_files: ["workflow/fixtures/pilot/output/synthetic-result.json"],
     write_prefixes: [],
-    network: false,
+    network: true,
     secrets: false,
     git_commit: false,
     push: false,
@@ -119,7 +120,7 @@ function pilotAuthority({ taskKey = PILOT_TASK_KEY, repoRoot = path.resolve("C:/
         max_dispatch_attempts: 1,
         max_workers: 1,
         publishing: false,
-        network: false,
+        network: true,
         production: false,
         dns: false,
         deployment: false,
@@ -209,9 +210,10 @@ test("PILOT-PROFILE-07 approval policy uses one supported config override", () =
   assert.equal(args.includes("--ask-for-approval"), false);
   assert.equal(args.includes("danger-full-access"), false);
   assert.deepEqual(
-    configOverrides.filter((value) => value === "sandbox_workspace_write.network_access=false"),
-    ["sandbox_workspace_write.network_access=false"],
+    configOverrides.filter((value) => value === "sandbox_workspace_write.network_access=true"),
+    ["sandbox_workspace_write.network_access=true"],
   );
+  assert.equal(configOverrides.includes("sandbox_workspace_write.network_access=false"), false);
 });
 
 test("PILOT-CLI-COMPAT-01 Codex 0.153.4 accepts generated approval config without a thread", (t) => {
@@ -268,10 +270,14 @@ test("PILOT-PROFILE-04 alternate provider is rejected", () => {
   }, requiredProfile()), /provider/);
 });
 
-test("PILOT-PROFILE-05 network broadening request is rejected", () => {
+test("PILOT-PROFILE-05 network disabling request is rejected", () => {
   assert.throws(() => assertNoPilotProfileBroadening({
-    network_access: true,
+    network_access: false,
   }, requiredProfile()), /network_access/);
+  assert.throws(
+    () => buildPilotCliSecurityArgs(requiredProfile({ network_access: false }), {}),
+    /requires network access/,
+  );
 });
 
 test("PILOT-SANDBOX-01 unavailable required Windows sandbox fails closed", () => {
@@ -282,6 +288,32 @@ test("PILOT-SANDBOX-01 unavailable required Windows sandbox fails closed", () =>
     execFile: () => "codex-cli 0.153.0-alpha.5",
   }), (error) => error.code === PILOT_SANDBOX_UNAVAILABLE
     && error.message.startsWith(PILOT_SANDBOX_UNAVAILABLE));
+});
+
+test("PILOT-SANDBOX-02 network-enabled profile selects the installed online sandbox account", () => {
+  const inspectedAccounts = [];
+  const evidence = detectWindowsElevatedSandbox({
+    platform: "win32",
+    parentEnvironment: safeParentEnvironment(),
+    networkAccess: true,
+    fileExists: () => true,
+    readFile: () => JSON.stringify({
+      version: 5,
+      offline_username: "CodexSandboxOffline",
+      online_username: "CodexSandboxOnline",
+      allow_local_binding: false,
+      proxy_ports: [],
+    }),
+    execFile: (command, args) => {
+      if (command === "codex") return "codex-cli 0.153.4";
+      if (command === "net") inspectedAccounts.push(args[1]);
+      return "";
+    },
+  });
+  assert.deepEqual(inspectedAccounts, ["CodexSandboxOffline", "CodexSandboxOnline"]);
+  assert.equal(evidence.backend, "elevated");
+  assert.equal(evidence.network_profile, "online");
+  assert.equal(evidence.sandbox_username, "CodexSandboxOnline");
 });
 
 test("PILOT-CONFIG-01 project Codex configuration blocks instead of broadening", (t) => {
@@ -296,6 +328,7 @@ test("PILOT-PROFILE-06 valid future profile assembles without inheriting control
   const worktree = fs.mkdtempSync(path.join(os.tmpdir(), "threethai-pilot-profile-"));
   t.after(() => cleanupFixture(worktree));
   const authority = pilotAuthority({ repoRoot: worktree });
+  let inspectedNetworkAccess;
   const launch = preparePilotWorkerLaunch({
     ...authority,
     policy: activePilotPolicy(),
@@ -304,10 +337,19 @@ test("PILOT-PROFILE-06 valid future profile assembles without inheriting control
       OPENAI_API_KEY: "fake",
       DEPLOYMENT_PASSWORD: "fake",
     }),
-    sandboxInspector: () => ({ passed: true, backend: "elevated", network_profile: "offline" }),
+    sandboxInspector: ({ networkAccess }) => {
+      inspectedNetworkAccess = networkAccess;
+      return {
+        passed: true,
+        backend: "elevated",
+        network_profile: "online",
+        sandbox_username: "CodexSandboxOnline",
+      };
+    },
   });
+  assert.equal(inspectedNetworkAccess, true);
   assert.equal(launch.profile.max_workers, 1);
-  assert.equal(launch.profile.network_access, false);
+  assert.equal(launch.profile.network_access, true);
   assert.equal(launch.profile.provider, "openai");
   assert.equal(Object.hasOwn(launch.process_environment, "GH_TOKEN"), false);
   assert.equal(Object.hasOwn(launch.process_environment, "OPENAI_API_KEY"), false);
@@ -384,10 +426,12 @@ test("PILOT-TIMEOUT-01 timeout path terminates the child process", async () => {
 
 test("PILOT-ACTIVATION-01 activation remains off", async () => {
   assert.equal(PILOT_MODE.activation_enabled, false);
+  assert.equal(PILOT_MODE.network_access, true);
   const result = await tick(sourceRoot, { dryRun: false });
   assert.equal(result.workers_started, 0);
   assert.equal(result.automations_started, 0);
   assert.equal(result.pilot_mode.activation_enabled, false);
+  assert.equal(result.pilot_mode.network_access, true);
 });
 
 test("PILOT-FIXTURE-01 synthetic task is deterministic disposable and not executed", () => {
@@ -400,7 +444,7 @@ test("PILOT-FIXTURE-01 synthetic task is deterministic disposable and not execut
   assert.deepEqual(fixture.expected_result, expected);
   assert.equal(JSON.stringify(expected).match(/timestamp|date|time/i), null);
   assert.equal(fs.existsSync(syntheticOutputPath), false);
-  assert.equal(fixture.network, false);
+  assert.equal(fixture.network, true);
   assert.equal(fixture.git_push, false);
   assert.equal(fixture.pull_request, false);
   assert.equal(fixture.production, false);

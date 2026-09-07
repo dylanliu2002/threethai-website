@@ -14,7 +14,7 @@
     ".github/",
     "prisma/"
   ],
-  "network": false,
+  "network": true,
   "secrets": false,
   "git_commit": false,
   "git_push": false,
