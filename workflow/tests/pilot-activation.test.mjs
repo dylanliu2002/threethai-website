@@ -191,6 +191,10 @@ test("PILOT-CONTRACT-01 machine contract allows only the expected output file", 
   assert.deepEqual(machineContract.write_files, [OUTPUT_PATH]);
   assert.deepEqual(machineContract.write_prefixes, []);
   assert.equal(machineContract.synthetic_pilot.network, true);
+  assert.equal(machineContract.synthetic_pilot.network_proxy.enforced, true);
+  assert.deepEqual(machineContract.synthetic_pilot.network_proxy.allowed_domains, ["chatgpt.com"]);
+  assert.equal(machineContract.synthetic_pilot.network_proxy.unrestricted_direct_egress, false);
+  assert.equal(machineContract.synthetic_pilot.network_proxy.local_private_network, false);
 });
 
 test("PILOT-CONTRACT-02 wrong branch or worktree fails closed", () => {
@@ -246,6 +250,9 @@ test("PILOT-GRANT-04 Grant network permission must match the network-enabled con
     assert.equal(fixture.grant.activation.synthetic_pilot_once.network, true);
     altered.activation.synthetic_pilot_once.network = false;
     assert.throws(() => assertSyntheticPilotGrant(fixture.machineContract, altered), /network/);
+    const broadened = structuredClone(fixture.grant);
+    broadened.synthetic_pilot.network_proxy.allowed_domains.push("api.openai.com");
+    assert.throws(() => assertSyntheticPilotGrant(fixture.machineContract, broadened), /allowlist/);
   } finally {
     cleanupFixture(fixture.stateDirectory);
   }
@@ -309,6 +316,8 @@ test("PILOT-NETWORK-01 activation network permission matches the Grant", () => {
       fixture.grant.activation.synthetic_pilot_once.network,
     );
     assert.equal(oneTimePilotPolicy(fixture.activation).network_access, true);
+    assert.equal(oneTimePilotPolicy(fixture.activation).network_proxy.enforced, true);
+    assert.deepEqual(oneTimePilotPolicy(fixture.activation).network_proxy.allowed_domains, ["chatgpt.com"]);
   } finally {
     cleanupFixture(fixture.stateDirectory);
   }
