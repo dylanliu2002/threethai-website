@@ -12,6 +12,7 @@ import { deriveActualChanges } from "../git-evidence.mjs";
 import { issueCapabilityInternal } from "../internal/capability-engine.mjs";
 import {
   enableSyntheticPilotOnceInternal,
+  mutateControllerStateInternal,
   readControllerStateInternal,
   setActivationForAdministrationInternal,
 } from "../internal/controller-state-engine.mjs";
@@ -337,7 +338,7 @@ test("PILOT-DISPATCH-04 consumed human authorization cannot be replayed", () => 
   }
 });
 
-test("PILOT-DISPATCH-03 a failed first run still leaves activation consumed", () => {
+test("PILOT-DISPATCH-03 a pre-thread CLI failure releases its lease and stays consumed", () => {
   const fixture = pilotFixture();
   try {
     const admitted = reservePilot(fixture, "failed-first");
@@ -372,15 +373,63 @@ test("PILOT-DISPATCH-03 a failed first run still leaves activation consumed", ()
       actualHeadSha: HEAD,
       scopeEvidence: { ...scope, passed: true },
       validationEvidence: { passed: false, actual_head_sha: HEAD, evidence_digest: "d".repeat(64) },
-      threadId: "synthetic-failed-run",
+      threadId: null,
       reportedModel: "gpt-5.6-sol",
       now: new Date("2026-09-06T00:03:02.000Z"),
       verifyCard: false,
     });
     const state = readControllerStateInternal(fixture.stateDirectory);
     assert.equal(completed.status, "FAILED");
+    assert.equal(state.runs[admitted.run.run_id].thread_id, "PENDING");
     assert.equal(state.pilot_activation.status, "CONSUMED");
-    assert.equal(reservePilot(fixture, "after-failure").acquired, false);
+    assert.equal(state.pilot_activation.dispatch_attempts, 1);
+    assert.deepEqual(Object.keys(state.leases), []);
+    assert.deepEqual(Object.keys(state.reservations), []);
+    assert.equal(state.tasks[TASK_KEY].lease_id, null);
+    const second = reservePilot(fixture, "after-failure");
+    assert.equal(second.acquired, false);
+    assert.equal(second.reason, "activation-disabled");
+    const afterSecond = readControllerStateInternal(fixture.stateDirectory);
+    assert.equal(afterSecond.pilot_activation.status, "CONSUMED");
+    assert.equal(afterSecond.pilot_activation.dispatch_attempts, 1);
+    assert.equal(Object.keys(afterSecond.runs).length, 1);
+    assert.equal(Object.keys(afterSecond.leases).length, 0);
+  } finally {
+    cleanupFixture(fixture.stateDirectory);
+  }
+});
+
+test("PILOT-RECOVERY-01 reservation admission sweeps an expired historical failed lease", () => {
+  const fixture = pilotFixture();
+  try {
+    const admitted = reservePilot(fixture, "historical-failed-lease");
+    mutateControllerStateInternal(fixture.stateDirectory, {
+      type: "test.historical-terminal-failure",
+      taskKey: TASK_KEY,
+      runId: admitted.run.run_id,
+    }, (state) => {
+      state.runs[admitted.run.run_id].status = "FAILED";
+      return { simulated: true };
+    });
+    const recoveryAdmission = reserveTaskDispatchInternal({
+      engine: fixture.engine,
+      contract: fixture.machineContract,
+      grant: fixture.grant,
+      wakeupId: "expired-lease-recovery",
+      baseSha: HEAD,
+      roleId: fixture.machineContract.owner_role,
+      maxWorkersCeiling: 1,
+      pilotActivationId: fixture.activation.activation_id,
+      now: new Date("2026-09-06T00:10:00.000Z"),
+    });
+    const state = readControllerStateInternal(fixture.stateDirectory);
+    assert.equal(recoveryAdmission.acquired, false);
+    assert.equal(recoveryAdmission.reason, "activation-disabled");
+    assert.equal(state.runs[admitted.run.run_id].status, "FAILED");
+    assert.equal(state.pilot_activation.status, "CONSUMED");
+    assert.equal(state.pilot_activation.dispatch_attempts, 1);
+    assert.deepEqual(Object.keys(state.leases), []);
+    assert.deepEqual(Object.keys(state.reservations), []);
   } finally {
     cleanupFixture(fixture.stateDirectory);
   }

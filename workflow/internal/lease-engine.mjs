@@ -20,18 +20,25 @@ function validateGrant(engine, contract, grant, { verifyCard = true, now = new D
   });
 }
 
+function removeLeaseAndReservations(state, leaseId, { clearCurrentRun = false } = {}) {
+  const lease = state.leases[leaseId];
+  if (!lease) return false;
+  delete state.leases[leaseId];
+  for (const [key, reservation] of Object.entries(state.reservations)) {
+    if (reservation.lease_id === leaseId) delete state.reservations[key];
+  }
+  const task = state.tasks[lease.task_key];
+  if (task?.lease_id === leaseId) {
+    task.lease_id = null;
+    if (clearCurrentRun) task.current_run_id = null;
+  }
+  return true;
+}
+
 function expireStale(state, nowMs) {
   for (const [leaseId, lease] of Object.entries(state.leases)) {
     if (lease.expires_at_ms > nowMs) continue;
-    delete state.leases[leaseId];
-    for (const [key, reservation] of Object.entries(state.reservations)) {
-      if (reservation.lease_id === leaseId) delete state.reservations[key];
-    }
-    const task = state.tasks[lease.task_key];
-    if (task?.lease_id === leaseId) {
-      task.lease_id = null;
-      task.current_run_id = null;
-    }
+    removeLeaseAndReservations(state, leaseId, { clearCurrentRun: true });
     const run = state.runs[lease.run_id];
     if (run && !["SUCCESS", "FAILED", "INVALID_OUTPUT", "SCOPE_VIOLATION", "VALIDATION_FAILED"].includes(run.status)) {
       run.status = "STALE";
@@ -381,6 +388,9 @@ export function completeRunInternal({
         implementation_evidence_digest: observedScope.evidence_digest,
       };
     }
+    if (authoritativeStatus !== "SUCCESS") {
+      removeLeaseAndReservations(state, validated.capability.lease_id);
+    }
     return structuredClone(run);
   });
 }
@@ -420,12 +430,7 @@ export function releaseTaskLeaseInternal({
     type: "lease.released", taskKey: capability.task_key, runId: capability.run_id,
     now, verifyCard,
   }, (state, validated) => {
-    delete state.leases[validated.capability.lease_id];
-    for (const [key, reservation] of Object.entries(state.reservations)) {
-      if (reservation.lease_id === validated.capability.lease_id) delete state.reservations[key];
-    }
-    const task = state.tasks[validated.capability.task_key];
-    if (task?.lease_id === validated.capability.lease_id) task.lease_id = null;
+    removeLeaseAndReservations(state, validated.capability.lease_id);
     return { released: true, released_at: now.toISOString() };
   });
 }
