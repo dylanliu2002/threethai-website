@@ -3,7 +3,7 @@ Task Key: GSC-LOCALE-003A
 Role: TECHNICAL_SEO
 Task: Stabilize Prefix-Free English Canonical Owners
 Branch: qwen/gsc-locale-003a-stable-english-owner
-Commit: pending
+Commit: 1e0734645e62b2bbf9bc8acf0c3a0618de69b5cf
 Date: 2026-09-08
 
 Work Log:
@@ -92,6 +92,11 @@ Work Log:
   both recorded so the numbers are not trusted blindly: a case-sensitive
   `hreflang="` count (Next renders `hrefLang`) and a hop-status comparison that
   ignored the annotation appended to the hop string.
+- Committed the implementation as
+  `1e0734645e62b2bbf9bc8acf0c3a0618de69b5cf` — 6 files, `src/proxy.ts` and the
+  new `src/content/locale-routing.ts` plus the test, `package.json`, this card
+  and this worklog. `git diff --check` clean; `git show --stat` confirmed no
+  build output or dependency tree entered the commit.
 - Pushed the branch and opened the pull request to `main`. Did not merge, did not
   deploy, did not touch Search Console or Vercel, did not force-push, stash,
   reset, or clean any unrelated worktree.

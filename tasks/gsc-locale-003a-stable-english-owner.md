@@ -256,9 +256,9 @@ production. All nine assertions passed:
 
 ## Completion Record
 
-- Commit: recorded in `worklog/gsc-locale-003a-stable-english-owner.md` (one
-  implementation commit plus this evidence commit; no rebase, no history
-  rewrite).
+- Commit: `1e0734645e62b2bbf9bc8acf0c3a0618de69b5cf` — the single implementation
+  commit; a follow-up `docs:` commit records this hash. No rebase, no history
+  rewrite, no force-push.
 - Base commit: `4c2c969f02e807e8172688246861406ac01f8395` (`origin/main`,
   verified equal to the assigned base before any edit).
 - Changed files: `src/proxy.ts` (rewritten, −46/+18 lines),
