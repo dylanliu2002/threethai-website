@@ -100,6 +100,13 @@ const nextConfig: NextConfig = {
   output: "standalone",
   /* config options here */
   reactStrictMode: false,
+  experimental: {
+    // Document-level `lang` needs a root layout per locale route tree
+    // (src/app/(site), src/app/[lang], src/app/zh), so there is no shared
+    // src/app/layout.tsx left to give the global 404 a document. This flag is
+    // what lets src/app/global-not-found.tsx own its own instead.
+    globalNotFound: true,
+  },
   async redirects() {
     return legacyRedirects;
   },

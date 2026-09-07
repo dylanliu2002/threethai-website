@@ -1,10 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
-import { company } from "@/content/company";
+import { company, htmlLang, isRtl, type Locale } from "@/content/company";
 import { en } from "@/content/i18n";
 import { Analytics } from "@vercel/analytics/next";
-import "./globals.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,7 +15,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
+export const rootMetadata: Metadata = {
   title: {
     default: en.meta.defaultTitle,
     template: en.meta.titleTemplate,
@@ -52,13 +51,30 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport: Viewport = {
+export const rootViewport: Viewport = {
   themeColor: "#1a2151",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+/**
+ * The document root, rendered by every root layout.
+ *
+ * Next.js promotes the shallowest layout of each top-level route tree to be that
+ * tree's root layout, and only a root layout may own `<html>`. The site's
+ * locale split is therefore also its root-layout split — `(site)` for the
+ * prefix-free English owner, `[lang]` for the prefixed locales, `zh` for the
+ * hand-translated static Chinese routes — and each renders through here so the
+ * attributes that vary (lang / dir) come from the route locale while every
+ * shared document service stays in one place and renders exactly once.
+ */
+export function RootDocument({
+  locale,
+  children,
+}: {
+  locale: Locale;
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={htmlLang[locale]} dir={isRtl(locale) ? "rtl" : undefined} suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} min-h-screen antialiased bg-background text-foreground [font-family:var(--font-geist-sans),'PingFang_SC','Hiragino_Sans_GB','Microsoft_YaHei',sans-serif]`}>
         {children}
         <Toaster />
