@@ -218,8 +218,11 @@ removed deliberately. Search Console settings were not touched.
 - Commit: `e68070a99914b0da6b71d4081ae305727d0f2588`
 - Base: `b3bcefd9b86cc3d5614d0cceaa94bb2dc2cfbe52` (`qwen/gsc-index-002-fallback-indexation`,
   head of PR #19). Not rebased onto `main`, deliberately.
-- Pull request: stacked on `qwen/gsc-index-002-fallback-indexation`. URL recorded
-  in `worklog/gsc-schema-001-product-snippet-cleanup.md`.
+- Pull request: https://github.com/dylanliu2002/threethai-website/pull/20 —
+  OPEN, `MERGEABLE`, no review decision, **base
+  `qwen/gsc-index-002-fallback-indexation`** (stacked, not `main`). Differs from
+  that base by exactly this task's 2 commits. Merge is deliberately left to a
+  human after independent review; this delivery performs none.
 - Changed files (implementation commit): 6 — `src/lib/seo.tsx`,
   the three product detail templates, the new test file, and the `test:seo`
   script line in `package.json`. +433 / -22.

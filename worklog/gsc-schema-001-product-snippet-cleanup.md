@@ -204,7 +204,10 @@ Work Log:
   `main` was not written to, merged, rebased or force-pushed; PR #19's branch was
   not touched, and no other task branch was.
 - Opened a STACKED pull request against `qwen/gsc-index-002-fallback-indexation`
-  (not `main`, because PR #19 is still unmerged). State OPEN, not merged, not
+  (not `main`, because PR #19 is still unmerged):
+  https://github.com/dylanliu2002/threethai-website/pull/20 — state OPEN,
+  `MERGEABLE`, no review decision, head `8f8cf2e75db10a28f89ac6337369e26b9f91c932`,
+  differing from the base by exactly this task's two commits. Not merged, not
   deployed. Once PR #19 merges, this PR's base should be retargeted to `main`;
   the branch is a direct descendant of PR #19's head, so that is a base change,
   not a rebase.
