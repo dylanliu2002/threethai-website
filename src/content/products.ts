@@ -247,18 +247,27 @@ export const products: readonly Product[] = [
 
 export const productBySlug = (slug: string) => products.find((p) => p.slug === slug);
 
-/** Extended material formats verified from the legacy homepage copy. */
+/**
+ * Extended material formats verified from the legacy homepage copy.
+ *
+ * Concrete PVA fiber is not in this block: the owner confirmed (2026-09) that
+ * Three Thai does not currently manufacture it, which is what the staple-fiber
+ * FAQ already answers "no" to. Do not restore it without a confirmed business
+ * fact, and do not state when or why production stopped — that was never
+ * confirmed. The current status of the remaining formats is a separate
+ * business-fact question; their wording here is unchanged by that correction.
+ */
 export const extendedFormats = {
   en: {
     kicker: "Additional formats",
     title: "More PVA material forms for specialized applications",
-    body: "We also manufacture PVA cotton, PVA top, PPVA fiber, concrete PVA fiber and Gracell yarn. Contact our team to match the specification and sample to your application.",
-    items: ["PVA cotton", "PVA top", "PPVA fiber", "Concrete PVA fiber", "Gracell yarn"],
+    body: "We also manufacture PVA cotton, PVA top, PPVA fiber and Gracell yarn. Contact our team to match the specification and sample to your application.",
+    items: ["PVA cotton", "PVA top", "PPVA fiber", "Gracell yarn"],
   },
   zh: {
     kicker: "扩展产品目录",
     title: "面向专业应用的更多 PVA 材料形态",
-    body: "我们同样生产 PVA Cotton、PVA Top、PPVA 纤维、混凝土 PVA 纤维和 Gracell 纱线，可根据具体应用匹配规格并安排样品。",
-    items: ["PVA Cotton", "PVA Top", "PPVA 纤维", "混凝土 PVA 纤维", "Gracell 纱线"],
+    body: "我们同样生产 PVA Cotton、PVA Top、PPVA 纤维和 Gracell 纱线，可根据具体应用匹配规格并安排样品。",
+    items: ["PVA Cotton", "PVA Top", "PPVA 纤维", "Gracell 纱线"],
   },
 } as const;
