@@ -53,3 +53,19 @@ Base: 46274ed17100f2f9296b7f234729011d1175f482
   run, GitHub write performed, or canonical controller state mutated.
 - Status advanced to `REVIEW / INDEPENDENT_REVIEW`; a fresh
   `QA_PERFORMANCE` reviewer must inspect the final pushed head before merge.
+
+## 2026-09-07 — Correction 1: CI-portable host smoke
+
+- PR #16 exposed that Ubuntu CI does not install the native Codex executable;
+  the Windows host integration smoke therefore returned a null process status
+  while all portable controller tests continued to pass.
+- Limited `PILOT-CLI-COMPAT-01` to Windows with the explicit skip reason that it
+  requires a native Windows host with installed Codex CLI 0.153.4. On Windows,
+  a missing executable, wrong version, parser failure, or emitted
+  `thread.started` still fails the test.
+- Kept the cross-platform approval argument, exact `never` override, network,
+  danger-full-access, provider/model, and security-profile assertions in the
+  separate portable test.
+- No runtime, approval, sandbox, lease, Grant, activation, controller state, or
+  application behavior was changed. Fresh independent review remains required
+  before merge.

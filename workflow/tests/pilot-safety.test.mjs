@@ -214,7 +214,11 @@ test("PILOT-PROFILE-07 approval policy uses one supported config override", () =
   );
 });
 
-test("PILOT-CLI-COMPAT-01 Codex 0.153.4 accepts generated approval config without a thread", () => {
+test("PILOT-CLI-COMPAT-01 Codex 0.153.4 accepts generated approval config without a thread", (t) => {
+  if (process.platform !== "win32") {
+    t.skip("requires native Windows host with installed Codex CLI 0.153.4");
+    return;
+  }
   const args = buildPilotCliSecurityArgs(requiredProfile(), { PATH: "C:\\tools" });
   const approvalIndex = args.findIndex((value) => value === 'approval_policy="never"');
   assert.ok(approvalIndex > 0);
