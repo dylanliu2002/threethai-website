@@ -227,3 +227,55 @@ Stage Summary:
   revalidation request. No immediate GSC change is claimed.
 
 ---
+Task Key: GSC-SCHEMA-001
+Role: TECHNICAL_SEO
+Task: Fix Invalid Google Product Snippet Markup — runtime check re-verified on the supported entrypoint
+Branch: qwen/gsc-schema-001-product-snippet-cleanup
+Commit: d43d718b8044837eb28d3856a747c63701511d9e (amended below)
+Date: 2026-09-07
+
+Work Log:
+- Correction to the record, found when the stopped `next start` process reported
+  its output: it had also printed
+  `"next start" does not work with "output: standalone" configuration. Use
+  "node .next/standalone/server.js" instead.` This project builds
+  `output: "standalone"` (`next.config.ts:100`) and `npm start` runs
+  `.next/standalone/server.js`, so port 3124 was not the production serving
+  path. `AGENTS.md` §5 prescribes `npx next start`, and GSC-INDEX-002's worklog
+  used it the same way, which is why it was not questioned at the time.
+- Re-ran the runtime check the supported way: `node .next/standalone/server.js`
+  with `PORT=3125 HOSTNAME=127.0.0.1` (a different port from 3124, so no stale
+  listener was mistaken for the new one), then stopped it.
+- Scope of the re-check was widened to all 4 catalogue slugs in the 3 canonical
+  postures the card asked for, i.e. 6 URLs:
+  `/products/water-soluble-pva-yarn`, `/products/pva-staple-fiber`,
+  `/products/water-soluble-pva-sewing-thread`, `/products/pva-filament-yarn`,
+  `/zh/products/water-soluble-pva-yarn`, `/es/products/water-soluble-pva-yarn`.
+  Per URL the check required: HTTP 200, exactly 2 JSON-LD blocks parsing,
+  no `Product`/`Offer`/`AggregateOffer`/`AggregateRating`/`Review` node, none of
+  `offers`/`price`/`priceCurrency`/`aggregateRating`/`ratingValue`/
+  `reviewCount`/`availability`/`itemCondition`/`seller` as a key, exactly one
+  `WebPage` node, `BreadcrumbList` and `FAQPage` present, and the served
+  `<link rel=canonical>` equal to the policy canonical.
+- Result: 6/6 PASS. Types served on every URL were
+  `Organization, PostalAddress, ContactPoint, WebSite, WebPage, FAQPage,
+  Question, Answer, BreadcrumbList, ListItem`. Canonicals: the three English
+  product URLs self-canonical with `og:locale en_US`; `/zh/` self-canonical with
+  `zh_CN`; `/es/products/water-soluble-pva-yarn` consolidated onto the English
+  URL with `en_US` — GSC-INDEX-002's behaviour confirmed over the wire, not only
+  from build files.
+- Conclusion unaffected: the earlier `next start` output and the prerendered
+  `.next/server/app/**/*.html` scan (552 pages, 1049 JSON-LD blocks, 0 `Product`
+  nodes, 0 commercial keys) agree with the standalone server, so no application
+  change was needed and the delivered head is unchanged by this entry.
+
+Stage Summary:
+- Runtime verification now rests on the production entrypoint rather than the
+  `next start` path Next.js flags as unsupported for this config. Recorded so a
+  later reviewer does not have to rediscover the caveat.
+- Suggested follow-up for the ORCHESTRATOR, not performed here: `AGENTS.md` §5's
+  completion gate says `npx next start -p <port>`; for a `standalone` build the
+  gate should read `node .next/standalone/server.js`. That file is shared and
+  owned by the administrator, so it is requested, not edited.
+
+---

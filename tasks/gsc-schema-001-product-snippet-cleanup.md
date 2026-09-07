@@ -166,11 +166,16 @@ Beyond the suite:
   Rating/Review node, one `WebPage` whose `url` matches the policy canonical,
   `inLanguage` matches the body copy, `BreadcrumbList` intact (3 items),
   `FAQPage` intact with every question also present in the visible text.
-- Served pages from a production `next start` on `127.0.0.1:3124` (port per
-  `AGENTS.md` §8; 3000/3001 avoided), then the server was stopped:
-  `/products/water-soluble-pva-yarn`, `/products/pva-staple-fiber`,
-  `/zh/products/water-soluble-pva-yarn`, `/es/products/water-soluble-pva-yarn`.
-  Types emitted: `Organization, WebSite, WebPage, FAQPage, BreadcrumbList`.
+- Served from the **production entrypoint** `node .next/standalone/server.js`
+  on `127.0.0.1:3125`, then stopped. (`next start` prints
+  *"does not work with output: standalone"* for this project's
+  `next.config.ts`, so it is not the serving path and the final record does not
+  rest on it.) Six URLs checked — all four catalogue slugs plus
+  `/zh/products/water-soluble-pva-yarn` and `/es/products/water-soluble-pva-yarn`
+  — each HTTP 200 with two parseable JSON-LD blocks and types
+  `Organization, WebSite, WebPage, FAQPage, BreadcrumbList`, and no
+  `offers`/`price`/`priceCurrency`/`aggregateRating`/`ratingValue`/
+  `reviewCount`/`availability`/`itemCondition`/`seller` key.
   Canonicals: English self, Chinese self, `/es/` → the English URL, with
   `og:locale` `en_US` / `zh_CN` / `en_US` respectively. Zero price, currency,
   rating or stock tokens in visible copy; `Request a Quote`, `Request a Sample`
@@ -200,6 +205,13 @@ removed deliberately. Search Console settings were not touched.
 - **`package.json`:** only the `test:seo` script list changed — no dependency,
   no lock file. Flagged because `AGENTS.md` §2.3 lists that file as shared; the
   GSC-INDEX-002 precedent on the same key is what this follows.
+- **Gate wording, for the ORCHESTRATOR:** `AGENTS.md` §5 tells a task to verify
+  with `npx next start -p <port>`, but this project builds
+  `output: "standalone"` and `next start` explicitly warns that it does not work
+  with that configuration. The runtime record above was therefore re-taken with
+  `node .next/standalone/server.js`, the entrypoint `npm start` actually uses.
+  `AGENTS.md` is a shared, administrator-owned file, so the wording is requested
+  here and was not edited.
 - **Reviewer decision:** `/products/water-soluble-pva-yarn` is also one of the
   four "Crawled — currently not indexed" URLs GSC-INDEX-002 flagged for separate
   review. This task changes neither its indexation signals nor its content, so
