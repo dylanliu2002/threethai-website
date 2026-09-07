@@ -149,28 +149,44 @@ export const breadcrumbSchema = (trail: { name: string; path: string }[]) => ({
   })),
 });
 
-export const productSchema = (product: {
+/**
+ * Structured data for a product detail route.
+ *
+ * This deliberately emits no `@type: Product` node. Google's Product rich
+ * result is only valid when the product carries at least one of `offers`,
+ * `review` or `aggregateRating`, and Three Thai sells by inquiry: the product
+ * pages publish no price, no price range, no stock state and no customer
+ * reviews — in the content model (`src/content/products.ts` has no such field)
+ * and in the visible copy, where the only calls to action are "Request a
+ * Sample", "Request a Quote" and "Contact". A bare `Product` node was therefore
+ * exactly the invalid state Search Console reported for
+ * `/products/water-soluble-pva-yarn` and `/products/pva-staple-fiber`
+ * (GSC-SCHEMA-001), and it cannot be repaired without inventing commercial
+ * data. Filling `offers` with a placeholder price or `aggregateRating` with a
+ * synthetic score would make the validator green while describing a shop that
+ * does not exist, so neither is done here.
+ *
+ * What remains is what the route verifiably is: a canonical-aware `WebPage`.
+ * The product itself stays fully described by the visible HTML, alongside the
+ * `BreadcrumbList` and `FAQPage` nodes the page already emits.
+ *
+ * Re-entry condition: if a product ever carries a real, publicly visible price
+ * or an authentic customer review, emit a `Product` node with that genuine
+ * data — never a node the page cannot back up.
+ */
+export const productPageSchema = (product: {
   name: string;
   description: string;
-  image: string;
   slug: string;
   /** Rendering locale; the structured-data URL follows the canonical owner. */
   locale?: Locale;
-}) => {
-  const path = `/products/${product.slug}`;
-  const url = product.locale ? canonicalUrlFor(path, product.locale) : `${siteUrl}${path}`;
-  return {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    "@id": `${url}#product`,
+}) =>
+  webPageSchema({
+    path: `/products/${product.slug}`,
+    locale: product.locale ?? "en",
     name: product.name,
     description: product.description,
-    image: `${siteUrl}${product.image}`,
-    brand: { "@type": "Brand", name: company.shortBrandExport },
-    manufacturer: { "@type": "Organization", name: company.nameLegalZh, url: siteUrl },
-    url,
-  };
-};
+  });
 
 export const faqSchema = (faqs: readonly (readonly [string, string])[]) => ({
   "@context": "https://schema.org",
