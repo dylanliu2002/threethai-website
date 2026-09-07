@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import { company } from "@/content/company";
 import { en } from "@/content/i18n";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -61,6 +62,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className={`${geistSans.variable} ${geistMono.variable} min-h-screen antialiased bg-background text-foreground [font-family:var(--font-geist-sans),'PingFang_SC','Hiragino_Sans_GB','Microsoft_YaHei',sans-serif]`}>
         {children}
         <Toaster />
+        <Analytics />
       </body>
     </html>
   );
