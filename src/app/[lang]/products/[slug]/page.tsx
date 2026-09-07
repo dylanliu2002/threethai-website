@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import ProductView from "@/components/product/product-view";
 import { products, productBySlug } from "@/content/products";
-import { buildMetadata, breadcrumbSchema, faqSchema, jsonLd, productSchema } from "@/lib/seo";
+import { buildMetadata, breadcrumbSchema, faqSchema, jsonLd, productPageSchema } from "@/lib/seo";
 import { localePath, contentLocaleOf } from "@/content/company";
 import { langParams, resolveLang } from "../../_lang";
 
@@ -39,7 +39,7 @@ export default async function LangProductPage({ params }: Props) {
   return (
     <>
       {jsonLd([
-        productSchema({ name: product.name[cl], description: product.metaDescription[cl], image: product.image, slug: product.slug, locale }),
+        productPageSchema({ name: product.name[cl], description: product.metaDescription[cl], slug: product.slug, locale }),
         faqSchema(product.faqs[cl]),
         breadcrumbSchema([
           { name: dict.breadcrumbs.home, path: localePath("/", locale) },

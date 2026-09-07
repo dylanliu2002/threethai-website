@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import ProductView from "@/components/product/product-view";
 import { products, productBySlug } from "@/content/products";
 import { zh } from "@/content/i18n";
-import { buildMetadata, breadcrumbSchema, faqSchema, jsonLd, productSchema } from "@/lib/seo";
+import { buildMetadata, breadcrumbSchema, faqSchema, jsonLd, productPageSchema } from "@/lib/seo";
 
 type ProductPageProps = { params: Promise<{ slug: string }> };
 
@@ -31,7 +31,7 @@ export default async function ZhProductPage({ params }: ProductPageProps) {
   return (
     <>
       {jsonLd([
-        productSchema({ name: product.name.zh, description: product.metaDescription.zh, image: product.image, slug: product.slug, locale: "zh" }),
+        productPageSchema({ name: product.name.zh, description: product.metaDescription.zh, slug: product.slug, locale: "zh" }),
         faqSchema(product.faqs.zh),
         breadcrumbSchema([
           { name: zh.breadcrumbs.home, path: "/zh" },
