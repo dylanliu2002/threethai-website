@@ -39,7 +39,7 @@ export default async function LangProductPage({ params }: Props) {
   return (
     <>
       {jsonLd([
-        productSchema({ name: product.name[cl], description: product.metaDescription[cl], image: product.image, slug: product.slug }),
+        productSchema({ name: product.name[cl], description: product.metaDescription[cl], image: product.image, slug: product.slug, locale }),
         faqSchema(product.faqs[cl]),
         breadcrumbSchema([
           { name: dict.breadcrumbs.home, path: localePath("/", locale) },

@@ -12,7 +12,6 @@ export const metadata: Metadata = buildMetadata({
     "Request a traceable PVA sample: yarn, sewing thread, staple fiber or filament. We confirm specification and test method with you before shipping.",
   path: "/request-sample",
   locale: "en",
-  alternates: { en: "/request-sample", zh: "/zh/request-quote" },
 });
 
 export default function RequestSamplePage() {

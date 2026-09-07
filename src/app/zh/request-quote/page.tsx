@@ -13,7 +13,6 @@ export const metadata: Metadata = buildMetadata({
   description: "提交水溶性 PVA 产品询价：请提供支数、应用场景和目标水溶温度，我们将为您匹配合适规格。",
   path: "/request-quote",
   locale: "zh",
-  alternates: { en: "/request-quote", zh: "/zh/request-quote" },
 });
 
 export default function ZhRequestQuotePage() {

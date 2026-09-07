@@ -8,7 +8,6 @@ export const metadata: Metadata = buildMetadata({
   description: "就水溶性 PVA 产品、规格、样品、单证与验厂事宜联系山东荣沣纺织团队。",
   path: "/contact",
   locale: "zh",
-  alternates: { en: "/contact", zh: "/zh/contact" },
 });
 
 export default function ZhContactPage() {

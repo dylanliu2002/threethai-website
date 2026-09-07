@@ -1,9 +1,20 @@
 import type { Metadata } from "next";
-import { company, htmlLang, localePath, locales, siteUrl, type Locale } from "@/content/company";
+import { company, siteUrl, type Locale } from "@/content/company";
+import {
+  canonicalLocaleFor,
+  canonicalUrlFor,
+  contentHtmlLangOf,
+  hreflangForRoute,
+  indexabilityForRoute,
+} from "@/content/availability";
 
 /**
  * Metadata + JSON-LD helpers. Canonicals derive from NEXT_PUBLIC_SITE_URL so a
  * domain cutover switches every URL in one place.
+ *
+ * Canonical, hreflang, robots and og:locale are never decided here: every one
+ * of them is read from the content-availability policy in
+ * `@/content/availability`, so no route can drift from the sitemap again.
  */
 
 type MetaInput = {
@@ -11,10 +22,9 @@ type MetaInput = {
   /** Skip the "%s | brand" template (used by the homepage). */
   titleAbsolute?: boolean;
   description: string;
+  /** Unprefixed site path, e.g. `/answers/${slug}`. */
   path: string;
   locale: Locale;
-  /** Other locale versions that exist for this page (paths, locale-keyed). */
-  alternates?: Partial<Record<Locale, string>>;
   image?: string;
   type?: "website" | "article";
   publishedTime?: string;
@@ -31,28 +41,29 @@ type MetaInput = {
 export const clampMetaDescription = (d: string): string =>
   d.length <= 158 ? d : `${d.slice(0, 155).replace(/\s+\S*$/, "").replace(/[,;:\-–—]$/, "")}...`;
 
+const OG_LOCALE: Record<Locale, string> = {
+  en: "en_US",
+  zh: "zh_CN",
+  es: "es_ES",
+  pt: "pt_BR",
+  ru: "ru_RU",
+  ar: "ar_AR",
+  tr: "tr_TR",
+  vi: "vi_VN",
+  id: "id_ID",
+  de: "de_DE",
+};
+
 export function buildMetadata(input: MetaInput): Metadata {
   const { title, path, locale } = input;
   const description = clampMetaDescription(input.description);
-  const canonical = `${siteUrl}${localePath(path, locale)}`;
-  // Full hreflang graph across all ten locales (EN at the root, /{lang} prefixes).
-  const languages: Record<string, string> = {};
-  for (const l of locales) {
-    languages[htmlLang[l]] = `${siteUrl}${localePath(path, l)}`;
-  }
-  languages["x-default"] = `${siteUrl}${localePath(path, "en")}`;
-  const ogLocale: Record<Locale, string> = {
-    en: "en_US",
-    zh: "zh_CN",
-    es: "es_ES",
-    pt: "pt_BR",
-    ru: "ru_RU",
-    ar: "ar_AR",
-    tr: "tr_TR",
-    vi: "vi_VN",
-    id: "id_ID",
-    de: "de_DE",
-  };
+  // Fallback copies point at their English original instead of self-declaring.
+  const canonical = canonicalUrlFor(path, locale);
+  const languages = hreflangForRoute(path, locale);
+  const { index, follow } = indexabilityForRoute(path, locale);
+  // og:locale describes the body copy, so it follows the canonical owner: an
+  // `/es/…` URL rendering English text is an English page.
+  const contentLocale = canonicalLocaleFor(path, locale);
   const image = `${siteUrl}${input.image ?? "/og.jpg"}`;
 
   return {
@@ -60,17 +71,26 @@ export function buildMetadata(input: MetaInput): Metadata {
     description,
     keywords: input.keywords ? [...input.keywords] : undefined,
     metadataBase: new URL(siteUrl),
-    alternates: { canonical, languages: Object.keys(languages).length ? languages : undefined },
+    alternates: { canonical, languages },
     robots: input.noindex
       ? { index: false, follow: false }
-      : { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 } },
+      : {
+          index,
+          follow,
+          googleBot: {
+            index,
+            follow,
+            "max-image-preview": "large",
+            "max-snippet": -1,
+          },
+        },
     openGraph: {
       title,
       description,
       url: canonical,
       siteName: company.shortBrandEn,
       type: input.type ?? "website",
-      locale: ogLocale[locale],
+      locale: OG_LOCALE[contentLocale],
       images: [{ url: image, width: 1200, height: 630, alt: title }],
       ...(input.type === "article" ? { publishedTime: input.publishedTime, modifiedTime: input.modifiedTime } : {}),
     },
@@ -134,8 +154,11 @@ export const productSchema = (product: {
   description: string;
   image: string;
   slug: string;
+  /** Rendering locale; the structured-data URL follows the canonical owner. */
+  locale?: Locale;
 }) => {
-  const url = `${siteUrl}/products/${product.slug}`;
+  const path = `/products/${product.slug}`;
+  const url = product.locale ? canonicalUrlFor(path, product.locale) : `${siteUrl}${path}`;
   return {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -166,8 +189,11 @@ export const articleSchema = (article: {
   datePublished: string;
   dateModified: string;
   section: "knowledge" | "answers";
+  /** Rendering locale; the structured-data URL follows the canonical owner. */
+  locale?: Locale;
 }) => {
-  const url = `${siteUrl}/${article.section}/${article.slug}`;
+  const path = `/${article.section}/${article.slug}`;
+  const url = article.locale ? canonicalUrlFor(path, article.locale) : `${siteUrl}${path}`;
   return {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -175,12 +201,32 @@ export const articleSchema = (article: {
     description: article.description,
     datePublished: article.datePublished,
     dateModified: article.dateModified,
+    inLanguage: article.locale ? contentHtmlLangOf(path, article.locale) : "en",
     author: { "@type": "Organization", name: company.nameLegalZh, url: siteUrl },
     publisher: { "@type": "Organization", name: company.nameExportEn, url: siteUrl },
     mainEntityOfPage: url,
     image: `${siteUrl}/og.jpg`,
   };
 };
+
+/**
+ * WebPage node for a rendered route. `inLanguage` reports the language of the
+ * body copy, so an English-fallback copy under a locale prefix never claims to
+ * be a Spanish/Portuguese/… document.
+ */
+export const webPageSchema = (input: {
+  path: string;
+  locale: Locale;
+  name?: string;
+  description?: string;
+}) => ({
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  url: canonicalUrlFor(input.path, input.locale),
+  name: input.name,
+  description: input.description,
+  inLanguage: contentHtmlLangOf(input.path, input.locale),
+});
 
 export function jsonLd(schemas: object | object[]) {
   const data = Array.isArray(schemas) && schemas.length > 0 ? (schemas.length === 1 ? schemas[0] : schemas) : schemas;

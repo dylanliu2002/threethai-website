@@ -20,7 +20,6 @@ export async function generateMetadata({ params }: AppPageProps): Promise<Metada
     description: app.summary.zh,
     path: `/applications/${app.slug}`,
     locale: "zh",
-    alternates: { en: `/applications/${app.slug}`, zh: `/zh/applications/${app.slug}` },
     image: app.image,
   });
 }

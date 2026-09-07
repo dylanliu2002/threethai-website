@@ -14,7 +14,6 @@ export const metadata: Metadata = buildMetadata({
     "Explore water-soluble PVA yarn, sewing thread, staple fiber and filament yarn by material form and dissolution temperature from 20°C to 90°C. Batch-level QC, traceable samples.",
   path: "/products",
   locale: "en",
-  alternates: { en: "/products", zh: "/zh/products" },
   keywords: ["PVA yarn manufacturer", "water soluble PVA products", "PVA staple fiber", "PVA filament yarn"],
 });
 

@@ -22,7 +22,6 @@ export async function generateMetadata({ params }: ArticlePageProps): Promise<Me
     description: article.metaDescription.en,
     path: `/knowledge/${article.slug}`,
     locale: "en",
-    alternates: { en: `/knowledge/${article.slug}` },
     type: "article",
     publishedTime: article.datePublished,
     modifiedTime: article.dateModified,

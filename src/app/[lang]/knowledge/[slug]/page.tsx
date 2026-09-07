@@ -50,6 +50,7 @@ export default async function LangArticlePage({ params }: Props) {
           datePublished: article.datePublished,
           dateModified: article.dateModified,
           section: "knowledge",
+          locale,
         }),
         breadcrumbSchema([
           { name: dict.breadcrumbs.home, path: lp("/") },

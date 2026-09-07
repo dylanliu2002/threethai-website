@@ -16,7 +16,6 @@ export const metadata: Metadata = buildMetadata({
   titleAbsolute: true,
   path: "/",
   locale: "zh",
-  alternates: { en: "/", zh: "/zh" },
 });
 
 export default function ZhHomePage() {
