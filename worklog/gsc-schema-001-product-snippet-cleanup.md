@@ -279,3 +279,73 @@ Stage Summary:
   owned by the administrator, so it is requested, not edited.
 
 ---
+Task Key: GSC-SCHEMA-001
+Role: TECHNICAL_SEO
+Task: Sync to main after PR #19 merge
+Branch: qwen/gsc-schema-001-product-snippet-cleanup
+Commit: aebfe9f8099547c7dfced11bdac2c81410dfed76 (merge)
+Date: 2026-09-08
+
+Work Log:
+- PR #19 is MERGED (merge commit `4cf0ba145acf5b2584b2e67ec468788eaa29d383`,
+  2026-09-07T15:50:57Z). `origin/main` is `82184d7`. Fetched and confirmed
+  `b3bcefd` is a true ancestor of `main`, so this was a plain integration, not a
+  re-application of PR #19's content.
+- Integrated with `git merge origin/main` as the sync card directs: no history
+  rewrite, no rebase, no force-push. Merge commit `aebfe9f`, **0 conflicts** —
+  `package.json` auto-merged because PR #18 edits the `dependencies` block and
+  this task edits the `scripts` block.
+- Only three commits and three files were new: PR #18 Vercel Web Analytics
+  (`3b431e3` + `82184d7`) touching `package.json` (+1 dependency),
+  `package-lock.json`, and `src/app/layout.tsx` (`import { Analytics }`,
+  `<Analytics />`). Nothing under `src/lib`, `src/content`, the product
+  templates, or `tests/` moved.
+- Preservation proved, not assumed:
+  - `git diff b3bcefd HEAD -- src/content/availability.ts` → empty, and
+    `git diff origin/main HEAD -- src/content/availability.ts` → empty. The
+    PR #19 policy is byte-identical to both its own head and current `main`.
+  - `git diff --stat origin/main HEAD` → exactly this task's 8 files
+    (+965/-22). The PR now diffs cleanly against `main` with no PR #18 leakage
+    and nothing of GSC-SCHEMA-001 lost.
+  - `src/lib/seo.tsx` still exposes `productPageSchema()` delegating to
+    `webPageSchema()`; no `Product`/`Offer`/`AggregateOffer`/`AggregateRating`/
+    `Review` node exists anywhere in `src/`.
+- Lock file changed, so `npm ci` was re-run in the worktree before building
+  (844 packages, +1 = `@vercel/analytics@2.0.1`).
+- Gate on the merged tree: lint PASS; typecheck PASS; build PASS (555/555);
+  `test:seo` PASS 34/34 with `REQUIRE_BUILD_OUTPUT=1`, 0 skipped;
+  `git diff --check` clean. All 18 GSC-INDEX-002 tests still pass unmodified.
+- Runtime verification on the supported entrypoint,
+  `node .next/standalone/server.js` with `NODE_ENV=production PORT=3127
+  HOSTNAME=127.0.0.1`, then stopped. 6 URLs (the 4 the card requires plus the
+  two other catalogue slugs) → 6/6 PASS: HTTP 200, two parseable JSON-LD blocks,
+  exactly one `WebPage`, `BreadcrumbList`/`FAQPage`/`Organization`/`WebSite`
+  present, no `Product`/`Offer`/`AggregateRating`/`Review` node, none of the
+  commercial keys, and canonical self / self / `/zh/` self / **`/es/` →
+  English**. `og:locale` `en_US` / `en_US` / `zh_CN` / `en_US`.
+- Two self-inflicted measurement errors caught and corrected rather than written
+  off. The first runtime attempt reported 6/6 FAIL on an analytics assertion
+  only — every GSC-SCHEMA-001 and canonical assertion had already passed. Cause
+  1: I had started the server **without** `NODE_ENV=production`, which `npm
+  start` does set. Cause 2: my probe looked only for an inlined
+  `va.vercel-scripts.com` snippet, but `@vercel/analytics@2.0.1` emits **no**
+  SSR snippet — it registers a client chunk. Diagnosed from the build:
+  `.next/static/chunks/ca93804fe8d1c32f.js` contains `va.vercel-scripts.com`
+  and `_vercel/insights`, and that chunk is referenced by every served page. So
+  PR #18 is wired in and the merge was never at fault.
+- Side observation, not acted on: `@vercel/analytics` is absent from
+  `.next/standalone/node_modules` (bundled into the app chunk rather than
+  file-traced). Irrelevant here; noted in case a future standalone smoke test
+  looks for it there.
+- No analytics traffic was generated against production; verification stayed
+  local. No merge, no deploy, no DNS, no Search Console or Vercel settings
+  change. SYS-AUTO-* and legacy dirty worktrees untouched.
+
+Stage Summary:
+- Branch is current with `main` (`82184d7`), carrying PR #19 and PR #18 intact
+  alongside the GSC-SCHEMA-001 fix. Head `aebfe9f`.
+- PR #20's base retargeted from `qwen/gsc-index-002-fallback-indexation` to
+  `main`, as planned at delivery. Still OPEN, not merged, not deployed.
+- Ready for independent TECHNICAL_SEO review against `main`.
+
+---

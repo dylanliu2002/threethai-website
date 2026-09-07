@@ -16,10 +16,12 @@
 - **Risk:** `LOW` — structured data only; no route, URL, copy or indexation change
 - **Branch:** `qwen/gsc-schema-001-product-snippet-cleanup`
 - **Worktree:** `worktrees/qwen-gsc-schema-001-product-snippet-cleanup`
-- **Base:** `b3bcefd9b86cc3d5614d0cceaa94bb2dc2cfbe52` — head of
-  `qwen/gsc-index-002-fallback-indexation` (PR #19), **not** `main`
-- **PR base:** `qwen/gsc-index-002-fallback-indexation` (stacked; retarget to
-  `main` after PR #19 merges)
+- **Base:** `b3bcefd9b86cc3d5614d0cceaa94bb2dc2cfbe52` (head of PR #19) at
+  delivery; integrated with `main` `82184d7` on 2026-09-08 via merge commit
+  `aebfe9f`, after PR #19 merged as `4cf0ba1`.
+- **PR base:** `main` — retargeted from `qwen/gsc-index-002-fallback-indexation`
+  once PR #19 landed. Branch carries PR #19 and PR #18 (Vercel Web Analytics)
+  intact.
 - **Owner:** Implementation worker (Qwen Code)
 - **Reviewer:** Unassigned (must be independent — TECHNICAL_SEO review required)
 - **depends_on:** `GSC-INDEX-002` (PR #19) — this task edits `src/lib/seo.tsx`,
@@ -199,9 +201,11 @@ removed deliberately. Search Console settings were not touched.
 - **Board registration:** requested, not performed. Adding a row to
   `tasks/README.md` and assigning a numeric ID is an ORCHESTRATOR action on a
   shared file.
-- **Stacked PR:** base is `qwen/gsc-index-002-fallback-indexation`, not `main`,
-  because PR #19 is unmerged. Retarget/rebase onto `main` once PR #19 merges.
-  Not merged, not deployed here.
+- **Stacked PR — resolved:** this branch was stacked on
+  `qwen/gsc-index-002-fallback-indexation` while PR #19 was unmerged. PR #19
+  merged as `4cf0ba1` on 2026-09-07, so `origin/main` was merged in
+  (`aebfe9f`, 0 conflicts) and PR #20's base retargeted to `main`. No history
+  rewrite, no force-push. Still not merged and not deployed here.
 - **`package.json`:** only the `test:seo` script list changed — no dependency,
   no lock file. Flagged because `AGENTS.md` §2.3 lists that file as shared; the
   GSC-INDEX-002 precedent on the same key is what this follows.
