@@ -9,7 +9,7 @@
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:seo": "node --test --import ./tests/support/ts-extension-hooks.mjs tests/seo-route-parity.mjs tests/gsc-index-002-fallback-indexation.mjs tests/gsc-schema-001-product-snippet-cleanup.mjs tests/business-fact-d2-concrete-pva-fiber.mjs",
+    "test:seo": "node --test --import ./tests/support/ts-extension-hooks.mjs tests/seo-route-parity.mjs tests/gsc-index-002-fallback-indexation.mjs tests/gsc-schema-001-product-snippet-cleanup.mjs tests/business-fact-d2-concrete-pva-fiber.mjs tests/gsc-locale-003a-stable-english-owner.mjs",
     "test:first-wave": "node --test tests/first-wave-correctness.mjs",
     "db:push": "prisma db push --accept-data-loss",
     "db:push:pg": "prisma db push --schema prisma/schema.postgres.prisma --accept-data-loss",
