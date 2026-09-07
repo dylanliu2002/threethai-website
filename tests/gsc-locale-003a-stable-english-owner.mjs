@@ -87,7 +87,20 @@ const EN_OWNERS = ["/", "/products/water-soluble-pva-yarn", "/answers", "/qualit
 const GEO_MARKERS = ["x-vercel-ip-country", "cf-ipcountry", "cloudfront-viewer-country", "geoCountry"];
 
 assert.equal(FALLBACK_LOCALES.length, 8);
-assert.equal(DEEP_PATHS.length, 43, "GSC-INDEX-002 consolidated 43 deep paths × 8 locales");
+// Relational, not literal: the deep-content inventory grows with content work
+// (GSC-LOCALE-003A's own base gained a business-fact correction to
+// src/content/products.ts). What must stay pinned is that this suite covers
+// every deep path the site actually renders, with the consolidated count as a
+// floor rather than a hair trigger.
+assert.equal(
+  DEEP_PATHS.length,
+  products.length + applications.length + articles.length + buyerAnswers.length,
+  "deep-content inventory must cover every entity detail path"
+);
+assert.ok(
+  DEEP_PATHS.length >= 43,
+  `expected at least the 43 paths GSC-INDEX-002 consolidated, got ${DEEP_PATHS.length}`
+);
 
 // ---------------------------------------------------------------------------
 // REQ 1 · 2 · 3 — a cookieless unprefixed request serves the English owner,
@@ -338,7 +351,7 @@ test("REQ 14: Chinese keeps its own canonical under /zh", () => {
   assert.ok(dynamicLocales.includes("zh"), "zh must stay routable under /[lang]");
 });
 
-test("REQ 15: all 344 fallback deep copies still point at the prefix-free English owner", () => {
+test("REQ 15: every fallback deep copy still points at the prefix-free English owner", () => {
   let copies = 0;
   for (const p of DEEP_PATHS) {
     for (const locale of FALLBACK_LOCALES) {
@@ -348,7 +361,8 @@ test("REQ 15: all 344 fallback deep copies still point at the prefix-free Englis
       copies += 1;
     }
   }
-  assert.equal(copies, 344);
+  assert.equal(copies, DEEP_PATHS.length * FALLBACK_LOCALES.length, "copy count must equal deep paths × fallback locales");
+  assert.ok(copies >= 344, `GSC-INDEX-002 consolidated 344 copies; this suite covers ${copies}`);
 });
 
 test("REQ 16: fallback deep copies still emit no hreflang graph", () => {

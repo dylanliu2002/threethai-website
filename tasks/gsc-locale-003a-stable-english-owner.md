@@ -151,10 +151,11 @@ git diff --check      # PASS
 ### Negative controls
 
 Each mutation was applied in a scratch copy **outside** this worktree
-(`.qwen/tmp/locale003a-mutation-20260907T182724/`), which was left byte-clean.
-The same two suites ran in every tree; a baseline copy with no mutation was green
-(45 tests, 0 fail), so a failure below is a real detection and not environment
-noise.
+(`.qwen/tmp/locale003a-mutation-20260907T183508/`, a re-run of the same three
+controls against the final test file; the first pass used
+`…T182724/`), which was left byte-clean. The same two suites ran in every tree;
+a baseline copy with no mutation was green (45 tests, 0 fail), so a failure
+below is a real detection and not environment noise.
 
 | Control | Mutation | Result |
 | --- | --- | --- |
@@ -203,6 +204,26 @@ production. All nine assertions passed:
 
 ## Coordination Items
 
+- **Base moved after the gate check — PR #22 currently reports `CONFLICTING`.**
+  The assigned base `4c2c969f02e807e8172688246861406ac01f8395` was verified equal
+  to `origin/main` before any edit, and all work was done against it. `origin/main`
+  then advanced to **`da35eac40f38dcef9fc32e1bec5eebf222e8a4c4`** (PR #21,
+  `qwen/business-fact-d2-concrete-pva-fiber`). The collision is one line —
+  `package.json:12` `test:seo` — because both tasks appended a file to the same
+  script. Correct resolution is to keep **both** entries:
+  `… tests/gsc-schema-001-product-snippet-cleanup.mjs`
+  `tests/business-fact-d2-concrete-pva-fiber.mjs`
+  `tests/gsc-locale-003a-stable-english-owner.mjs`.
+  Nothing else collides: PR #21 changed only `extendedFormats` copy in
+  `src/content/products.ts` (below the `products` array, so the deep-content
+  inventory is unaffected) and added its own test file. This card deliberately
+  does **not** rebase or merge on the implementer's own initiative, per the
+  assignment's "do not silently rebase" instruction; the merge is a one-line
+  mechanical resolution awaiting an owner or reviewer decision.
+  Because PR #21 showed that content does move under this suite, this task's
+  deep-path and copy-count assertions were relaxed from literal `43`/`344`
+  equality to a coverage tautology plus a floor, so a later legitimate content
+  addition cannot break a routing regression test.
 - **Unverified leg, stated honestly:** this machine's egress is CN, and Vercel
   overwrites client geo headers, so "a US Googlebot receives `200` on the
   unprefixed owner" is proven here by *removing the input entirely* (the

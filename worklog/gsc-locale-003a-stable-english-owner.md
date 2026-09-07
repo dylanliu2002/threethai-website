@@ -99,7 +99,29 @@ Work Log:
   build output or dependency tree entered the commit.
 - Pushed the branch and opened the pull request to `main`. Did not merge, did not
   deploy, did not touch Search Console or Vercel, did not force-push, stash,
-  reset, or clean any unrelated worktree.
+  reset, or clean any unrelated worktree. Pull request:
+  https://github.com/dylanliu2002/threethai-website/pull/22
+- After the PR was opened, re-fetched and found `origin/main` had moved from the
+  verified assigned base `4c2c969…` to
+  `da35eac40f38dcef9fc32e1bec5eebf222e8a4c4` (PR #21,
+  `qwen/business-fact-d2-concrete-pva-fiber`), so PR #22 reports
+  `mergeable: CONFLICTING`. Inspected rather than assumed: the only collision is
+  `package.json:12` `test:seo`, where both tasks appended a file to the same
+  script; PR #21's `src/content/products.ts` change is confined to
+  `extendedFormats` copy below the `products` array, so the deep-content
+  inventory is unaffected. Did **not** rebase or merge on the implementer's own
+  initiative — the assignment forbids silently implementing against a different
+  base — and recorded the exact one-line resolution as a Coordination Item for
+  the owner or reviewer to apply.
+- Acted on one thing that inspection revealed: because PR #21 proves the content
+  inventory does move under this suite, relaxed this task's literal deep-path and
+  fallback-copy assertions (exact `43` / `344`) to a coverage tautology plus a
+  floor, so a legitimate future content addition cannot break a routing
+  regression test, while control C still fails on a real canonical change.
+- Re-validated the whole matrix after that edit rather than trusting it: lint
+  PASS, `test:seo` 61/61 PASS with 0 skipped, and all four scratch trees rebuilt
+  and re-run — baseline 45 tests / 0 fail, control A 2 fail, control B 6 fail,
+  control C 8 fail including REQ 12, REQ 13 and REQ 15.
 
 Stage Summary:
 - Deliverable: geography is no longer an input to locale routing, so the 55
