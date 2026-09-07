@@ -14,7 +14,24 @@
     ".github/",
     "prisma/"
   ],
-  "network": false,
+  "network": true,
+  "network_proxy": {
+    "enabled": true,
+    "enforced": true,
+    "allowed_domains": [
+      "chatgpt.com"
+    ],
+    "unrestricted_direct_egress": false,
+    "local_private_network": false,
+    "allow_local_binding": false,
+    "allow_upstream_proxy": false,
+    "enable_socks5": false,
+    "enable_socks5_udp": false,
+    "credential_broker": false,
+    "dangerously_allow_non_loopback_proxy": false,
+    "dangerously_allow_all_unix_sockets": false,
+    "unix_sockets": []
+  },
   "secrets": false,
   "git_commit": false,
   "git_push": false,

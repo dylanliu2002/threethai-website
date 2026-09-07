@@ -165,7 +165,7 @@ export function issueSyntheticPilotGrantInternal({
         max_dispatch_attempts: 1,
         max_workers: 1,
         publishing: false,
-        network: false,
+        network: true,
         production: false,
         dns: false,
         deployment: false,

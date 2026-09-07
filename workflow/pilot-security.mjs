@@ -14,6 +14,22 @@ import { deriveSandbox, routeTask } from "./routing.mjs";
 
 export const PILOT_SANDBOX_UNAVAILABLE = "PILOT_SANDBOX_UNAVAILABLE";
 
+export const PILOT_NETWORK_PROXY_POLICY = Object.freeze({
+  enabled: true,
+  enforced: true,
+  allowed_domains: Object.freeze(["chatgpt.com"]),
+  unrestricted_direct_egress: false,
+  local_private_network: false,
+  allow_local_binding: false,
+  allow_upstream_proxy: false,
+  enable_socks5: false,
+  enable_socks5_udp: false,
+  credential_broker: false,
+  dangerously_allow_non_loopback_proxy: false,
+  dangerously_allow_all_unix_sockets: false,
+  unix_sockets: Object.freeze([]),
+});
+
 export const PILOT_MODE = Object.freeze({
   name: "ONE_WORKER_LOW_RISK_PILOT",
   activation_enabled: false,
@@ -23,6 +39,8 @@ export const PILOT_MODE = Object.freeze({
   ]),
   automatic_existing_task_adoption: false,
   scheduler_heartbeat: false,
+  network_access: true,
+  network_proxy: PILOT_NETWORK_PROXY_POLICY,
   publishing: false,
   production_actions: false,
 });
@@ -123,6 +141,52 @@ const REQUIRED_FALSE_PILOT_PERMISSIONS = Object.freeze([
   "task_adoption",
 ]);
 
+const NETWORK_PROXY_BOOLEAN_REQUIREMENTS = Object.freeze({
+  enabled: true,
+  enforced: true,
+  unrestricted_direct_egress: false,
+  local_private_network: false,
+  allow_local_binding: false,
+  allow_upstream_proxy: false,
+  enable_socks5: false,
+  enable_socks5_udp: false,
+  credential_broker: false,
+  dangerously_allow_non_loopback_proxy: false,
+  dangerously_allow_all_unix_sockets: false,
+});
+
+export function assertRestrictedPilotNetworkPolicy(profile, label = "pilot runtime profile") {
+  if (profile?.network_access !== true) {
+    throw new Error(`${label} requires network_access=true for remote model transport.`);
+  }
+  const proxy = profile.network_proxy;
+  if (!proxy || typeof proxy !== "object" || Array.isArray(proxy)) {
+    throw new Error(`${label} requires an enforced network_proxy policy.`);
+  }
+  const expectedKeys = [
+    ...Object.keys(NETWORK_PROXY_BOOLEAN_REQUIREMENTS),
+    "allowed_domains",
+    "unix_sockets",
+  ].sort();
+  if (JSON.stringify(Object.keys(proxy).sort()) !== JSON.stringify(expectedKeys)) {
+    throw new Error(`${label} network_proxy contains missing or unsupported policy fields.`);
+  }
+  for (const [field, expected] of Object.entries(NETWORK_PROXY_BOOLEAN_REQUIREMENTS)) {
+    if (proxy[field] !== expected) {
+      throw new Error(`${label} network_proxy.${field} must be ${expected}.`);
+    }
+  }
+  if (!Array.isArray(proxy.allowed_domains)
+    || proxy.allowed_domains.length !== 1
+    || proxy.allowed_domains[0] !== "chatgpt.com") {
+    throw new Error(`${label} network_proxy allowlist must be exactly ["chatgpt.com"].`);
+  }
+  if (!Array.isArray(proxy.unix_sockets) || proxy.unix_sockets.length !== 0) {
+    throw new Error(`${label} network_proxy must not allow Unix sockets.`);
+  }
+  return true;
+}
+
 export function assertSyntheticPilotContract(contract) {
   if (contract.task_key !== SYNTHETIC_PILOT_TASK_KEY
     || contract.card_path !== SYNTHETIC_PILOT_CARD_PATH
@@ -170,8 +234,15 @@ export function assertSyntheticPilotContract(contract) {
     || constraints.timeout_seconds !== contract.limits.timeout_seconds) {
     throw new Error("Synthetic pilot machine constraints are missing or inconsistent.");
   }
+  if (constraints.network !== true) {
+    throw new Error("Synthetic pilot network permission must be true for remote model transport.");
+  }
+  assertRestrictedPilotNetworkPolicy({
+    network_access: constraints.network,
+    network_proxy: constraints.network_proxy,
+  }, "synthetic pilot contract");
   for (const field of [
-    "network", "secrets", "git_commit", "push", "pr", "merge", "production",
+    "secrets", "git_commit", "push", "pr", "merge", "production",
     "dns", "deployment", "task_adoption",
   ]) {
     if (constraints[field] !== false) {
@@ -203,12 +274,20 @@ export function assertSyntheticPilotGrant(contract, grant) {
     || grant.limits.max_workers !== 1) {
     throw new Error("Synthetic pilot Grant does not bind the exact contract, card, and one-shot limits.");
   }
+  if (grant.synthetic_pilot.network !== true
+    || activation.network !== grant.synthetic_pilot.network) {
+    throw new Error("Synthetic pilot Grant network permission must match the network-enabled contract.");
+  }
+  assertRestrictedPilotNetworkPolicy({
+    network_access: grant.synthetic_pilot.network,
+    network_proxy: grant.synthetic_pilot.network_proxy,
+  }, "synthetic pilot Grant");
   if (grant.activation.autonomous || !grant.activation.worker_dispatch
     || grant.permissions.automation_activation || !grant.permissions.worker_dispatch) {
     throw new Error("Synthetic pilot Grant must authorize one-shot dispatch without autonomous activation.");
   }
   assertNoForbiddenPermissions(grant.permissions);
-  for (const field of ["publishing", "network", "production", "dns", "deployment"]) {
+  for (const field of ["publishing", "production", "dns", "deployment"]) {
     if (activation[field] !== false) {
       throw new Error(`Synthetic pilot activation constraint must remain false: ${field}`);
     }
@@ -228,6 +307,7 @@ export function oneTimePilotPolicy(activation) {
     ...PILOT_MODE,
     activation_enabled: enabled,
     authorized_task_keys: Object.freeze(enabled ? [activation.task_key] : []),
+    network_access: activation?.network === true,
   });
 }
 
@@ -320,11 +400,22 @@ export function detectWindowsElevatedSandbox({
   platform = process.platform,
   parentEnvironment = process.env,
   codexHome,
+  networkAccess = true,
+  proxyEnforced = true,
   readFile = (file) => fs.readFileSync(file, "utf8"),
   fileExists = fs.existsSync,
   execFile = execFileSync,
 } = {}) {
   if (platform !== "win32") throw unavailable("native Windows elevated sandbox is required");
+  if (typeof networkAccess !== "boolean") {
+    throw unavailable("sandbox network selection must be boolean");
+  }
+  if (typeof proxyEnforced !== "boolean") {
+    throw unavailable("sandbox proxy enforcement selection must be boolean");
+  }
+  if (proxyEnforced && !networkAccess) {
+    throw unavailable("network proxy enforcement requires sandbox network access");
+  }
   const resolvedCodexHome = resolveCodexHome(parentEnvironment, codexHome);
   const processEnvironment = buildWorkerProcessEnvironment(parentEnvironment, {
     platform,
@@ -357,8 +448,8 @@ export function detectWindowsElevatedSandbox({
     || marker.online_username !== "CodexSandboxOnline"
     || marker.allow_local_binding !== false
     || !Array.isArray(marker.proxy_ports)
-    || marker.proxy_ports.length !== 0) {
-    throw unavailable("elevated sandbox setup marker does not describe the required offline profile");
+    || marker.proxy_ports.some((port) => !Number.isInteger(port) || port < 1 || port > 65_535)) {
+    throw unavailable("elevated sandbox setup marker does not describe the required network profiles");
   }
   for (const username of [marker.offline_username, marker.online_username]) {
     try {
@@ -372,10 +463,17 @@ export function detectWindowsElevatedSandbox({
       throw unavailable(`required sandbox account is unavailable: ${username}`, error);
     }
   }
+  const proxyRestricted = networkAccess && proxyEnforced;
   return Object.freeze({
     passed: true,
     backend: "elevated",
-    network_profile: "offline",
+    network_profile: proxyRestricted ? "restricted-proxy" : (networkAccess ? "online" : "offline"),
+    sandbox_username: proxyRestricted || !networkAccess
+      ? marker.offline_username
+      : marker.online_username,
+    network_access: networkAccess,
+    proxy_enforced: proxyEnforced,
+    allow_local_binding: marker.allow_local_binding,
     cli_version: version.raw.replace(/^codex-cli\s+/i, ""),
     marker_version: marker.version,
   });
@@ -423,6 +521,21 @@ export function assertPilotDispatchProfile({
   assertNoForbiddenPermissions(contract.requested_permissions);
   assertNoForbiddenPermissions(grant.permissions);
   assertSyntheticPilotGrant(contract, grant);
+  const contractNetwork = contract.synthetic_pilot.network;
+  const grantNetwork = grant.activation.synthetic_pilot_once.network;
+  if (contractNetwork !== true || grantNetwork !== contractNetwork
+    || policy.network_access !== grantNetwork) {
+    throw new Error("Pilot contract, Grant, activation, and runtime network permissions must match.");
+  }
+  assertRestrictedPilotNetworkPolicy(policy);
+  assertRestrictedPilotNetworkPolicy({
+    network_access: contractNetwork,
+    network_proxy: contract.synthetic_pilot.network_proxy,
+  }, "synthetic pilot contract");
+  assertRestrictedPilotNetworkPolicy({
+    network_access: grant.synthetic_pilot.network,
+    network_proxy: grant.synthetic_pilot.network_proxy,
+  }, "synthetic pilot Grant");
   if (!grant.permissions.worker_dispatch || !grant.activation.worker_dispatch
     || grant.activation.autonomous) {
     throw new Error("Pilot dispatch requires a separate one-shot worker Grant.");
@@ -460,7 +573,8 @@ export function assertPilotDispatchProfile({
     windows_sandbox: "elevated",
     cwd: path.resolve(grant.worktree_realpath),
     approval_policy: "never",
-    network_access: false,
+    network_access: policy.network_access,
+    network_proxy: policy.network_proxy,
     model_fallback: false,
     max_workers: 1,
     user_config: "ignored",
@@ -487,6 +601,12 @@ export function assertNoPilotProfileBroadening(request, requiredProfile) {
       throw new Error(`Pilot security broadening rejected for ${key}.`);
     }
   }
+  if (Object.hasOwn(request, "network_proxy")) {
+    assertRestrictedPilotNetworkPolicy({
+      network_access: request.network_access ?? requiredProfile.network_access,
+      network_proxy: request.network_proxy,
+    }, "pilot request");
+  }
   if (request.external_tools || request.browser || request.computer_use
     || request.mcp || request.plugins || request.escalation || request.model_fallback) {
     throw new Error("Pilot external tool or escalation broadening rejected.");
@@ -503,6 +623,7 @@ function tomlString(value) {
 }
 
 export function buildPilotCliSecurityArgs(profile, workerShellEnvironment) {
+  assertRestrictedPilotNetworkPolicy(profile, "synthetic pilot launcher");
   const args = [
     "--strict-config",
     "--ignore-user-config",
@@ -512,7 +633,17 @@ export function buildPilotCliSecurityArgs(profile, workerShellEnvironment) {
     "-c", `model_provider=${tomlString(profile.provider)}`,
     "-c", `model_reasoning_effort=${tomlString(profile.reasoning_effort)}`,
     "-c", `windows.sandbox=${tomlString(profile.windows_sandbox)}`,
-    "-c", "sandbox_workspace_write.network_access=false",
+    "-c", "sandbox_workspace_write.network_access=true",
+    "-c", "features.network_proxy.enabled=true",
+    "-c", "features.network_proxy.domains={ \"chatgpt.com\" = \"allow\" }",
+    "-c", "features.network_proxy.allow_local_binding=false",
+    "-c", "features.network_proxy.allow_upstream_proxy=false",
+    "-c", "features.network_proxy.enable_socks5=false",
+    "-c", "features.network_proxy.enable_socks5_udp=false",
+    "-c", "features.network_proxy.credential_broker=false",
+    "-c", "features.network_proxy.dangerously_allow_non_loopback_proxy=false",
+    "-c", "features.network_proxy.dangerously_allow_all_unix_sockets=false",
+    "-c", "features.network_proxy.unix_sockets={}",
     "-c", "shell_environment_policy.inherit=\"none\"",
     "-c", "shell_environment_policy.ignore_default_excludes=false",
   ];
@@ -543,14 +674,22 @@ export function preparePilotWorkerLaunch({
       platform: process.platform,
       parentEnvironment,
       codexHome: processEnvironment.CODEX_HOME,
+      networkAccess: profile.network_access,
+      proxyEnforced: profile.network_proxy.enforced,
     });
   } catch (error) {
     if (error?.code === PILOT_SANDBOX_UNAVAILABLE) throw error;
     throw unavailable("elevated sandbox inspection failed", error);
   }
+  const requiredNetworkProfile = "restricted-proxy";
+  const requiredSandboxUsername = "CodexSandboxOffline";
   if (!sandboxEvidence?.passed || sandboxEvidence.backend !== "elevated"
-    || sandboxEvidence.network_profile !== "offline") {
-    throw unavailable("required elevated/offline sandbox could not be verified");
+    || sandboxEvidence.network_profile !== requiredNetworkProfile
+    || sandboxEvidence.sandbox_username !== requiredSandboxUsername
+    || sandboxEvidence.network_access !== true
+    || sandboxEvidence.proxy_enforced !== true
+    || sandboxEvidence.allow_local_binding !== false) {
+    throw unavailable(`required elevated/${requiredNetworkProfile} sandbox could not be verified`);
   }
   const shellEnvironment = buildWorkerShellEnvironment(processEnvironment);
   return Object.freeze({

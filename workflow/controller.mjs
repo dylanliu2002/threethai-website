@@ -82,6 +82,8 @@ function inactiveTick(dryRun, runtime, activation, contracts = [], pilotActivati
       activation_enabled: pilotActivation?.status === "READY",
       activation_status: pilotActivation?.status ?? "NOT_EVALUATED",
       max_workers: PILOT_MODE.max_workers,
+      network_access: PILOT_MODE.network_access,
+      network_proxy: PILOT_MODE.network_proxy,
     },
     dispatches: [],
     blocked: contracts.map((contract) => ({ task_key: contract.task_key, reason: "authority-unavailable-or-inactive" })),

@@ -3,8 +3,8 @@
   "task_key": "sys-auto-pilot-001-synthetic-fixture",
   "task_id": "SYS-AUTO-PILOT-001",
   "card_path": "tasks/sys-auto-pilot-001-synthetic-fixture.md",
-  "card_blob_sha": "9700ff95859b4016d4abd73c69d53c781f2014f6",
-  "contract_revision": 1,
+  "card_blob_sha": "55bb57e6198ffbbb87bbf5b12f212ab2365a0d95",
+  "contract_revision": 3,
   "status": "READY",
   "phase": "QUEUED",
   "mode": "IMPLEMENT",
@@ -72,7 +72,24 @@
       "workflow/fixtures/pilot/output/synthetic-result.json"
     ],
     "write_prefixes": [],
-    "network": false,
+    "network": true,
+    "network_proxy": {
+      "enabled": true,
+      "enforced": true,
+      "allowed_domains": [
+        "chatgpt.com"
+      ],
+      "unrestricted_direct_egress": false,
+      "local_private_network": false,
+      "allow_local_binding": false,
+      "allow_upstream_proxy": false,
+      "enable_socks5": false,
+      "enable_socks5_udp": false,
+      "credential_broker": false,
+      "dangerously_allow_non_loopback_proxy": false,
+      "dangerously_allow_all_unix_sockets": false,
+      "unix_sockets": []
+    },
     "secrets": false,
     "git_commit": false,
     "push": false,

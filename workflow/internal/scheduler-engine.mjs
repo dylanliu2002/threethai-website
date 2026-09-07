@@ -41,6 +41,7 @@ export function planScheduleInternal(engine, contracts, grants, {
       && pilotActivation.authorization_id === grant?.authorization_id
       && pilotActivation.contract_digest === grant?.contract_digest
       && pilotActivation.card_blob_sha === grant?.card_blob_sha
+      && pilotActivation.network === grant?.activation.synthetic_pilot_once?.network
       && pilotActivation.dispatch_attempts === 0;
     const generalActivationReady = state.activation.authorized && grant?.activation.autonomous;
     if (!grant || !isDispatchEligibleInternal(contract, grant, contracts)

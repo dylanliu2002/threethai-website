@@ -30,7 +30,12 @@ other file.
 
 - Write files: only the exact output file above.
 - Write prefixes: none.
-- Network and secrets: forbidden.
+- Network: enabled only for remote Codex model transport through the enforced
+  Codex network proxy. The only allowed external domain is `chatgpt.com`; all
+  other external destinations, local/private networks, local binding, upstream
+  proxies, Unix sockets, the credential broker, and dangerous network bypasses
+  remain blocked.
+- Secrets: forbidden.
 - Git commit, push, pull request, merge, publishing: forbidden.
 - Production, DNS, and deployment: forbidden.
 - Task adoption: forbidden.

@@ -13,11 +13,13 @@ import {
   assertNoPilotProfileBroadening,
   assertPilotDispatchProfile,
   assertPilotWorkerRequestedActions,
+  assertRestrictedPilotNetworkPolicy,
   buildPilotCliSecurityArgs,
   buildWorkerProcessEnvironment,
   buildWorkerShellEnvironment,
   detectWindowsElevatedSandbox,
   PILOT_MODE,
+  PILOT_NETWORK_PROXY_POLICY,
   PILOT_SANDBOX_UNAVAILABLE,
   pilotTaskKeyAuthorized,
   preparePilotWorkerLaunch,
@@ -36,6 +38,13 @@ const syntheticTaskPath = path.join(sourceRoot, "workflow", "fixtures", "pilot",
 const syntheticOutputPath = path.join(sourceRoot, "workflow", "fixtures", "pilot", "output", "synthetic-result.json");
 const expectedResultPath = path.join(sourceRoot, "workflow", "fixtures", "pilot", "expected", "synthetic-result.json");
 const PILOT_TASK_KEY = "sys-auto-pilot-001-synthetic-fixture";
+
+function restrictedNetworkProxy(overrides = {}) {
+  return {
+    ...structuredClone(PILOT_NETWORK_PROXY_POLICY),
+    ...overrides,
+  };
+}
 
 function safeParentEnvironment(extra = {}) {
   const temporary = os.tmpdir();
@@ -59,7 +68,8 @@ function requiredProfile(overrides = {}) {
     provider: "openai",
     cwd: path.resolve("C:/pilot-worktree"),
     approval_policy: "never",
-    network_access: false,
+    network_access: true,
+    network_proxy: restrictedNetworkProxy(),
     max_workers: 1,
     reasoning_effort: "high",
     windows_sandbox: "elevated",
@@ -72,6 +82,8 @@ function activePilotPolicy(taskKeys = [PILOT_TASK_KEY]) {
     ...PILOT_MODE,
     activation_enabled: true,
     authorized_task_keys: taskKeys,
+    network_access: true,
+    network_proxy: restrictedNetworkProxy(),
   };
 }
 
@@ -93,7 +105,8 @@ function pilotAuthority({ taskKey = PILOT_TASK_KEY, repoRoot = path.resolve("C:/
     task_key: PILOT_TASK_KEY,
     write_files: ["workflow/fixtures/pilot/output/synthetic-result.json"],
     write_prefixes: [],
-    network: false,
+    network: true,
+    network_proxy: restrictedNetworkProxy(),
     secrets: false,
     git_commit: false,
     push: false,
@@ -119,7 +132,7 @@ function pilotAuthority({ taskKey = PILOT_TASK_KEY, repoRoot = path.resolve("C:/
         max_dispatch_attempts: 1,
         max_workers: 1,
         publishing: false,
-        network: false,
+        network: true,
         production: false,
         dns: false,
         deployment: false,
@@ -209,21 +222,50 @@ test("PILOT-PROFILE-07 approval policy uses one supported config override", () =
   assert.equal(args.includes("--ask-for-approval"), false);
   assert.equal(args.includes("danger-full-access"), false);
   assert.deepEqual(
-    configOverrides.filter((value) => value === "sandbox_workspace_write.network_access=false"),
-    ["sandbox_workspace_write.network_access=false"],
+    configOverrides.filter((value) => value === "sandbox_workspace_write.network_access=true"),
+    ["sandbox_workspace_write.network_access=true"],
   );
+  assert.equal(configOverrides.includes("sandbox_workspace_write.network_access=false"), false);
+  assert.deepEqual(
+    configOverrides.filter((value) => value === "features.network_proxy.enabled=true"),
+    ["features.network_proxy.enabled=true"],
+  );
+  assert.deepEqual(
+    configOverrides.filter((value) =>
+      value === 'features.network_proxy.domains={ "chatgpt.com" = "allow" }'),
+    ['features.network_proxy.domains={ "chatgpt.com" = "allow" }'],
+  );
+  for (const required of [
+    "features.network_proxy.allow_local_binding=false",
+    "features.network_proxy.allow_upstream_proxy=false",
+    "features.network_proxy.enable_socks5=false",
+    "features.network_proxy.enable_socks5_udp=false",
+    "features.network_proxy.credential_broker=false",
+    "features.network_proxy.dangerously_allow_non_loopback_proxy=false",
+    "features.network_proxy.dangerously_allow_all_unix_sockets=false",
+    "features.network_proxy.unix_sockets={}",
+  ]) assert.equal(configOverrides.includes(required), true);
+  for (const forbidden of [
+    "features.network_proxy.enabled=false",
+    'features.network_proxy.domains={ "*" = "allow" }',
+    "features.network_proxy.allow_local_binding=true",
+    "features.network_proxy.credential_broker=true",
+    "features.network_proxy.dangerously_allow_non_loopback_proxy=true",
+    "features.network_proxy.dangerously_allow_all_unix_sockets=true",
+  ]) assert.equal(configOverrides.includes(forbidden), false);
+  assert.equal(args.some((value, index) =>
+    args[index - 1] === "--disable" && value === "network_proxy"), false);
 });
 
-test("PILOT-CLI-COMPAT-01 Codex 0.153.4 accepts generated approval config without a thread", (t) => {
+test("PILOT-CLI-COMPAT-01 Codex 0.153.4 accepts the generated restricted proxy config without a thread", (t) => {
   if (process.platform !== "win32") {
     t.skip("requires native Windows host with installed Codex CLI 0.153.4");
     return;
   }
   const args = buildPilotCliSecurityArgs(requiredProfile(), { PATH: "C:\\tools" });
-  const approvalIndex = args.findIndex((value) => value === 'approval_policy="never"');
-  assert.ok(approvalIndex > 0);
-  assert.equal(args[approvalIndex - 1], "-c");
-  const environment = safeParentEnvironment();
+  const codexHome = fs.mkdtempSync(path.join(os.tmpdir(), "codex-pilot-cli-"));
+  t.after(() => cleanupFixture(codexHome));
+  const environment = safeParentEnvironment({ CODEX_HOME: codexHome });
   const version = spawnSync("codex", ["--version"], {
     env: environment,
     encoding: "utf8",
@@ -231,16 +273,7 @@ test("PILOT-CLI-COMPAT-01 Codex 0.153.4 accepts generated approval config withou
   });
   assert.equal(version.status, 0, version.stderr);
   assert.match(version.stdout, /codex-cli 0\.153\.4(?:\s|$)/);
-  const result = spawnSync("codex", [
-    "exec",
-    "--strict-config",
-    "--ignore-user-config",
-    "--ignore-rules",
-    "--ephemeral",
-    "-c",
-    args[approvalIndex],
-    "--help",
-  ], {
+  const result = spawnSync("codex", ["exec", ...args, "--help"], {
     env: environment,
     encoding: "utf8",
     windowsHide: true,
@@ -248,6 +281,86 @@ test("PILOT-CLI-COMPAT-01 Codex 0.153.4 accepts generated approval config withou
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /Run Codex non-interactively/);
   assert.equal(`${result.stdout}\n${result.stderr}`.includes("thread.started"), false);
+  const configArgs = args.flatMap((value, index) =>
+    args[index - 1] === "-c" ? ["-c", value] : []);
+  const loaded = spawnSync("codex", [
+    ...configArgs,
+    "features",
+    "list",
+  ], {
+    env: environment,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  assert.equal(loaded.status, 0, loaded.stderr);
+  assert.match(loaded.stdout, /^network_proxy\s+experimental\s+true$/m);
+});
+
+test("PILOT-NETWORK-POLICY-01 restricted proxy policy is exact", () => {
+  const profile = requiredProfile();
+  assert.equal(assertRestrictedPilotNetworkPolicy(profile), true);
+  assert.equal(profile.network_access, true);
+  assert.equal(profile.network_proxy.enabled, true);
+  assert.equal(profile.network_proxy.enforced, true);
+  assert.deepEqual(profile.network_proxy.allowed_domains, ["chatgpt.com"]);
+  assert.equal(profile.network_proxy.unrestricted_direct_egress, false);
+  assert.equal(profile.network_proxy.local_private_network, false);
+  assert.equal(profile.network_proxy.allow_local_binding, false);
+  assert.equal(profile.network_proxy.allow_upstream_proxy, false);
+  assert.equal(profile.network_proxy.credential_broker, false);
+  assert.deepEqual(profile.network_proxy.unix_sockets, []);
+});
+
+test("PILOT-NETWORK-POLICY-02 network access without proxy enforcement fails closed", () => {
+  for (const overrides of [{ enabled: false }, { enforced: false }]) {
+    const profile = requiredProfile({ network_proxy: restrictedNetworkProxy(overrides) });
+    assert.throws(() => assertRestrictedPilotNetworkPolicy(profile), /network_proxy/);
+    assert.throws(() => buildPilotCliSecurityArgs(profile, {}), /network_proxy/);
+  }
+  assert.throws(
+    () => buildPilotCliSecurityArgs(requiredProfile({ network_proxy: undefined }), {}),
+    /network_proxy/,
+  );
+});
+
+test("PILOT-NETWORK-POLICY-03 wildcard and unexpected external domains fail closed", () => {
+  for (const allowedDomains of [["*"], ["chatgpt.com", "api.openai.com"], ["example.com"]]) {
+    const profile = requiredProfile({
+      network_proxy: restrictedNetworkProxy({ allowed_domains: allowedDomains }),
+    });
+    assert.throws(() => assertRestrictedPilotNetworkPolicy(profile), /allowlist/);
+  }
+});
+
+test("PILOT-NETWORK-POLICY-04 local private and alternate proxy paths fail closed", () => {
+  for (const allowedDomains of [["localhost"], ["127.0.0.1"], ["10.0.0.1"], ["192.168.1.1"]]) {
+    assert.throws(() => assertRestrictedPilotNetworkPolicy(requiredProfile({
+      network_proxy: restrictedNetworkProxy({ allowed_domains: allowedDomains }),
+    })), /allowlist/);
+  }
+  for (const overrides of [
+    { local_private_network: true },
+    { allow_local_binding: true },
+    { allow_upstream_proxy: true },
+    { credential_broker: true },
+    { unix_sockets: ["/tmp/pilot.sock"] },
+    { proxy_url: "http://127.0.0.1:9999" },
+  ]) {
+    assert.throws(() => assertRestrictedPilotNetworkPolicy(requiredProfile({
+      network_proxy: restrictedNetworkProxy(overrides),
+    })), /network_proxy|Unix sockets/);
+  }
+});
+
+test("PILOT-NETWORK-POLICY-05 dangerous bypasses fail closed", () => {
+  for (const field of [
+    "dangerously_allow_non_loopback_proxy",
+    "dangerously_allow_all_unix_sockets",
+  ]) {
+    assert.throws(() => assertRestrictedPilotNetworkPolicy(requiredProfile({
+      network_proxy: restrictedNetworkProxy({ [field]: true }),
+    })), new RegExp(field));
+  }
 });
 
 test("PILOT-PROFILE-02 alternate model is rejected", () => {
@@ -268,10 +381,14 @@ test("PILOT-PROFILE-04 alternate provider is rejected", () => {
   }, requiredProfile()), /provider/);
 });
 
-test("PILOT-PROFILE-05 network broadening request is rejected", () => {
+test("PILOT-PROFILE-05 network disabling request is rejected", () => {
   assert.throws(() => assertNoPilotProfileBroadening({
-    network_access: true,
+    network_access: false,
   }, requiredProfile()), /network_access/);
+  assert.throws(
+    () => buildPilotCliSecurityArgs(requiredProfile({ network_access: false }), {}),
+    /network_access/,
+  );
 });
 
 test("PILOT-SANDBOX-01 unavailable required Windows sandbox fails closed", () => {
@@ -282,6 +399,57 @@ test("PILOT-SANDBOX-01 unavailable required Windows sandbox fails closed", () =>
     execFile: () => "codex-cli 0.153.0-alpha.5",
   }), (error) => error.code === PILOT_SANDBOX_UNAVAILABLE
     && error.message.startsWith(PILOT_SANDBOX_UNAVAILABLE));
+});
+
+test("PILOT-SANDBOX-02 proxy-enforced network selects the installed offline sandbox account", () => {
+  const inspectedAccounts = [];
+  const evidence = detectWindowsElevatedSandbox({
+    platform: "win32",
+    parentEnvironment: safeParentEnvironment(),
+    networkAccess: true,
+    proxyEnforced: true,
+    fileExists: () => true,
+    readFile: () => JSON.stringify({
+      version: 5,
+      offline_username: "CodexSandboxOffline",
+      online_username: "CodexSandboxOnline",
+      allow_local_binding: false,
+      proxy_ports: [],
+    }),
+    execFile: (command, args) => {
+      if (command === "codex") return "codex-cli 0.153.4";
+      if (command === "net") inspectedAccounts.push(args[1]);
+      return "";
+    },
+  });
+  assert.deepEqual(inspectedAccounts, ["CodexSandboxOffline", "CodexSandboxOnline"]);
+  assert.equal(evidence.backend, "elevated");
+  assert.equal(evidence.network_profile, "restricted-proxy");
+  assert.equal(evidence.sandbox_username, "CodexSandboxOffline");
+  assert.equal(evidence.network_access, true);
+  assert.equal(evidence.proxy_enforced, true);
+  assert.equal(evidence.allow_local_binding, false);
+});
+
+test("PILOT-SANDBOX-03 online identity evidence is rejected for proxy enforcement", (t) => {
+  const worktree = fs.mkdtempSync(path.join(os.tmpdir(), "threethai-pilot-online-evidence-"));
+  t.after(() => cleanupFixture(worktree));
+  const authority = pilotAuthority({ repoRoot: worktree });
+  assert.throws(() => preparePilotWorkerLaunch({
+    ...authority,
+    policy: activePilotPolicy(),
+    parentEnvironment: safeParentEnvironment(),
+    sandboxInspector: () => ({
+      passed: true,
+      backend: "elevated",
+      network_profile: "online",
+      sandbox_username: "CodexSandboxOnline",
+      network_access: true,
+      proxy_enforced: false,
+      allow_local_binding: false,
+    }),
+  }), (error) => error.code === PILOT_SANDBOX_UNAVAILABLE
+    && /restricted-proxy/.test(error.message));
 });
 
 test("PILOT-CONFIG-01 project Codex configuration blocks instead of broadening", (t) => {
@@ -296,6 +464,8 @@ test("PILOT-PROFILE-06 valid future profile assembles without inheriting control
   const worktree = fs.mkdtempSync(path.join(os.tmpdir(), "threethai-pilot-profile-"));
   t.after(() => cleanupFixture(worktree));
   const authority = pilotAuthority({ repoRoot: worktree });
+  let inspectedNetworkAccess;
+  let inspectedProxyEnforcement;
   const launch = preparePilotWorkerLaunch({
     ...authority,
     policy: activePilotPolicy(),
@@ -304,14 +474,59 @@ test("PILOT-PROFILE-06 valid future profile assembles without inheriting control
       OPENAI_API_KEY: "fake",
       DEPLOYMENT_PASSWORD: "fake",
     }),
-    sandboxInspector: () => ({ passed: true, backend: "elevated", network_profile: "offline" }),
+    sandboxInspector: ({ networkAccess, proxyEnforced }) => {
+      inspectedNetworkAccess = networkAccess;
+      inspectedProxyEnforcement = proxyEnforced;
+      return {
+        passed: true,
+        backend: "elevated",
+        network_profile: "restricted-proxy",
+        sandbox_username: "CodexSandboxOffline",
+        network_access: true,
+        proxy_enforced: true,
+        allow_local_binding: false,
+      };
+    },
   });
+  assert.equal(inspectedNetworkAccess, true);
+  assert.equal(inspectedProxyEnforcement, true);
   assert.equal(launch.profile.max_workers, 1);
-  assert.equal(launch.profile.network_access, false);
+  assert.equal(launch.profile.network_access, true);
+  assert.equal(launch.profile.network_proxy.enforced, true);
+  assert.deepEqual(launch.profile.network_proxy.allowed_domains, ["chatgpt.com"]);
   assert.equal(launch.profile.provider, "openai");
+  assert.equal(launch.profile.sandbox, "workspace-write");
+  assert.equal(launch.profile.windows_sandbox, "elevated");
+  assert.equal(launch.profile.publishing, false);
   assert.equal(Object.hasOwn(launch.process_environment, "GH_TOKEN"), false);
   assert.equal(Object.hasOwn(launch.process_environment, "OPENAI_API_KEY"), false);
   assert.equal(Object.hasOwn(launch.process_environment, "DEPLOYMENT_PASSWORD"), false);
+});
+
+test("PILOT-NETWORK-POLICY-06 contract Grant and runtime proxy mismatches block dispatch", () => {
+  const authority = pilotAuthority();
+  const contractMismatch = structuredClone(authority.contract);
+  contractMismatch.synthetic_pilot.network_proxy.enforced = false;
+  assert.throws(() => assertPilotDispatchProfile({
+    ...authority,
+    contract: contractMismatch,
+    policy: activePilotPolicy(),
+  }), /network_proxy/);
+
+  const grantMismatch = structuredClone(authority.grant);
+  grantMismatch.synthetic_pilot.network_proxy.allowed_domains = ["example.com"];
+  assert.throws(() => assertPilotDispatchProfile({
+    ...authority,
+    grant: grantMismatch,
+    policy: activePilotPolicy(),
+  }), /allowlist/);
+
+  const runtimeMismatch = activePilotPolicy();
+  runtimeMismatch.network_proxy = restrictedNetworkProxy({ enforced: false });
+  assert.throws(() => assertPilotDispatchProfile({
+    ...authority,
+    policy: runtimeMismatch,
+  }), /network_proxy/);
 });
 
 test("PILOT-ADOPTION-01 existing tasks cannot be auto-adopted", () => {
@@ -384,10 +599,15 @@ test("PILOT-TIMEOUT-01 timeout path terminates the child process", async () => {
 
 test("PILOT-ACTIVATION-01 activation remains off", async () => {
   assert.equal(PILOT_MODE.activation_enabled, false);
+  assert.equal(PILOT_MODE.network_access, true);
+  assert.equal(PILOT_MODE.network_proxy.enforced, true);
   const result = await tick(sourceRoot, { dryRun: false });
   assert.equal(result.workers_started, 0);
   assert.equal(result.automations_started, 0);
   assert.equal(result.pilot_mode.activation_enabled, false);
+  assert.equal(result.pilot_mode.network_access, true);
+  assert.equal(result.pilot_mode.network_proxy.enforced, true);
+  assert.deepEqual(result.pilot_mode.network_proxy.allowed_domains, ["chatgpt.com"]);
 });
 
 test("PILOT-FIXTURE-01 synthetic task is deterministic disposable and not executed", () => {
@@ -400,7 +620,11 @@ test("PILOT-FIXTURE-01 synthetic task is deterministic disposable and not execut
   assert.deepEqual(fixture.expected_result, expected);
   assert.equal(JSON.stringify(expected).match(/timestamp|date|time/i), null);
   assert.equal(fs.existsSync(syntheticOutputPath), false);
-  assert.equal(fixture.network, false);
+  assert.equal(fixture.network, true);
+  assert.equal(fixture.network_proxy.enforced, true);
+  assert.deepEqual(fixture.network_proxy.allowed_domains, ["chatgpt.com"]);
+  assert.equal(fixture.network_proxy.unrestricted_direct_egress, false);
+  assert.equal(fixture.network_proxy.local_private_network, false);
   assert.equal(fixture.git_push, false);
   assert.equal(fixture.pull_request, false);
   assert.equal(fixture.production, false);

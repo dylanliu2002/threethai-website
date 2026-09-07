@@ -154,6 +154,7 @@ export function reserveTaskDispatchInternal({
       && grant.activation.synthetic_pilot_once?.card_blob_sha === grant.card_blob_sha
       && grant.activation.synthetic_pilot_once?.max_dispatch_attempts === 1
       && grant.activation.synthetic_pilot_once?.max_workers === 1
+      && pilotActivation.network === grant.activation.synthetic_pilot_once?.network
       && !grant.activation.autonomous
       && grant.activation.worker_dispatch
       && grant.permissions.worker_dispatch;
@@ -258,6 +259,7 @@ export function isConsumedSyntheticPilotRunInternal(state, grant, run) {
     && grant.activation.synthetic_pilot_once?.task_key === run.task_key
     && grant.activation.synthetic_pilot_once?.max_dispatch_attempts === 1
     && grant.activation.synthetic_pilot_once?.max_workers === 1
+    && activation.network === grant.activation.synthetic_pilot_once?.network
     && !grant.activation.autonomous
     && grant.activation.worker_dispatch
     && grant.permissions.worker_dispatch;
