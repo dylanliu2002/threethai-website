@@ -97,3 +97,40 @@ Stage Summary:
   which this task leaves unchanged.
 
 ---
+Task Key: GSC-INDEX-002
+Role: TECHNICAL_SEO
+Task: Fix Fallback Locale Duplicate Indexation — delivery handoff
+Branch: qwen/gsc-index-002-fallback-indexation
+Commit: 9cb05c9302cf101ab9470f2e71c4196fcd2f05c0
+Date: 2026-09-07
+
+Work Log:
+- Committed the validated implementation as
+  `9cb05c9302cf101ab9470f2e71c4196fcd2f05c0` on base
+  `3aefe3cc0002819d5b0bf7b4cb3fcf257bbbdf72`. 37 files, +936/-83. Working tree
+  clean; nothing else staged.
+- Verified commit identity before pushing: author and committer are both
+  `dylanliu2002 <dylanliu2002@gmail.com>`, as `AGENTS.md` requires.
+- Pushed only this task branch
+  (`qwen/gsc-index-002-fallback-indexation`) with an explicit refspec and
+  `--set-upstream`. `main` was not written to, merged, rebased or force-pushed;
+  no other task branch was touched.
+- Opened pull request #19 against `main`
+  (https://github.com/dylanliu2002/threethai-website/pull/19): state OPEN,
+  mergeable CLEAN, no review decision. Merge is deliberately left to a human
+  after independent review; this delivery performs none.
+- Recorded the Completion Record in the task card. Board registration in
+  `tasks/README.md` is still requested, not performed: it is a shared file and
+  assigning a numeric ID belongs to the ORCHESTRATOR.
+- This entry updates only this task's card and this append-only worklog; no
+  application file changed after the validated build, so the delivered code is
+  identical to what was crawled.
+
+Stage Summary:
+- GSC-INDEX-002 is delivered for independent TECHNICAL_SEO review at PR #19.
+- Production deployed: NO. Merged: NO. DNS: untouched. SYS-AUTO-*: untouched.
+- Open items for the reviewer: confirm the 72 `/products/*` and
+  `/applications/*` fallback copies are in scope, and schedule the deferred
+  root-layout `lang`/`dir` change.
+
+---

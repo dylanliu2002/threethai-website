@@ -168,7 +168,22 @@ Verification beyond the suite (production build with
 
 ## Review Status
 
-- Outcome: Pending
+- Outcome: Pending (independent TECHNICAL_SEO review required)
+- Independent reviewer evidence: none yet — the implementer cannot approve.
+
+## Completion Record
+
+- Commit: `9cb05c9302cf101ab9470f2e71c4196fcd2f05c0`
+- Base / rebase commit: `3aefe3cc0002819d5b0bf7b4cb3fcf257bbbdf72` (`origin/main`)
+- Pull request: https://github.com/dylanliu2002/threethai-website/pull/19 (OPEN, not merged)
+- Changed files: 37 (+936 / -83) — 1 new policy module, 1 metadata helper,
+  1 sitemap, 1 header, 3 detail pages, 25 `alternates` removals, `package.json`,
+  2 new test files, this card and this task's worklog.
+- Validation results: lint PASS, typecheck PASS, build PASS (555/555 pages),
+  `test:seo` PASS (23/23), `git diff --check` clean; full-build crawl and
+  210-URL production-runtime crawl reported above.
+- Worklog: `worklog/gsc-index-002-fallback-indexation.md`
+- Remaining risks: see Coordination Items and the Deferred section.
 
 ## Rollback
 
