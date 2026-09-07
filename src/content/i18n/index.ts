@@ -2,17 +2,11 @@ import type { Locale } from "../company";
 import { en, type Dictionary } from "./en";
 import { zh } from "./zh";
 import { partial as es } from "./es";
-import { partial as pt } from "./pt";
-import { partial as ru } from "./ru";
-import { partial as ar } from "./ar";
-import { partial as tr } from "./tr";
-import { partial as vi } from "./vi";
-import { partial as id } from "./id";
 import { partial as de } from "./de";
 
 export type { Dictionary };
 
-/** Recursive partial used by the eight fallback locales (en is the base). */
+/** Recursive partial used by the fallback locales (en is the base). */
 export type PartialDictionary = DeepPartial<Dictionary>;
 
 type DeepPartial<T> = T extends readonly (infer U)[]
@@ -42,12 +36,6 @@ function mergeDictionary<D extends Record<string, unknown>>(base: D, override: P
 
 const partials: Partial<Record<Locale, PartialDictionary>> = {
   es,
-  pt,
-  ru,
-  ar,
-  tr,
-  vi,
-  id,
   de,
 };
 

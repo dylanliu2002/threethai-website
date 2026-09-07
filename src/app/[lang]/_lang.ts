@@ -1,7 +1,7 @@
 import { dynamicLocales, type Locale } from "@/content/company";
 import { getDictionary, type Dictionary } from "@/content/i18n";
 
-/** generateStaticParams for every /[lang] route — the eight prefixed locales. */
+/** generateStaticParams for every /[lang] route — the three prefixed locales. */
 export function langParams(): { lang: string }[] {
   return dynamicLocales.map((lang) => ({ lang }));
 }

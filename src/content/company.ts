@@ -44,15 +44,22 @@ export const letterOfCreditUrl = (process.env.NEXT_PUBLIC_LC_URL || "https://lc.
  *
  * - ContentLocale: languages with fully translated deep content
  *   (products, applications, articles, answers, quality, patents).
- * - Locale (UI): the ten site languages. UI chrome is translated for all
- *   ten; the eight additional locales fall back to English deep content
+ * - Locale (UI): the four site languages. UI chrome is translated for all
+ *   four; the two additional locales fall back to English deep content
  *   while keeping fully localized navigation, homepage, forms and CTAs.
+ *
+ * LOCALE-RETIRE-001 is an owner product decision, not an experiment: Three Thai
+ * maintains EN/ZH/ES/DE only. The six retired codes (pt, ru, ar, tr, vi, id)
+ * must not reappear in any of these collections — they are routed away by
+ * ./locale-routing and removed from every SEO surface by this list shrinking,
+ * because availability, sitemap, hreflang, og:locale and the switcher all read
+ * `locales` rather than enumerating languages themselves.
  */
 export type ContentLocale = "en" | "zh";
 
-export type Locale = ContentLocale | "es" | "pt" | "ru" | "ar" | "tr" | "vi" | "id" | "de";
+export type Locale = ContentLocale | "es" | "de";
 
-export const locales: Locale[] = ["en", "zh", "es", "pt", "ru", "ar", "tr", "vi", "id", "de"];
+export const locales: Locale[] = ["en", "zh", "es", "de"];
 
 /**
  * Locales served by the dynamic /[lang] routes (everything except en at root).
@@ -61,7 +68,7 @@ export const locales: Locale[] = ["en", "zh", "es", "pt", "ru", "ar", "tr", "vi"
  * answers, product-finder, request-sample, article detail pages) is rendered
  * by /[lang] with the zh dictionary — this keeps the hreflang graph honest.
  */
-export const dynamicLocales: readonly Exclude<Locale, "en">[] = ["zh", "es", "pt", "ru", "ar", "tr", "vi", "id", "de"];
+export const dynamicLocales: readonly Exclude<Locale, "en">[] = ["zh", "es", "de"];
 
 /** Deep-content language used to render Record<ContentLocale> data. */
 export function contentLocaleOf(locale: Locale): ContentLocale {
@@ -73,12 +80,6 @@ export const htmlLang: Record<Locale, string> = {
   en: "en",
   zh: "zh-CN",
   es: "es",
-  pt: "pt",
-  ru: "ru",
-  ar: "ar",
-  tr: "tr",
-  vi: "vi",
-  id: "id",
   de: "de",
 };
 
@@ -87,18 +88,8 @@ export const localeLabels: Record<Locale, string> = {
   en: "English",
   zh: "简体中文",
   es: "Español",
-  pt: "Português",
-  ru: "Русский",
-  ar: "العربية",
-  tr: "Türkçe",
-  vi: "Tiếng Việt",
-  id: "Bahasa Indonesia",
   de: "Deutsch",
 };
-
-export function isRtl(locale: Locale): boolean {
-  return locale === "ar";
-}
 
 /** Prefixed route for a locale — English stays at the root (legacy SEO URLs). */
 export function localePath(path: string, locale: Locale): string {

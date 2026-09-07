@@ -45,6 +45,7 @@ const {
 
 const { dynamicLocales, htmlLang, localePath, locales, siteUrl } = await importSource("src/content/company.ts");
 const {
+  TRANSLATED_CONTENT_LOCALES,
   canonicalUrlFor,
   hreflangForPath,
   hreflangForRoute,
@@ -56,7 +57,13 @@ const { applications } = await importSource("src/content/applications.ts");
 const { articles } = await importSource("src/content/articles.ts");
 const { buyerAnswers } = await importSource("src/content/answers.ts");
 
-const FALLBACK_LOCALES = ["es", "pt", "ru", "ar", "tr", "vi", "id", "de"];
+/**
+ * Locales that render English deep content under their own prefix. Derived from
+ * the supported locale set so this suite keeps pinning the canonicalisation
+ * policy instead of an inventory LOCALE-RETIRE-001 made smaller (it was the
+ * literal eight, `es,pt,ru,ar,tr,vi,id,de`, until six locales were retired).
+ */
+const FALLBACK_LOCALES = locales.filter((l) => !TRANSLATED_CONTENT_LOCALES.includes(l));
 
 const DEEP_PATHS = [
   ...products.map(({ slug }) => `/products/${slug}`),
@@ -86,7 +93,10 @@ const EN_OWNERS = ["/", "/products/water-soluble-pva-yarn", "/answers", "/qualit
 /** The removed signal. If any of these ever reappears, geo is back. */
 const GEO_MARKERS = ["x-vercel-ip-country", "cf-ipcountry", "cloudfront-viewer-country", "geoCountry"];
 
-assert.equal(FALLBACK_LOCALES.length, 8);
+assert.ok(
+  locales.length > TRANSLATED_CONTENT_LOCALES.length,
+  "no supported locale is left as an English fallback copy; the REQ 15-17 loops below are vacuous"
+);
 // Relational, not literal: the deep-content inventory grows with content work
 // (GSC-LOCALE-003A's own base gained a business-fact correction to
 // src/content/products.ts). What must stay pinned is that this suite covers
@@ -182,7 +192,10 @@ test("REQ 6: an explicit zh preference still relocates an unprefixed request", (
 });
 
 test("REQ 7: every other explicit saved preference is honoured", () => {
-  for (const locale of ["es", "de", "pt", "ru", "ar", "tr", "vi", "id"]) {
+  // Derived from the routed locale set: LOCALE-RETIRE-001 removed pt/ru/ar/tr/
+  // vi/id, and a retired preference must no longer relocate anyone (that
+  // behaviour is pinned by tests/locale-retire-001-four-language-site.mjs).
+  for (const locale of dynamicLocales) {
     const decision = routeFor({ pathname: "/answers", savedLocale: locale });
     assert.equal(decision.kind, "redirect", locale);
     assert.equal(decision.target, `/${locale}/answers`, locale);
@@ -362,7 +375,9 @@ test("REQ 15: every fallback deep copy still points at the prefix-free English o
     }
   }
   assert.equal(copies, DEEP_PATHS.length * FALLBACK_LOCALES.length, "copy count must equal deep paths × fallback locales");
-  assert.ok(copies >= 344, `GSC-INDEX-002 consolidated 344 copies; this suite covers ${copies}`);
+  // The 344 this test used to floor against was 8 fallback locales × 43 deep
+  // paths. LOCALE-RETIRE-001 made that obsolete on purpose: the relational
+  // assertion above is the invariant, the literal was only ever a snapshot.
 });
 
 test("REQ 16: fallback deep copies still emit no hreflang graph", () => {

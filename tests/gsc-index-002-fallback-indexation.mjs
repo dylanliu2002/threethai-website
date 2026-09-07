@@ -20,6 +20,7 @@ const read = (relativePath) => readFileSync(path.join(repoRoot, relativePath), "
 const importSource = (relativePath) => import(pathToFileURL(path.join(repoRoot, relativePath)).href);
 
 const {
+  TRANSLATED_CONTENT_LOCALES,
   canonicalLocaleFor,
   canonicalUrlFor,
   contentHtmlLangOf,
@@ -40,8 +41,18 @@ const { buyerAnswers } = await importSource("src/content/answers.ts");
 const { products } = await importSource("src/content/products.ts");
 const { applications } = await importSource("src/content/applications.ts");
 
-/** The eight locales whose deep content is an English fallback copy. */
-const FALLBACK_LOCALES = ["es", "pt", "ru", "ar", "tr", "vi", "id", "de"];
+/**
+ * The locales whose deep content is an English fallback copy, derived from the
+ * supported locale set minus the genuinely translated ones.
+ *
+ * This used to be the literal `["es","pt","ru","ar","tr","vi","id","de"]`.
+ * LOCALE-RETIRE-001 took six of those languages out of service, and the card
+ * for it is explicit that the *policy* is what this suite pins — the inventory
+ * belongs to `src/content/company.ts` and `./availability.ts`. A literal here
+ * would fail for a supported-locale change that breaks nothing about fallback
+ * canonicalisation, and would pass if someone re-added a locale to the model.
+ */
+const FALLBACK_LOCALES = locales.filter((l) => !TRANSLATED_CONTENT_LOCALES.includes(l));
 
 /** Every real entity detail path the site renders from ContentLocale data. */
 const DEEP_PATHS = [
@@ -80,7 +91,18 @@ assert.ok(articles.length >= 4, `expected at least 4 knowledge articles, got ${a
 assert.ok(products.length >= 4, `expected at least 4 products, got ${products.length}`);
 assert.ok(applications.length >= 4, `expected at least 4 applications, got ${applications.length}`);
 assert.equal(new Set(DEEP_PATHS).size, DEEP_PATHS.length, "duplicate deep path in inventory");
-assert.equal(FALLBACK_LOCALES.length, 8);
+// Vacuity guard, not an inventory pin: if every supported locale had genuine
+// deep content, every `for (const locale of FALLBACK_LOCALES)` loop below would
+// silently test nothing.
+assert.ok(
+  locales.length > TRANSLATED_CONTENT_LOCALES.length,
+  "no supported locale is left as an English fallback copy; the policy loops below are vacuous",
+);
+assert.deepEqual(
+  TRANSLATED_CONTENT_LOCALES.filter((l) => !locales.includes(l)),
+  [],
+  "a locale with genuine deep content must be a locale the site serves",
+);
 
 // ---------------------------------------------------------------------------
 // 1 · English deep content keeps its own canonical.
@@ -235,7 +257,7 @@ test("body-copy language follows the canonical owner, not the URL prefix", () =>
 // ---------------------------------------------------------------------------
 // 8 · Core genuinely localised pages are untouched.
 // ---------------------------------------------------------------------------
-test("core localized pages keep the full ten-locale graph and self-canonical", () => {
+test("core localized pages keep the full supported-locale graph and self-canonical", () => {
   for (const p of CORE_PATHS) {
     assert.deepEqual([...localizedLocalesFor(p)].sort(), [...locales].sort(), p);
     for (const locale of locales) {
@@ -291,7 +313,7 @@ test("every advertised hreflang target is a route the app actually serves", () =
     return routes;
   }
 
-  // /[lang] serves the eight UI locales plus zh; (site) serves English at root.
+  // /[lang] serves every non-English locale; (site) serves English at root.
   const dynamic = routeTemplates("src/app/[lang]");
   const english = routeTemplates("src/app/(site)");
   assert.ok(dynamicLocales.includes("zh"), "zh must stay in dynamicLocales");
@@ -323,7 +345,7 @@ test("metadata builder delegates locale decisions to the policy", () => {
   assert.match(source, /canonicalUrlFor\(path, locale\)/);
   assert.match(source, /hreflangForRoute\(path, locale\)/);
   assert.match(source, /indexabilityForRoute\(path, locale\)/);
-  // The old self-canonical + ten-locale loop must not come back.
+  // The old self-canonical + private per-locale loop must not come back.
   assert.doesNotMatch(source, /for \(const l of locales\)/);
   assert.doesNotMatch(source, /`\$\{siteUrl\}\$\{localePath\(path, locale\)\}`/);
 });
