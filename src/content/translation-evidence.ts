@@ -1,4 +1,10 @@
 import { contentLocaleOf, locales, type ContentLocale, type Locale } from "./company";
+import {
+  isSectionEvidencePath,
+  sectionSurfaceFor,
+  SECTION_SURFACES,
+  type SectionSurface,
+} from "./page-surfaces";
 
 /**
  * Translation evidence — the single source of truth for ES/DE ownership.
@@ -49,13 +55,22 @@ import { contentLocaleOf, locales, type ContentLocale, type Locale } from "./com
  * gate and the render gate are two independent nets, and the build fails
  * between them.
  *
- * And a cost worth knowing before adding a rule: `TRANSLATED_PAGES` is evaluated
- * at module scope, `./availability` imports it, and `src/components/layout/site-header.tsx`
- * is `"use client"` and imports `localizedLocalesFor` — so this file's decision
- * machinery is reachable from the browser and ships there (measured at 1.7 KB
- * raw / 0.6 KB gzip of the shared chunk, loaded by 220 of 222 documents). Every
- * rule added here is paid for on the client too, until the header is handed its
- * locale list from a server component instead.
+ * INTL-DEES-004B adds the second promotable page class — a core or section route
+ * whose complete copy surface is declared in `./page-surfaces` — because that
+ * kind of page has no entity record to derive fields from, so without a declared
+ * surface it had no honest route to ownership at all. Entity detail rules are
+ * untouched: the class decision in `promotableClassFor` keeps the two apart, and
+ * a path claiming both classes is refused by both. The registry ships empty, so
+ * every answer produced here is what INTL-DEES-003B shipped.
+ *
+ * The client cost this file used to carry is gone. `TRANSLATED_PAGES` is still
+ * evaluated at module scope, but INTL-DEES-003B moved the only browser-side
+ * consumer behind a server bridge: `src/components/layout/site-header.tsx`
+ * receives resolved locale lists as a prop and imports nothing here, so no
+ * measured chunk carries any reason string from this gate. Rules added here are
+ * now paid for on the server only — measured, not assumed: `tests/intl-dees-004b-*`
+ * re-checks that every reason literal, including the two new ones, stays out of
+ * `.next/static/chunks`.
  */
 
 /**
@@ -102,14 +117,38 @@ export function deepContentSectionOf(path: string): DeepContentSection | null {
 }
 
 /**
- * Is this an entity detail page — the only kind of page evidence can describe?
- * Copy elsewhere on the site comes from the UI dictionary rather than from an
- * entity record, so a record for a core or section path describes a page whose
- * body this layer cannot cover. Widening evidence to those routes is a separate
- * change with its own evidence.
+ * Is this an entity detail page — the page kind whose body copy this layer has
+ * always been able to enumerate, because the entity record itself lists it?
+ *
+ * Since INTL-DEES-004B this is one of **two** promotable classes rather than the
+ * only one: a core or section route can also become an owner, but only through a
+ * declared copy surface in `./page-surfaces`, because it has no entity to derive
+ * its fields from. Widening this predicate itself is not how the extension
+ * works — its rules are untouched, and `promotableClassFor` is what decides
+ * which class a path belongs to.
  */
 export function isDeepContentDetail(path: string): boolean {
   return deepDetailPath.test(path);
+}
+
+/**
+ * Which promotable class a path belongs to, or `null` when it belongs to neither.
+ *
+ * `entity` keeps the INTL-DEES-002B rules exactly. `section` is a route whose
+ * complete copy surface somebody declared and reviewed in `./page-surfaces`.
+ * A path claiming both is reported as promotable by neither, so registering a
+ * core surface can never quietly re-decide how an entity detail page is judged —
+ * and a mistake in the registry fails closed into "refuse this record" instead of
+ * into "apply the looser rule".
+ */
+export function promotableClassFor(
+  path: string,
+  surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
+): "entity" | "section" | null {
+  const entity = isDeepContentDetail(path);
+  const section = isSectionEvidencePath(path, surfaces);
+  if (entity === section) return null;
+  return entity ? "entity" : "section";
 }
 
 /**
@@ -194,16 +233,32 @@ const nonEmpty = (value: TranslatedValue): boolean => {
 /**
  * Does this promotion actually carry translated copy?
  *
- * The structural half of the gate, unchanged from INTL-DEES-002B: the field
- * sets must match, every value must be present, and no value may be its own
- * English text again — a "translation" that pastes the source back is the
- * fabrication this whole layer exists to refuse.
+ * The structural half of the gate, unchanged for entity detail pages from
+ * INTL-DEES-002B: the field sets must match, every value must be present, and no
+ * value may be its own English text again — a "translation" that pastes the
+ * source back is the fabrication this whole layer exists to refuse.
+ *
+ * INTL-DEES-004B adds one clause, and only for the `section` class: because a
+ * core page has no entity to derive its fields from, its declared surface is the
+ * only statement of what the page renders. So a section record must carry the
+ * surface **exactly** — covering three slots of a forty-slot page is not a
+ * genuine translation of the page, it is a partial one wearing the page's URL.
+ * Entity records keep deriving their fields from the entity itself, and gain no
+ * new obligation.
  */
-export function isGenuineTranslation(page: TranslatedPage): boolean {
+export function isGenuineTranslation(
+  page: TranslatedPage,
+  surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
+): boolean {
   const { path, source, content } = page;
-  if (!isDeepContentDetail(path)) return false;
+  if (promotableClassFor(path, surfaces) === null) return false;
   const fields = Object.keys(content);
   if (fields.length === 0 || fields.length !== Object.keys(source).length) return false;
+  const surface = sectionSurfaceFor(path, surfaces);
+  if (surface !== null) {
+    if (surface.length !== fields.length) return false;
+    if (!surface.every((slot) => slot in content && slot in source)) return false;
+  }
   return fields.every((field) => {
     if (!(field in source)) return false;
     const translated = content[field];
@@ -232,6 +287,7 @@ const reviewDateIsWellFormed = (value: string): boolean =>
 export function evidenceDecisionFor(
   evidence: TranslationEvidence,
   registry: readonly TranslationEvidence[] = TRANSLATION_EVIDENCE,
+  surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
 ): { qualified: boolean; reasons: readonly string[] } {
   const reasons: string[] = [];
   const { path, locale, status, requiredFields, source, content, provenance } = evidence;
@@ -241,7 +297,13 @@ export function evidenceDecisionFor(
   // modelled locale means someone is routing a locale through the wrong door.
   if (!isPromotionLocale(locale)) reasons.push("locale-not-promotable");
 
-  if (!isDeepContentDetail(path)) reasons.push("path-not-entity-detail");
+  const pageClass = promotableClassFor(path, surfaces);
+  // The reason code keeps its INTL-DEES-003A spelling on purpose. Since 004B it
+  // means "this path belongs to no promotable class" — an entity detail route,
+  // or a core route whose surface somebody declared in ./page-surfaces. Renaming
+  // it would silently break the assertions other tasks' suites pin, and the
+  // strings that prove this gate never reaches a browser chunk.
+  if (pageClass === null) reasons.push("path-not-entity-detail");
 
   if (status !== "approved") reasons.push(`status-not-approved:${status}`);
 
@@ -281,6 +343,25 @@ export function evidenceDecisionFor(
     if (!seen.has(field)) reasons.push(`undeclared-source-field:${field}`);
   }
 
+  // INTL-DEES-004B, `section` class only. A core page declares its whole copy
+  // surface in ./page-surfaces because it has no entity whose fields could
+  // speak for it. So the review must be *against that surface*: a record that
+  // names fewer slots is signing off on part of a page while the rest stays
+  // English under a localized URL, and one that names more is describing slots
+  // the page does not render, which means nobody checked what the page shows.
+  // Both are refused, with the slot named. Entity records are unaffected — their
+  // obligation still comes from the live record, and `pageCopyFor` is what
+  // catches a field they missed at prerender.
+  const surface = sectionSurfaceFor(path, surfaces);
+  if (surface !== null) {
+    for (const slot of surface) {
+      if (!seen.has(slot)) reasons.push(`surface-slot-undeclared:${slot}`);
+    }
+    for (const slot of declared) {
+      if (!surface.includes(slot)) reasons.push(`surface-slot-extra:${slot}`);
+    }
+  }
+
   if (
     registry.filter(
       (other) => other.path === path && String(other.locale) === String(locale),
@@ -289,8 +370,8 @@ export function evidenceDecisionFor(
     reasons.push("duplicate-evidence");
   }
 
-  if (isPromotionLocale(locale) && isDeepContentDetail(path)) {
-    if (!isGenuineTranslation(promotionOf(evidence))) reasons.push("copy-not-translated");
+  if (isPromotionLocale(locale) && pageClass !== null) {
+    if (!isGenuineTranslation(promotionOf(evidence), surfaces)) reasons.push("copy-not-translated");
   }
 
   return { qualified: reasons.length === 0, reasons };
@@ -322,8 +403,11 @@ export function evidenceFor(
 /** Records cleared for ownership, in registry order. */
 export function approvedEvidence(
   registry: readonly TranslationEvidence[] = TRANSLATION_EVIDENCE,
+  surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
 ): readonly TranslationEvidence[] {
-  return registry.filter((evidence) => evidenceDecisionFor(evidence, registry).qualified);
+  return registry.filter(
+    (evidence) => evidenceDecisionFor(evidence, registry, surfaces).qualified,
+  );
 }
 
 /** Approved records for one exact path and locale. */
@@ -347,9 +431,10 @@ export function draftEvidence(
 /** Records that claim ownership and are refused, with their reasons. */
 export function rejectedEvidence(
   registry: readonly TranslationEvidence[] = TRANSLATION_EVIDENCE,
+  surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
 ): { evidence: TranslationEvidence; reasons: readonly string[] }[] {
   return registry
-    .map((evidence) => ({ evidence, ...evidenceDecisionFor(evidence, registry) }))
+    .map((evidence) => ({ evidence, ...evidenceDecisionFor(evidence, registry, surfaces) }))
     .filter((entry) => !entry.qualified)
     .map(({ evidence, reasons }) => ({ evidence, reasons }));
 }
@@ -363,6 +448,7 @@ export function rejectedEvidence(
  */
 export function approvedPromotions(
   registry: readonly TranslationEvidence[] = TRANSLATION_EVIDENCE,
+  surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
 ): readonly TranslatedPage[] {
-  return approvedEvidence(registry).map(promotionOf);
+  return approvedEvidence(registry, surfaces).map(promotionOf);
 }
