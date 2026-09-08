@@ -326,15 +326,24 @@ function retiredActivationFromRecord(record) {
   };
 }
 
-function matchingRetirementRecord(state) {
+function matchingRetirementRecord(state, grant) {
   const activation = state.pilot_activation;
   const humanAuthorizationId = activation?.retirement_human_authorization_id;
   const record = state.pilot_activation_retirement_history?.[humanAuthorizationId];
   if (!record
     || record.activation_id !== activation.activation_id
     || record.task_key !== activation.task_key
+    || record.retirement_reason !== EXPIRED_READY_PILOT_RETIREMENT.reason
+    || record.expired_grant_authorization_id !== grant.authorization_id
+    || record.expired_grant_digest !== grant.envelope_digest
+    || record.expired_grant_expires_at !== grant.provenance.expires_at
+    || record.contract_digest !== grant.contract_digest
+    || record.card_blob_sha !== grant.card_blob_sha
+    || record.activation_before.authorization_id !== grant.authorization_id
+    || record.activation_before.contract_digest !== grant.contract_digest
+    || record.activation_before.card_blob_sha !== grant.card_blob_sha
     || canonicalJson(retiredActivationFromRecord(record)) !== canonicalJson(activation)) {
-    throw new Error("RETIRED_BEFORE_DISPATCH synthetic pilot activation lacks exact durable retirement evidence.");
+    throw new Error("RETIRED_BEFORE_DISPATCH durable retirement evidence does not match the exact expired Grant being rotated.");
   }
   return record;
 }
@@ -352,7 +361,6 @@ function assertRetirementStateSafe(state, grant, humanAuthorizationId, now) {
     || activation.contract_digest !== grant.contract_digest
     || activation.card_blob_sha !== grant.card_blob_sha
     || activation.max_workers !== 1
-    || activation.max_dispatch_attempts !== 1
     || activation.dispatch_attempts !== 0
     || activation.network !== grant.activation.synthetic_pilot_once.network
     || activation.publishing !== false
@@ -397,7 +405,7 @@ function assertRetirementStateSafe(state, grant, humanAuthorizationId, now) {
   return activation;
 }
 
-function assertRotationStateSafe(state, humanAuthorizationId, now) {
+function assertRotationStateSafe(state, grant, humanAuthorizationId, now) {
   if (state.activation?.authorized !== false) {
     throw new Error("General autonomous activation must remain disabled during Grant rotation.");
   }
@@ -409,7 +417,7 @@ function assertRotationStateSafe(state, humanAuthorizationId, now) {
     throw new Error("Synthetic pilot activation state is not safe for Grant rotation.");
   }
   if (pilotStatus === EXPIRED_READY_PILOT_RETIREMENT.status) {
-    matchingRetirementRecord(state);
+    matchingRetirementRecord(state, grant);
   }
   if (!state.pilot_authorization_history
     || typeof state.pilot_authorization_history !== "object"
@@ -490,6 +498,8 @@ export function retireExpiredReadySyntheticPilotActivationInternal({
       expired_grant_authorization_id: grant.authorization_id,
       expired_grant_digest: grant.envelope_digest,
       expired_grant_expires_at: grant.provenance.expires_at,
+      contract_digest: grant.contract_digest,
+      card_blob_sha: grant.card_blob_sha,
       activation_before: structuredClone(activation),
     };
     const mutation = mutateControllerStateUnderMutexInternal(context.state_directory, ownerToken, {
@@ -505,6 +515,8 @@ export function retireExpiredReadySyntheticPilotActivationInternal({
         expired_grant_authorization_id: record.expired_grant_authorization_id,
         expired_grant_digest: record.expired_grant_digest,
         expired_grant_expires_at: record.expired_grant_expires_at,
+        contract_digest: record.contract_digest,
+        card_blob_sha: record.card_blob_sha,
         dispatch_attempts: 0,
       },
     }, (nextState) => {
@@ -607,7 +619,7 @@ export function rotateExpiredSyntheticPilotGrantInternal({
     assertRetirableSyntheticPilotGrant(oldGrant, worktreeRealpath);
 
     const state = readControllerStateInternal(context.state_directory);
-    assertRotationStateSafe(state, parsedRequest.human_authorization_id, now);
+    assertRotationStateSafe(state, oldGrant, parsedRequest.human_authorization_id, now);
 
     const privateKeyPem = fs.readFileSync(context.private_key_path, "utf8");
     const publicKeyPem = fs.readFileSync(context.public_key_path, "utf8");
@@ -681,7 +693,12 @@ export function rotateExpiredSyntheticPilotGrantInternal({
         taskKey: SYNTHETIC_PILOT_TASK_KEY,
         payload: audit,
       }, (nextState) => {
-        assertRotationStateSafe(nextState, parsedRequest.human_authorization_id, now);
+        assertRotationStateSafe(
+          nextState,
+          oldGrant,
+          parsedRequest.human_authorization_id,
+          now,
+        );
         nextState.grant_rotation_history[parsedRequest.human_authorization_id] = structuredClone(audit);
         return structuredClone(audit);
       });

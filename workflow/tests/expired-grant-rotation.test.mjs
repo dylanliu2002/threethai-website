@@ -144,7 +144,6 @@ function createFixture(t, {
       contract_digest: "2".repeat(64),
       card_blob_sha: "3".repeat(40),
       max_workers: 1,
-      max_dispatch_attempts: 1,
       dispatch_attempts: pilotStatus === "CONSUMED" ? 1 : 0,
       publishing: false,
       network: false,
@@ -213,7 +212,7 @@ function createFixture(t, {
 function createRetirementFixture(t, {
   expiresAt = "2026-09-08T05:00:00.000Z",
 } = {}) {
-  const fixture = createFixture(t, { pilotStatus: "READY" });
+  const fixture = createFixture(t);
   const grant = issueSyntheticPilotGrantInternal({
     contract: fixture.contract,
     privateKeyPem: fixture.authority.privateKeyPem,
@@ -226,14 +225,21 @@ function createRetirementFixture(t, {
   fixture.oldGrant = grant;
   fixture.oldBytes = Buffer.from(`${JSON.stringify(grant, null, 2)}\n`, "utf8");
   fs.writeFileSync(fixture.canonicalGrant, fixture.oldBytes);
-  mutateControllerStateInternal(fixture.context.state_directory, {
-    type: "test.bind-ready-activation-to-grant",
-    taskKey: SYNTHETIC_PILOT_TASK_KEY,
-  }, (state) => {
-    state.pilot_activation.authorization_id = grant.authorization_id;
-    state.pilot_activation.contract_digest = grant.contract_digest;
-    state.pilot_activation.card_blob_sha = grant.card_blob_sha;
-    state.pilot_activation.network = grant.activation.synthetic_pilot_once.network;
+  fixture.activation = enableSyntheticPilotOnceInternal(fixture.context.state_directory, {
+    request: {
+      human_authorization_id: crypto.randomUUID(),
+      task_key: SYNTHETIC_PILOT_TASK_KEY,
+      max_workers: 1,
+      publishing: false,
+      network: grant.activation.synthetic_pilot_once.network,
+      production: false,
+      dns: false,
+      deployment: false,
+    },
+    authorizationId: grant.authorization_id,
+    contractDigest: grant.contract_digest,
+    cardBlobSha: grant.card_blob_sha,
+    now: new Date("2026-09-08T04:30:00.000Z"),
   });
   fixture.beforeState = readControllerStateInternal(fixture.context.state_directory);
   fixture.retirementHumanAuthorizationId = crypto.randomUUID();
@@ -582,6 +588,8 @@ test("RETIRE-01 expired-Grant READY activation retires without dispatch and rema
   const record = after.pilot_activation_retirement_history
     [fixture.retirementHumanAuthorizationId];
 
+  assert.deepEqual(fixture.activation, before.pilot_activation);
+  assert.equal(Object.hasOwn(before.pilot_activation, "max_dispatch_attempts"), false);
   assert.equal(result.retired, true);
   assert.equal(result.activation_status, EXPIRED_READY_PILOT_RETIREMENT.status);
   assert.equal(result.dispatches, 0);
@@ -594,6 +602,8 @@ test("RETIRE-01 expired-Grant READY activation retires without dispatch and rema
   assert.deepEqual(record.activation_before, before.pilot_activation);
   assert.equal(record.expired_grant_authorization_id, fixture.oldGrant.authorization_id);
   assert.equal(record.expired_grant_digest, fixture.oldGrant.envelope_digest);
+  assert.equal(record.contract_digest, fixture.oldGrant.contract_digest);
+  assert.equal(record.card_blob_sha, fixture.oldGrant.card_blob_sha);
   assert.deepEqual(after.pilot_authorization_history, before.pilot_authorization_history);
   assert.deepEqual(after.runs, before.runs);
   assert.deepEqual(after.leases, before.leases);
@@ -605,7 +615,10 @@ test("RETIRE-01 expired-Grant READY activation retires without dispatch and rema
   assert.equal(journal.length, beforeEvents + 1);
   assert.equal(journal.at(-1).type, EXPIRED_READY_PILOT_RETIREMENT.event);
   assert.equal(journal.at(-1).payload.activation_id, before.pilot_activation.activation_id);
+  assert.equal(journal.at(-1).payload.contract_digest, fixture.oldGrant.contract_digest);
+  assert.equal(journal.at(-1).payload.card_blob_sha, fixture.oldGrant.card_blob_sha);
   assert.equal(journal.at(-1).payload.dispatch_attempts, 0);
+  assert.equal(after.revision, before.revision + 1);
   assert.deepEqual(replayControllerJournalInternal(journal).state, after);
 });
 
@@ -700,7 +713,40 @@ test("RETIRE-06 retire, rotate, and fresh activation preserve retired evidence",
   );
 });
 
-test("RETIRE-07 public administration boundary rejects overrides and non-pilot tasks", () => {
+test("RETIRE-07 retirement evidence for one expired Grant cannot authorize another", (t) => {
+  const fixture = createRetirementFixture(t);
+  fixture.retire();
+  const differentGrant = issueSyntheticPilotGrantInternal({
+    contract: fixture.contract,
+    privateKeyPem: fixture.authority.privateKeyPem,
+    publicKeyPem: fixture.authority.publicKeyPem,
+    worktreeRealpath: sourceRoot,
+    now: new Date("2026-09-08T04:10:00.000Z"),
+  });
+  assert.notEqual(differentGrant.authorization_id, fixture.oldGrant.authorization_id);
+  assert.notEqual(differentGrant.envelope_digest, fixture.oldGrant.envelope_digest);
+  const differentBytes = Buffer.from(`${JSON.stringify(differentGrant, null, 2)}\n`, "utf8");
+  fs.writeFileSync(fixture.canonicalGrant, differentBytes);
+  const stateBeforeRotation = readControllerStateInternal(fixture.context.state_directory);
+  const journalPath = path.join(fixture.context.state_directory, "controller-journal.jsonl");
+  const journalBeforeRotation = fs.readFileSync(journalPath);
+
+  assert.throws(() => fixture.rotate(), /does not match the exact expired Grant/);
+  assert.equal(fs.readFileSync(fixture.canonicalGrant).equals(differentBytes), true);
+  assert.deepEqual(
+    readControllerStateInternal(fixture.context.state_directory),
+    stateBeforeRotation,
+  );
+  assert.equal(fs.readFileSync(journalPath).equals(journalBeforeRotation), true);
+  assert.equal(fs.existsSync(path.join(
+    fixture.context.grants_directory,
+    "archive",
+    SYNTHETIC_PILOT_TASK_KEY,
+    `${differentGrant.authorization_id}.json`,
+  )), false);
+});
+
+test("RETIRE-08 public administration boundary rejects overrides and non-pilot tasks", () => {
   assert.throws(() => retireExpiredReadySyntheticPilotActivation({
     repoRoot: sourceRoot,
     task_key: SYNTHETIC_PILOT_TASK_KEY,
