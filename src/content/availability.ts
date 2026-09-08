@@ -8,14 +8,16 @@ import {
   type Locale,
 } from "./company";
 import {
+  resolvedContentLocaleOf,
+  TRANSLATED_PAGES,
+} from "./translation-availability";
+import {
   DEEP_CONTENT_SECTIONS,
   deepContentSectionOf,
   isDeepContentDetail,
-  resolvedContentLocaleOf,
-  TRANSLATED_PAGES,
   type DeepContentSection,
   type TranslatedPage,
-} from "./translation-availability";
+} from "./translation-evidence";
 
 /**
  * Content availability policy — the single SEO source of truth.
@@ -44,6 +46,15 @@ import {
  * locale, or a class of paths, as translated by default: assuming it for deep
  * pages produced 86 duplicate copies, and assuming it for core pages would do
  * the same to the rest of the site.
+ *
+ * Whether such a fact exists for a given ES/DE page is not decided here either.
+ * A promotion enters only through `./translation-evidence`: a reviewed record
+ * keyed by this path and this locale, carrying the copy, the field list it was
+ * reviewed against, its provenance and an `approved` status. This module reads
+ * the promotions that survive that gate (`TRANSLATED_PAGES`) and never a raw
+ * claim, so the four things an unapproved record could otherwise buy — a self
+ * canonical, an hreflang entry, a sitemap alternate, a localized `inLanguage` —
+ * all move together or not at all.
  */
 
 /** The page-shape model lives with the evidence, beside the copy it describes. */
@@ -59,20 +70,23 @@ const isModelledContentLocale = (locale: Locale): locale is ContentLocale =>
  * Derived from `contentLocaleOf` — the function that picks which
  * `Record<ContentLocale>` key a route renders — rather than restated as a
  * literal, so this list cannot claim a language the content model has no copy
- * for. A locale promoted page by page through ./translation-availability is
+ * for. A locale promoted page by page through ./translation-evidence is
  * deliberately absent: it gains ownership of one path, not of the site.
  */
 export const TRANSLATED_CONTENT_LOCALES: readonly ContentLocale[] =
   locales.filter(isModelledContentLocale);
 
 /**
- * The policy, built over one evidence registry.
+ * The policy, built over one set of promotions.
  *
- * Production always uses the shipped registry (`TRANSLATED_PAGES`) through the
- * exported functions below; the factory exists so a caller can evaluate the
+ * Production always uses the shipped promotions (`TRANSLATED_PAGES` — the
+ * promotions `approvedPromotions()` grants from `TRANSLATION_EVIDENCE`) through
+ * the exported functions below; the factory exists so a caller can evaluate the
  * same code against a different set of promoted pages, which is how
  * `tests/intl-dees-002b-page-aware-translation-availability.mjs` proves one page
- * can be promoted without touching any other path or locale.
+ * can be promoted without touching any other path or locale. Passing a registry
+ * directly evaluates the policy only: it grants no approval, and the shipped
+ * surfaces never see it.
  */
 export function createAvailabilityPolicy(registry: readonly TranslatedPage[] = TRANSLATED_PAGES) {
   /**
