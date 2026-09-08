@@ -37,6 +37,7 @@ export function emptyControllerStateInternal() {
       consumed_run_id: null,
     },
     pilot_authorization_history: {},
+    grant_rotation_history: {},
     wakeups: {}, tasks: {}, runs: {}, leases: {}, reservations: {}, approvals: {},
     closeouts: {}, publishing: {}, validation_evidence: {},
   };
@@ -166,30 +167,52 @@ export function readControllerStateInternal(stateDirectory) {
 export function mutateControllerStateInternal(stateDirectory, {
   type, taskKey = null, runId = null, payload = {}, guard,
 }, mutate) {
-  return withStateMutexInternal(stateDirectory, () => {
-    const recovered = recoverControllerStateInternal(stateDirectory);
-    const state = structuredClone(recovered.state);
-    if (guard) guard(state);
-    const result = mutate(state);
-    assertNoSecretsDeep(state, "controller durable state");
-    state.revision += 1;
-    const event = RuntimeEventSchema.parse({
-      schema_version: SCHEMA_VERSION,
-      sequence: state.next_sequence,
-      event_id: crypto.randomUUID(),
-      task_key: taskKey,
-      run_id: runId,
-      type,
-      occurred_at: new Date().toISOString(),
-      payload: sanitizeForLog({ ...payload, snapshot: state }),
-    });
-    state.next_sequence += 1;
-    event.payload.snapshot.next_sequence = state.next_sequence;
-    fs.mkdirSync(stateDirectory, { recursive: true, mode: 0o700 });
-    fs.appendFileSync(journalPath(stateDirectory), `${JSON.stringify(event)}\n`, { encoding: "utf8", mode: 0o600 });
-    writeJsonAtomic(statePath(stateDirectory), state);
-    return { result, state, event };
+  return withStateMutexInternal(stateDirectory, ({ ownerToken }) =>
+    mutateControllerStateUnderMutexInternal(
+      stateDirectory,
+      ownerToken,
+      { type, taskKey, runId, payload, guard },
+      mutate,
+    ));
+}
+
+function assertStateMutexOwner(stateDirectory, ownerToken) {
+  const ownerFile = mutexOwnerPath(stateDirectory);
+  if (!fs.existsSync(ownerFile)) throw new Error("Controller state mutation requires its mutex.");
+  const owner = JSON.parse(fs.readFileSync(ownerFile, "utf8"));
+  if (!ownerToken || owner.owner_token !== ownerToken
+    || owner.owner_pid !== process.pid
+    || owner.owner_process_start_identity !== PROCESS_START_IDENTITY) {
+    throw new Error("Controller state mutation requires the exact mutex owner.");
+  }
+}
+
+export function mutateControllerStateUnderMutexInternal(stateDirectory, ownerToken, {
+  type, taskKey = null, runId = null, payload = {}, guard,
+}, mutate) {
+  assertStateMutexOwner(stateDirectory, ownerToken);
+  const recovered = recoverControllerStateInternal(stateDirectory);
+  const state = structuredClone(recovered.state);
+  if (guard) guard(state);
+  const result = mutate(state);
+  assertNoSecretsDeep(state, "controller durable state");
+  state.revision += 1;
+  const event = RuntimeEventSchema.parse({
+    schema_version: SCHEMA_VERSION,
+    sequence: state.next_sequence,
+    event_id: crypto.randomUUID(),
+    task_key: taskKey,
+    run_id: runId,
+    type,
+    occurred_at: new Date().toISOString(),
+    payload: sanitizeForLog({ ...payload, snapshot: state }),
   });
+  state.next_sequence += 1;
+  event.payload.snapshot.next_sequence = state.next_sequence;
+  fs.mkdirSync(stateDirectory, { recursive: true, mode: 0o700 });
+  fs.appendFileSync(journalPath(stateDirectory), `${JSON.stringify(event)}\n`, { encoding: "utf8", mode: 0o600 });
+  writeJsonAtomic(statePath(stateDirectory), state);
+  return { result, state, event };
 }
 
 function setActivationInternal(stateDirectory, authorized, {
