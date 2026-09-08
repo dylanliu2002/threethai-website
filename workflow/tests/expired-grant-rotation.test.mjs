@@ -5,7 +5,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { rotateExpiredSyntheticPilotGrant } from "../admin/authority-admin.mjs";
+import {
+  retireExpiredReadySyntheticPilotActivation,
+  rotateExpiredSyntheticPilotGrant,
+} from "../admin/authority-admin.mjs";
 import { computeContractDigest, validateTaskContract } from "../contract.mjs";
 import {
   grantDigestInternal,
@@ -15,13 +18,16 @@ import {
   validateGrantAgainstAnchorInternal,
 } from "../internal/authority-engine.mjs";
 import {
+  enableSyntheticPilotOnceInternal,
   mutateControllerStateInternal,
   readControllerStateInternal,
   replayControllerJournalInternal,
   setActivationForAdministrationInternal,
 } from "../internal/controller-state-engine.mjs";
 import {
+  EXPIRED_READY_PILOT_RETIREMENT,
   issueSyntheticPilotGrantInternal,
+  retireExpiredReadySyntheticPilotActivationInternal,
   rotateExpiredSyntheticPilotGrantInternal,
 } from "../internal/pilot-admin-engine.mjs";
 import { SYNTHETIC_PILOT_TASK_KEY } from "../constants.mjs";
@@ -153,12 +159,14 @@ function createFixture(t, {
       task_key: SYNTHETIC_PILOT_TASK_KEY,
       activated_at: state.pilot_activation.activated_at,
     };
-    state.runs[OLD_RUN_ID] = {
-      task_key: SYNTHETIC_PILOT_TASK_KEY,
-      run_id: OLD_RUN_ID,
-      status: "FAILED",
-      completed_at: "2026-09-06T05:32:00.000Z",
-    };
+    if (pilotStatus === "CONSUMED") {
+      state.runs[OLD_RUN_ID] = {
+        task_key: SYNTHETIC_PILOT_TASK_KEY,
+        run_id: OLD_RUN_ID,
+        status: "FAILED",
+        completed_at: "2026-09-06T05:32:00.000Z",
+      };
+    }
     return { prepared: true };
   });
   const contract = currentContract();
@@ -199,6 +207,57 @@ function createFixture(t, {
     beforeState,
     rotate,
   };
+}
+
+function createRetirementFixture(t, {
+  expiresAt = "2026-09-08T05:00:00.000Z",
+} = {}) {
+  const fixture = createFixture(t);
+  const grant = issueSyntheticPilotGrantInternal({
+    contract: fixture.contract,
+    privateKeyPem: fixture.authority.privateKeyPem,
+    publicKeyPem: fixture.authority.publicKeyPem,
+    worktreeRealpath: sourceRoot,
+    now: new Date("2026-09-08T04:00:00.000Z"),
+  });
+  grant.provenance.expires_at = expiresAt;
+  resign(grant, fixture.authority);
+  fixture.oldGrant = grant;
+  fixture.oldBytes = Buffer.from(`${JSON.stringify(grant, null, 2)}\n`, "utf8");
+  fs.writeFileSync(fixture.canonicalGrant, fixture.oldBytes);
+  fixture.activation = enableSyntheticPilotOnceInternal(fixture.context.state_directory, {
+    request: {
+      human_authorization_id: crypto.randomUUID(),
+      task_key: SYNTHETIC_PILOT_TASK_KEY,
+      max_workers: 1,
+      publishing: false,
+      network: grant.activation.synthetic_pilot_once.network,
+      production: false,
+      dns: false,
+      deployment: false,
+    },
+    authorizationId: grant.authorization_id,
+    contractDigest: grant.contract_digest,
+    cardBlobSha: grant.card_blob_sha,
+    now: new Date("2026-09-08T04:30:00.000Z"),
+  });
+  fixture.beforeState = readControllerStateInternal(fixture.context.state_directory);
+  fixture.retirementHumanAuthorizationId = crypto.randomUUID();
+  fixture.retire = (overrides = {}) => {
+    const { request: requestOverrides = {}, ...internalOverrides } = overrides;
+    return retireExpiredReadySyntheticPilotActivationInternal({
+      context: fixture.context,
+      worktreeRealpath: sourceRoot,
+      request: {
+        task_key: SYNTHETIC_PILOT_TASK_KEY,
+        human_authorization_id: fixture.retirementHumanAuthorizationId,
+        ...requestOverrides,
+      },
+      now: NOW,
+      ...internalOverrides,
+    });
+  };
+  return fixture;
 }
 
 function archivedGrantPath(fixture) {
@@ -515,4 +574,188 @@ test("ROTATE-24 expired current-schema synthetic Grant is also safely rotatable"
   assert.equal(result.rotated, true);
   assert.equal(fs.readFileSync(archivedGrantPath(fixture)).equals(fixture.oldBytes), true);
   assert.notEqual(result.new_authorization_id, currentExpired.authorization_id);
+});
+
+test("RETIRE-01 expired-Grant READY activation retires without dispatch and remains replayable", (t) => {
+  const fixture = createRetirementFixture(t);
+  const before = structuredClone(fixture.beforeState);
+  const beforeGrant = fs.readFileSync(fixture.canonicalGrant);
+  const journalPath = path.join(fixture.context.state_directory, "controller-journal.jsonl");
+  const beforeEvents = fs.readFileSync(journalPath, "utf8").trim().split(/\r?\n/).length;
+
+  const result = fixture.retire();
+  const after = readControllerStateInternal(fixture.context.state_directory);
+  const record = after.pilot_activation_retirement_history
+    [fixture.retirementHumanAuthorizationId];
+
+  assert.deepEqual(fixture.activation, before.pilot_activation);
+  assert.equal(Object.hasOwn(before.pilot_activation, "max_dispatch_attempts"), false);
+  assert.equal(result.retired, true);
+  assert.equal(result.activation_status, EXPIRED_READY_PILOT_RETIREMENT.status);
+  assert.equal(result.dispatches, 0);
+  assert.equal(result.workers_started, 0);
+  assert.equal(after.pilot_activation.status, "RETIRED_BEFORE_DISPATCH");
+  assert.equal(after.pilot_activation.retirement_reason, "GRANT_EXPIRED_BEFORE_DISPATCH");
+  assert.equal(after.pilot_activation.dispatch_attempts, 0);
+  assert.equal(after.pilot_activation.consumed_at, null);
+  assert.equal(after.pilot_activation.consumed_run_id, null);
+  assert.deepEqual(record.activation_before, before.pilot_activation);
+  assert.equal(record.expired_grant_authorization_id, fixture.oldGrant.authorization_id);
+  assert.equal(record.expired_grant_digest, fixture.oldGrant.envelope_digest);
+  assert.equal(record.contract_digest, fixture.oldGrant.contract_digest);
+  assert.equal(record.card_blob_sha, fixture.oldGrant.card_blob_sha);
+  assert.deepEqual(after.pilot_authorization_history, before.pilot_authorization_history);
+  assert.deepEqual(after.runs, before.runs);
+  assert.deepEqual(after.leases, before.leases);
+  assert.deepEqual(after.reservations, before.reservations);
+  assert.equal(fs.readFileSync(fixture.canonicalGrant).equals(beforeGrant), true);
+
+  const journal = fs.readFileSync(journalPath, "utf8").trim().split(/\r?\n/)
+    .map((line) => JSON.parse(line));
+  assert.equal(journal.length, beforeEvents + 1);
+  assert.equal(journal.at(-1).type, EXPIRED_READY_PILOT_RETIREMENT.event);
+  assert.equal(journal.at(-1).payload.activation_id, before.pilot_activation.activation_id);
+  assert.equal(journal.at(-1).payload.contract_digest, fixture.oldGrant.contract_digest);
+  assert.equal(journal.at(-1).payload.card_blob_sha, fixture.oldGrant.card_blob_sha);
+  assert.equal(journal.at(-1).payload.dispatch_attempts, 0);
+  assert.equal(after.revision, before.revision + 1);
+  assert.deepEqual(replayControllerJournalInternal(journal).state, after);
+});
+
+test("RETIRE-02 CONSUMED activation cannot be retired and no evidence changes", (t) => {
+  const fixture = createFixture(t);
+  const beforeState = readControllerStateInternal(fixture.context.state_directory);
+  const beforeGrant = fs.readFileSync(fixture.canonicalGrant);
+  const journalPath = path.join(fixture.context.state_directory, "controller-journal.jsonl");
+  const beforeJournal = fs.readFileSync(journalPath);
+  assert.throws(() => retireExpiredReadySyntheticPilotActivationInternal({
+    context: fixture.context,
+    worktreeRealpath: sourceRoot,
+    request: {
+      task_key: SYNTHETIC_PILOT_TASK_KEY,
+      human_authorization_id: crypto.randomUUID(),
+    },
+    now: NOW,
+  }), /Only a READY/);
+  assert.deepEqual(readControllerStateInternal(fixture.context.state_directory), beforeState);
+  assert.equal(fs.readFileSync(fixture.canonicalGrant).equals(beforeGrant), true);
+  assert.equal(fs.readFileSync(journalPath).equals(beforeJournal), true);
+});
+
+test("RETIRE-03 READY activation with a valid unexpired Grant cannot be retired", (t) => {
+  const fixture = createRetirementFixture(t, { expiresAt: "2026-09-09T06:00:00.000Z" });
+  const beforeState = readControllerStateInternal(fixture.context.state_directory);
+  const beforeGrant = fs.readFileSync(fixture.canonicalGrant);
+  assert.throws(() => fixture.retire(), /unexpired/);
+  assert.deepEqual(readControllerStateInternal(fixture.context.state_directory), beforeState);
+  assert.equal(fs.readFileSync(fixture.canonicalGrant).equals(beforeGrant), true);
+});
+
+test("RETIRE-04 evidenced RETIRED_BEFORE_DISPATCH state permits rotation and preserves the old activation", (t) => {
+  const fixture = createRetirementFixture(t);
+  fixture.retire();
+  const beforeRotation = readControllerStateInternal(fixture.context.state_directory);
+  const result = fixture.rotate();
+  const afterRotation = readControllerStateInternal(fixture.context.state_directory);
+  assert.equal(result.rotated, true);
+  assert.deepEqual(afterRotation.pilot_activation, beforeRotation.pilot_activation);
+  assert.deepEqual(
+    afterRotation.pilot_activation_retirement_history,
+    beforeRotation.pilot_activation_retirement_history,
+  );
+  assert.deepEqual(afterRotation.pilot_authorization_history, beforeRotation.pilot_authorization_history);
+  assert.deepEqual(afterRotation.runs, beforeRotation.runs);
+  assert.deepEqual(afterRotation.leases, beforeRotation.leases);
+  assert.deepEqual(afterRotation.reservations, beforeRotation.reservations);
+});
+
+test("RETIRE-05 forged RETIRED_BEFORE_DISPATCH status without durable evidence cannot rotate", (t) => {
+  const fixture = createFixture(t, { pilotStatus: "READY" });
+  mutateControllerStateInternal(fixture.context.state_directory, {
+    type: "test.forged-retired-status",
+  }, (state) => {
+    state.pilot_activation.status = "RETIRED_BEFORE_DISPATCH";
+    state.pilot_activation.retirement_human_authorization_id = crypto.randomUUID();
+  });
+  assertRotationRejectedWithoutCanonicalMutation(fixture, /durable retirement evidence/);
+});
+
+test("RETIRE-06 retire, rotate, and fresh activation preserve retired evidence", (t) => {
+  const fixture = createRetirementFixture(t);
+  fixture.retire();
+  const retired = readControllerStateInternal(fixture.context.state_directory);
+  fixture.rotate();
+  const freshGrant = JSON.parse(fs.readFileSync(fixture.canonicalGrant, "utf8"));
+  const activation = enableSyntheticPilotOnceInternal(fixture.context.state_directory, {
+    request: {
+      human_authorization_id: crypto.randomUUID(),
+      task_key: SYNTHETIC_PILOT_TASK_KEY,
+      max_workers: 1,
+      publishing: false,
+      network: true,
+      production: false,
+      dns: false,
+      deployment: false,
+    },
+    authorizationId: freshGrant.authorization_id,
+    contractDigest: freshGrant.contract_digest,
+    cardBlobSha: freshGrant.card_blob_sha,
+    now: new Date("2026-09-08T06:01:00.000Z"),
+  });
+  const after = readControllerStateInternal(fixture.context.state_directory);
+  assert.equal(activation.status, "READY");
+  assert.notEqual(activation.activation_id, retired.pilot_activation.activation_id);
+  assert.equal(activation.authorization_id, freshGrant.authorization_id);
+  assert.equal(activation.dispatch_attempts, 0);
+  assert.deepEqual(
+    after.pilot_activation_retirement_history,
+    retired.pilot_activation_retirement_history,
+  );
+});
+
+test("RETIRE-07 retirement evidence for one expired Grant cannot authorize another", (t) => {
+  const fixture = createRetirementFixture(t);
+  fixture.retire();
+  const differentGrant = issueSyntheticPilotGrantInternal({
+    contract: fixture.contract,
+    privateKeyPem: fixture.authority.privateKeyPem,
+    publicKeyPem: fixture.authority.publicKeyPem,
+    worktreeRealpath: sourceRoot,
+    now: new Date("2026-09-08T04:10:00.000Z"),
+  });
+  assert.notEqual(differentGrant.authorization_id, fixture.oldGrant.authorization_id);
+  assert.notEqual(differentGrant.envelope_digest, fixture.oldGrant.envelope_digest);
+  const differentBytes = Buffer.from(`${JSON.stringify(differentGrant, null, 2)}\n`, "utf8");
+  fs.writeFileSync(fixture.canonicalGrant, differentBytes);
+  const stateBeforeRotation = readControllerStateInternal(fixture.context.state_directory);
+  const journalPath = path.join(fixture.context.state_directory, "controller-journal.jsonl");
+  const journalBeforeRotation = fs.readFileSync(journalPath);
+
+  assert.throws(() => fixture.rotate(), /does not match the exact expired Grant/);
+  assert.equal(fs.readFileSync(fixture.canonicalGrant).equals(differentBytes), true);
+  assert.deepEqual(
+    readControllerStateInternal(fixture.context.state_directory),
+    stateBeforeRotation,
+  );
+  assert.equal(fs.readFileSync(journalPath).equals(journalBeforeRotation), true);
+  assert.equal(fs.existsSync(path.join(
+    fixture.context.grants_directory,
+    "archive",
+    SYNTHETIC_PILOT_TASK_KEY,
+    `${differentGrant.authorization_id}.json`,
+  )), false);
+});
+
+test("RETIRE-08 public administration boundary rejects overrides and non-pilot tasks", () => {
+  assert.throws(() => retireExpiredReadySyntheticPilotActivation({
+    repoRoot: sourceRoot,
+    task_key: SYNTHETIC_PILOT_TASK_KEY,
+    human_authorization_id: crypto.randomUUID(),
+    now: NOW,
+  }), /Unsupported pilot administration option: now/);
+  assert.throws(() => retireExpiredReadySyntheticPilotActivation({
+    repoRoot: sourceRoot,
+    task_key: "another-task",
+    human_authorization_id: crypto.randomUUID(),
+  }), /exact synthetic pilot task/);
 });

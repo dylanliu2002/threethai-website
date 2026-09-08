@@ -130,6 +130,11 @@ export const SyntheticPilotGrantRotationRequestSchema = z.object({
   task_key: z.literal(SYNTHETIC_PILOT_TASK_KEY),
 }).strict();
 
+export const SyntheticPilotActivationRetirementRequestSchema = z.object({
+  human_authorization_id: z.string().uuid(),
+  task_key: z.literal(SYNTHETIC_PILOT_TASK_KEY),
+}).strict();
+
 // Administration-only compatibility schemas for authenticating the original
 // offline synthetic-pilot Grant during retirement. These are deliberately not
 // accepted by TaskContractSchema or AuthorizationGrantSchema, so a historical
