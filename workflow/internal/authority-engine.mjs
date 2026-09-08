@@ -1,8 +1,13 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
+import path from "node:path";
 import { canonicalJson, canonicalize, equalCanonical, sha256 } from "../canonical.mjs";
 import { computeContractDigest, hashWorkingTreeFile, validateTaskContract } from "../contract.mjs";
-import { AuthorizationGrantSchema } from "../schemas.mjs";
+import {
+  AuthorizationGrantSchema,
+  RetirableSyntheticPilotGrantSchema,
+  TaskKeySchema,
+} from "../schemas.mjs";
 import { assertScopePathsSafe } from "../paths.mjs";
 import { publicKeyFingerprint } from "../trust-anchor.mjs";
 
@@ -42,6 +47,69 @@ export function authorizationFieldsFromContractInternal(contract) {
     limits: contract.limits,
     synthetic_pilot: contract.synthetic_pilot,
   });
+}
+
+export function loadActiveGrantFromStoreInternal(grantsDirectory, taskKey) {
+  const parsedTaskKey = TaskKeySchema.parse(taskKey);
+  const file = path.join(grantsDirectory, `${parsedTaskKey}.json`);
+  if (!fs.existsSync(file)) {
+    throw new Error(`Pinned controller Grant is unavailable for ${parsedTaskKey}`);
+  }
+  return JSON.parse(fs.readFileSync(file, "utf8"));
+}
+
+function validateGrantEnvelopeAgainstAnchorInternal(grantInput, schema, {
+  trustedPublicKeyPem,
+  trustedFingerprint,
+} = {}) {
+  if (!trustedPublicKeyPem || !trustedFingerprint) {
+    throw new Error("A controller-pinned trust anchor is required.");
+  }
+  if (publicKeyFingerprint(trustedPublicKeyPem) !== trustedFingerprint) {
+    throw new Error("Controller trust-anchor fingerprint mismatch.");
+  }
+  const grant = schema.parse(grantInput);
+  if (grant.signer_fingerprint !== trustedFingerprint) {
+    throw new Error("Grant signer is not the pinned controller trust anchor.");
+  }
+  if (grantDigestInternal(grant) !== grant.envelope_digest) {
+    throw new Error("Trusted authorization envelope digest mismatch.");
+  }
+  if (!crypto.verify(
+    null,
+    Buffer.from(grantSignaturePayloadInternal(grant)),
+    trustedPublicKeyPem,
+    Buffer.from(grant.signature, "base64"),
+  )) {
+    throw new Error("Authorization Grant signature is not from the pinned controller.");
+  }
+  return grant;
+}
+
+// This administration-only path authenticates an already-expired historical
+// synthetic-pilot Grant for retirement. It never validates a contract or
+// returns runtime authority, and it cannot accept an unexpired Grant.
+export function validateExpiredSyntheticPilotGrantForRetirementInternal(grantInput, {
+  now = new Date(),
+  trustedPublicKeyPem,
+  trustedFingerprint,
+} = {}) {
+  const grant = validateGrantEnvelopeAgainstAnchorInternal(
+    grantInput,
+    RetirableSyntheticPilotGrantSchema,
+    { trustedPublicKeyPem, trustedFingerprint },
+  );
+  if (!grant.provenance.expires_at) {
+    throw new Error("Synthetic pilot Grant retirement requires an explicit expiry.");
+  }
+  if (grant.provenance.non_expiring_policy !== "NONE"
+    || Date.parse(grant.provenance.issued_at) >= Date.parse(grant.provenance.expires_at)) {
+    throw new Error("Synthetic pilot Grant retirement requires a valid expiring provenance window.");
+  }
+  if (Date.parse(grant.provenance.expires_at) > now.getTime()) {
+    throw new Error("An unexpired synthetic pilot Grant cannot be rotated.");
+  }
+  return grant;
 }
 
 export function createSignedGrantInternal(contractInput, {
@@ -106,28 +174,11 @@ export function validateGrantAgainstAnchorInternal(contractInput, grantInput, {
   trustedPublicKeyPem,
   trustedFingerprint,
 } = {}) {
-  if (!trustedPublicKeyPem || !trustedFingerprint) {
-    throw new Error("A controller-pinned trust anchor is required.");
-  }
-  if (publicKeyFingerprint(trustedPublicKeyPem) !== trustedFingerprint) {
-    throw new Error("Controller trust-anchor fingerprint mismatch.");
-  }
   const contract = validateTaskContract(contractInput, { repoRoot, verifyCard });
-  const grant = AuthorizationGrantSchema.parse(grantInput);
-  if (grant.signer_fingerprint !== trustedFingerprint) {
-    throw new Error("Grant signer is not the pinned controller trust anchor.");
-  }
-  if (grantDigestInternal(grant) !== grant.envelope_digest) {
-    throw new Error("Trusted authorization envelope digest mismatch.");
-  }
-  if (!crypto.verify(
-    null,
-    Buffer.from(grantSignaturePayloadInternal(grant)),
+  const grant = validateGrantEnvelopeAgainstAnchorInternal(grantInput, AuthorizationGrantSchema, {
     trustedPublicKeyPem,
-    Buffer.from(grant.signature, "base64"),
-  )) {
-    throw new Error("Authorization Grant signature is not from the pinned controller.");
-  }
+    trustedFingerprint,
+  });
   if (!equalCanonical(assertedGrantFields(grant), authorizationFieldsFromContractInternal(contract))) {
     throw new Error("Task Contract does not match the trusted authorization grant.");
   }

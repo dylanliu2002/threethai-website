@@ -125,6 +125,46 @@ export const SyntheticPilotGrantActivationSchema = z.object({
   deployment: z.literal(false),
 }).strict();
 
+export const SyntheticPilotGrantRotationRequestSchema = z.object({
+  human_authorization_id: z.string().uuid(),
+  task_key: z.literal(SYNTHETIC_PILOT_TASK_KEY),
+}).strict();
+
+// Administration-only compatibility schemas for authenticating the original
+// offline synthetic-pilot Grant during retirement. These are deliberately not
+// accepted by TaskContractSchema or AuthorizationGrantSchema, so a historical
+// Grant can be archived but can never regain runtime authority.
+const HistoricalSyntheticPilotConstraintsSchema = z.object({
+  task_key: z.literal(SYNTHETIC_PILOT_TASK_KEY),
+  write_files: z.tuple([z.literal(SYNTHETIC_PILOT_OUTPUT_PATH)]),
+  write_prefixes: z.tuple([]),
+  network: z.literal(false),
+  secrets: z.literal(false),
+  git_commit: z.literal(false),
+  push: z.literal(false),
+  pr: z.literal(false),
+  merge: z.literal(false),
+  production: z.literal(false),
+  dns: z.literal(false),
+  deployment: z.literal(false),
+  task_adoption: z.literal(false),
+  max_workers: z.literal(1),
+  timeout_seconds: z.number().int().positive(),
+}).strict();
+
+const HistoricalSyntheticPilotGrantActivationSchema = z.object({
+  task_key: z.literal(SYNTHETIC_PILOT_TASK_KEY),
+  contract_digest: DigestSchema,
+  card_blob_sha: ShaSchema,
+  max_dispatch_attempts: z.literal(1),
+  max_workers: z.literal(1),
+  publishing: z.literal(false),
+  network: z.literal(false),
+  production: z.literal(false),
+  dns: z.literal(false),
+  deployment: z.literal(false),
+}).strict();
+
 export const TaskContractSchema = z.object({
   schema_version: z.literal(SCHEMA_VERSION),
   task_key: TaskKeySchema, task_id: z.string().min(1), card_path: repoPath,
@@ -193,6 +233,21 @@ export const AuthorizationGrantSchema = z.object({
   envelope_digest: DigestSchema,
   signer_fingerprint: DigestSchema,
   signature: SignatureSchema,
+}).strict();
+
+export const RetirableSyntheticPilotGrantSchema = AuthorizationGrantSchema.extend({
+  synthetic_pilot: z.union([
+    SyntheticPilotConstraintsSchema,
+    HistoricalSyntheticPilotConstraintsSchema,
+  ]),
+  activation: z.object({
+    autonomous: z.boolean(),
+    worker_dispatch: z.boolean(),
+    synthetic_pilot_once: z.union([
+      SyntheticPilotGrantActivationSchema,
+      HistoricalSyntheticPilotGrantActivationSchema,
+    ]),
+  }).strict(),
 }).strict();
 
 export const RunIdentitySchema = z.object({

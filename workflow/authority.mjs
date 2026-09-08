@@ -1,10 +1,10 @@
-import fs from "node:fs";
 import path from "node:path";
 import { assertNoAuthorityOverrides, resolveCanonicalControllerContext } from "./controller-context.mjs";
 import { loadContracts } from "./contract.mjs";
 import {
   authorizationFieldsFromContractInternal,
   grantDigestInternal,
+  loadActiveGrantFromStoreInternal,
   validateGrantAgainstAnchorInternal,
 } from "./internal/authority-engine.mjs";
 
@@ -30,9 +30,8 @@ export function canonicalGrantPath(repoRoot, taskKey) {
 }
 
 export function loadAuthorizationGrant(repoRoot, taskKey) {
-  const file = canonicalGrantPath(repoRoot, taskKey);
-  if (!fs.existsSync(file)) throw new Error(`Pinned controller Grant is unavailable for ${taskKey}`);
-  return JSON.parse(fs.readFileSync(file, "utf8"));
+  const context = resolveCanonicalControllerContext(repoRoot);
+  return loadActiveGrantFromStoreInternal(context.grants_directory, taskKey);
 }
 
 // The caller supplies a claim (DATA); the trust anchor is always resolved from
