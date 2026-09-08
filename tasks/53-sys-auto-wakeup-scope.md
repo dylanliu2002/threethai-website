@@ -6,7 +6,7 @@
 - **Execution Responsibility:** `IMPLEMENTER`
 - **Governance Role / Owner:** `ORCHESTRATOR`
 - **Reviewer:** `QA_PERFORMANCE` (fresh independent review required)
-- **Status:** `IN_PROGRESS`
+- **Status:** `REVIEW`
 - **Priority:** `P0`
 - **Risk:** `HIGH`
 - **Branch:** `codex/53-sys-auto-wakeup-scope`
@@ -79,6 +79,32 @@ All canonical checks are read-only. No non-dry scheduler command is permitted.
   untouched.
 - A future real tick requires separate fresh human authorization after review
   and merge.
+
+## Completion Record
+
+- Implementation commit: `67b6ed328360453e5f18159cc96839d7859cf8a6`
+- Default prefix: `cli-tick:<activation_id>`; scheduler admission retains the
+  existing task suffix, producing
+  `cli-tick:<activation_id>:<task_key>`.
+- Focused activation tests: `26/26` passed.
+- Full workflow tests: `172/172` passed in a disposable exact-commit clone with
+  a repository-distinct, unprovisioned authority namespace.
+- `validate --all`, `reconcile --dry-run`, and `tick --dry-run` passed.
+- Lint, typecheck, syntax checks, and `git diff --check` passed. Typecheck used
+  lockfile-declared dependencies and a generated Prisma client only inside the
+  disposable validation clone.
+- Canonical controller state remained revision `25` at SHA-256
+  `a259ce0d676612db0e171e811766303818ac74907afae70ca89c27c9acbd7976`.
+- Canonical journal remained at `25` events and SHA-256
+  `c73650f61d86ba954791f4b162a580ffcc5b38e93c9f2843229f6d3936c0d890`.
+- All seven canonical authority files were byte-identical before and after
+  validation. No tick, dispatch, activation, Grant rotation, worker, thread,
+  model, or canonical state mutation occurred.
+- Existing wakeup state is never cleared or rewritten; regressions prove the
+  legacy key survives admission under the new activation-scoped key and exact
+  same-activation delivery remains a duplicate.
+- The implementer does not approve or merge this Task. Fresh independent review
+  is required.
 
 ## Rollback
 
