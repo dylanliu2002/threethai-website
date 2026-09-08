@@ -92,6 +92,8 @@ the separately authorized retire -> rotate -> fresh-activation lifecycle.
 
 ## Completion Record
 
+- Final fetched/rebase base: `d34cd9560870c15da922a84f4dab7808201dd89d`
+  (`origin/main` unchanged; rebase was a no-op)
 - Implementation commit: `0303b24daf9488e931f7960d79d3cb0a31107841`
 - Focused expiry/rotation/retirement tests: `31/31` passed
 - Full workflow tests: `169/169` passed in a disposable independent clone

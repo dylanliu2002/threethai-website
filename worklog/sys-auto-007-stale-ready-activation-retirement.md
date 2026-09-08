@@ -25,9 +25,8 @@
   activation in append-only retirement history, and appends the
   `controller.synthetic-pilot.retired-before-dispatch` journal event.
 - Updated expired-Grant rotation admission to accept the terminal state only
-  after exact
-  durable retirement evidence is present. A forged terminal status remains
-  blocked. Retirement, Grant rotation, and fresh activation each require a
+  after exact durable retirement evidence is present. A forged terminal status
+  remains blocked. Retirement, Grant rotation, and fresh activation each require a
   distinct, previously unused human authorization ID.
 - Added seven focused regressions for successful retirement, no-dispatch and
   state preservation, journal replay, rejection of `CONSUMED`, rejection of an
@@ -54,3 +53,6 @@
   invocation occurred.
 - The implementation is ready for fresh independent review. The implementer
   does not approve or merge this task.
+- Final pre-review fetch confirmed `origin/main` remained
+  `d34cd9560870c15da922a84f4dab7808201dd89d`. Rebasing the task branch
+  onto that exact commit was a no-op.
