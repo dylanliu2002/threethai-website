@@ -4,6 +4,7 @@ import SiteHeader from "@/components/layout/site-header";
 import SiteFooter from "@/components/layout/site-footer";
 import { RootDocument, rootMetadata, rootViewport } from "@/components/layout/root-document";
 import { organizationSchema, websiteSchema, jsonLd } from "@/lib/seo";
+import { SWITCHER_AVAILABILITY } from "@/content/switcher-availability";
 import { langParams, resolveLang } from "./_lang";
 import "../globals.css";
 
@@ -26,7 +27,7 @@ export default async function LangLayout({
     <RootDocument locale={locale}>
       <div className="flex min-h-screen flex-col">
         {jsonLd([organizationSchema(), websiteSchema()])}
-        <SiteHeader locale={locale} dict={dict} />
+        <SiteHeader locale={locale} dict={dict} availableLocales={SWITCHER_AVAILABILITY} />
         <main className="flex-1">{children}</main>
         <SiteFooter locale={locale} dict={dict} />
       </div>
