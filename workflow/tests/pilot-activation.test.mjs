@@ -21,6 +21,7 @@ import {
   markRunStartedInternal,
   reserveTaskDispatchInternal,
 } from "../internal/lease-engine.mjs";
+import { activationScopedCliWakeupIdInternal } from "../internal/scheduler-engine.mjs";
 import {
   bootstrapAuthorityStoreInternal,
   inspectAuthorityStoreInternal,
@@ -362,6 +363,56 @@ test("PILOT-DISPATCH-02 a second dispatch is blocked", () => {
     const second = reservePilot(fixture, "second");
     assert.equal(second.acquired, false);
     assert.equal(second.reason, "activation-disabled");
+  } finally {
+    cleanupFixture(fixture.stateDirectory);
+  }
+});
+
+test("PILOT-WAKEUP-01 a legacy activation wakeup does not block a new activation", () => {
+  const fixture = pilotFixture();
+  try {
+    const legacyWakeupId = `cli-tick:${TASK_KEY}`;
+    const legacyWakeup = {
+      task_key: TASK_KEY,
+      observed_at: "2026-09-05T00:00:00.000Z",
+    };
+    mutateControllerStateInternal(fixture.stateDirectory, {
+      type: "test.legacy-cli-wakeup",
+      taskKey: TASK_KEY,
+    }, (state) => {
+      state.wakeups[legacyWakeupId] = structuredClone(legacyWakeup);
+      return { simulated: true };
+    });
+
+    const prefix = activationScopedCliWakeupIdInternal(fixture.activation);
+    const activationWakeupId = `${prefix}:${TASK_KEY}`;
+    assert.equal(prefix, `cli-tick:${fixture.activation.activation_id}`);
+    assert.notEqual(activationWakeupId, legacyWakeupId);
+
+    const admitted = reservePilot(fixture, activationWakeupId);
+    const state = readControllerStateInternal(fixture.stateDirectory);
+    assert.equal(admitted.acquired, true);
+    assert.deepEqual(state.wakeups[legacyWakeupId], legacyWakeup);
+    assert.equal(state.wakeups[activationWakeupId].task_key, TASK_KEY);
+  } finally {
+    cleanupFixture(fixture.stateDirectory);
+  }
+});
+
+test("PILOT-WAKEUP-02 the same activation wakeup remains idempotently blocked", () => {
+  const fixture = pilotFixture();
+  try {
+    const activationWakeupId = `${
+      activationScopedCliWakeupIdInternal(fixture.activation)
+    }:${TASK_KEY}`;
+    assert.equal(reservePilot(fixture, activationWakeupId).acquired, true);
+
+    const duplicate = reservePilot(fixture, activationWakeupId);
+    const state = readControllerStateInternal(fixture.stateDirectory);
+    assert.equal(duplicate.acquired, false);
+    assert.equal(duplicate.duplicate, true);
+    assert.equal(duplicate.reason, "duplicate-wakeup");
+    assert.equal(Object.hasOwn(state.wakeups, activationWakeupId), true);
   } finally {
     cleanupFixture(fixture.stateDirectory);
   }
