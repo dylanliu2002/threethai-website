@@ -58,3 +58,28 @@ Base: 4c2c969f02e807e8172688246861406ac01f8395
   GitHub write performed, or production/DNS/deployment action taken.
 - Implementation is ready for fresh independent `QA_PERFORMANCE` review. The
   implementer does not approve or merge this change.
+
+## Governance remediation for pull request #25
+
+- Added the authoritative
+  `tasks/sys-auto-007-expired-pilot-grant-rotation.md` task card after
+  independent review identified its absence as the sole governance blocker.
+  The card explicitly states that it was created during remediation and records
+  no retrospective card existence, approval, timestamp, worker run, or model
+  execution.
+- Added the exact seven-path implementation/test File Allowlist covering the
+  existing pull-request diff. Task card and append-only worklog ownership are
+  recorded separately under repository governance.
+- Changed governance metadata only. Controller/runtime implementation and tests
+  remain byte-identical to reviewed head
+  `b2e3cb4a4e1cc1755b9b81941bd7552f8cc0d00e`.
+- Task-card structure/allowlist and governance-only scope checks passed. Focused
+  rotation tests passed `24/24`; the full workflow suite passed `162/162`;
+  `validate --all`, `reconcile --dry-run`, `tick --dry-run`, lint, typecheck,
+  and `git diff --check` passed.
+- The canonical authority-store aggregate fingerprint remained
+  `71cc274e5090c03dc5028157519097393209873c2e884ebba7d76cb4e01d339c`
+  across validation (5 files). No Grant, activation, controller state, journal,
+  key, ACL, worker, model, merge, or deployment action occurred.
+- The new pull-request head requires fresh independent review. The implementer
+  does not approve or merge the remediation.
