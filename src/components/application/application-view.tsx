@@ -7,16 +7,25 @@ import { productBySlug } from "@/content/products";
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
 import { contentLocaleOf, localePath } from "@/content/company";
+import { pageCopyFor } from "@/content/translation-availability";
 
-/** Shared application-page template — all five application pages render here. */
+/**
+ * Shared application-page template — all five application pages render here.
+ *
+ * The application's own copy resolves through `pageCopyFor`, the same call the
+ * SEO policy reads, so a promoted page renders the registered translation and an
+ * unpromoted one is unchanged. `cl` stays for related products, whose copy this
+ * page's promotion never claims to cover.
+ */
 export default function ApplicationView({ application, locale, dict }: { application: Application; locale: Locale; dict: Dictionary }) {
+  const { entity, contentLocale } = pageCopyFor(`/applications/${application.slug}`, locale, application);
   const cl = contentLocaleOf(locale);
   const t = dict.applicationPage;
   const lp = (path: string) => localePath(path, locale);
   const blocks = [
-    { heading: application.problem[cl], icon: "M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" },
-    { heading: application.whereUsed[cl], icon: "M12 21s-7-5.1-7-11a7 7 0 1114 0c0 5.9-7 11-7 11zm0-8.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" },
-    { heading: application.whyTemporary[cl], icon: "M4 4v6h6M20 20v-6h-6M20 9A8 8 0 005.6 5.6L4 10m16 4l-1.6 4.4A8 8 0 014 15" },
+    { heading: entity.problem[contentLocale], icon: "M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" },
+    { heading: entity.whereUsed[contentLocale], icon: "M12 21s-7-5.1-7-11a7 7 0 1114 0c0 5.9-7 11-7 11zm0-8.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" },
+    { heading: entity.whyTemporary[contentLocale], icon: "M4 4v6h6M20 20v-6h-6M20 9A8 8 0 005.6 5.6L4 10m16 4l-1.6 4.4A8 8 0 014 15" },
   ];
 
   return (
@@ -31,15 +40,15 @@ export default function ApplicationView({ application, locale, dict }: { applica
                 trail={[
                   { name: dict.breadcrumbs.home, path: lp("/") },
                   { name: dict.breadcrumbs.applications, path: lp("/applications") },
-                  { name: application.name[cl], path: lp(`/applications/${application.slug}`) },
+                  { name: entity.name[contentLocale], path: lp(`/applications/${application.slug}`) },
                 ]}
               />
             </div>
             <p className="eyebrow-light mt-6">{dict.nav.applications}</p>
             <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
-              {application.name[cl]}
+              {entity.name[contentLocale]}
             </h1>
-            <p className="mt-4 max-w-xl text-base leading-relaxed text-white/75 sm:text-lg">{application.summary[cl]}</p>
+            <p className="mt-4 max-w-xl text-base leading-relaxed text-white/75 sm:text-lg">{entity.summary[contentLocale]}</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href={`${lp("/request-sample")}?application=${application.slug}`} className="btn-gold">
                 {dict.actions.requestSample}
@@ -52,7 +61,7 @@ export default function ApplicationView({ application, locale, dict }: { applica
           <figure className="relative aspect-[4/3] overflow-hidden rounded-lg border border-white/15 shadow-2xl">
             <Image
               src={application.image}
-              alt={application.imageAlt[cl]}
+              alt={entity.imageAlt[contentLocale]}
               fill
               priority
               sizes="(min-width: 1024px) 40vw, 100vw"
@@ -112,7 +121,7 @@ export default function ApplicationView({ application, locale, dict }: { applica
           <Reveal delay={90}>
             <h2 className="display-3">{t.selectionTitle}</h2>
             <ul className="mt-5 space-y-3">
-              {application.selectionVariables[cl].map((item) => (
+              {entity.selectionVariables[contentLocale].map((item) => (
                 <li key={item} className="flex items-start gap-3 text-sm leading-relaxed text-foreground/85">
                   <span aria-hidden="true" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" />
                   {item}
@@ -127,8 +136,8 @@ export default function ApplicationView({ application, locale, dict }: { applica
       <section className="py-14 sm:py-16">
         <div className="container-site grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
           <Reveal>
-            <h2 className="display-3">{application.testing[cl].heading}</h2>
-            <p className="mt-3 text-base leading-relaxed text-muted-foreground">{application.testing[cl].body}</p>
+            <h2 className="display-3">{entity.testing[contentLocale].heading}</h2>
+            <p className="mt-3 text-base leading-relaxed text-muted-foreground">{entity.testing[contentLocale].body}</p>
             <Link href={lp("/knowledge")} className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
               {dict.nav.knowledge}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>

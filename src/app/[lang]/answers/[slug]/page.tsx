@@ -5,7 +5,8 @@ import Breadcrumbs from "@/components/layout/breadcrumbs";
 import AnswerArticle from "@/components/answers/answer-article";
 import { buyerAnswers, answerBySlug, expandedAnswerFor } from "@/content/answers";
 import { articleSchema, breadcrumbSchema, buildMetadata, faqSchema, jsonLd, webPageSchema } from "@/lib/seo";
-import { localePath, contentLocaleOf } from "@/content/company";
+import { localePath, contentLocaleOf, type Locale } from "@/content/company";
+import { pageCopyFor } from "@/content/translation-availability";
 import { langParams, resolveLang } from "../../_lang";
 
 type Props = { params: Promise<{ lang: string; slug: string }> };
@@ -14,17 +15,35 @@ export function generateStaticParams() {
   return langParams().flatMap(({ lang }) => buyerAnswers.map(({ slug }) => ({ lang, slug })));
 }
 
+/**
+ * The answer's own copy and its SEO ownership both resolve from `pageCopyFor`.
+ * The per-locale expansion pack (`expandedAnswerFor`) is English and Chinese
+ * material only, so it is used exactly as far as this page is still rendering
+ * that modelled copy: once the page is promoted, mixing the English expansion
+ * blocks back in would put English prose on a page that owns itself as Spanish.
+ */
+function answerCopy(slug: string, locale: Locale) {
+  const record = answerBySlug(slug)!;
+  const { entity, contentLocale } = pageCopyFor(`/answers/${slug}`, locale, record);
+  const modelled = contentLocaleOf(locale);
+  const expanded = contentLocale === modelled ? expandedAnswerFor(slug, modelled) : undefined;
+  return {
+    record,
+    question: entity.question[contentLocale],
+    shortAnswer: entity.shortAnswer[contentLocale],
+    expanded,
+  };
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const answer = answerBySlug(slug);
-  if (!answer) return {};
-  const expanded = expandedAnswerFor(slug, "en");
+  if (!answerBySlug(slug)) return {};
   const { locale } = await resolveLang(params, notFound);
-  const cl = contentLocaleOf(locale);
+  const { question, shortAnswer, expanded } = answerCopy(slug, locale);
   return buildMetadata({
-    title: `${answer.question[cl]} | Buyer Answer`,
-    description: expanded?.metaDescription ?? answer.shortAnswer[cl],
-    path: `/answers/${answer.slug}`,
+    title: `${question} | Buyer Answer`,
+    description: expanded?.metaDescription ?? shortAnswer,
+    path: `/answers/${slug}`,
     locale,
     type: "article",
   });
@@ -35,17 +54,16 @@ export default async function LangAnswerPage({ params }: Props) {
   const answer = answerBySlug(slug);
   if (!answer) notFound();
   const { dict, locale } = await resolveLang(params, notFound);
-  const cl = contentLocaleOf(locale);
-  const expanded = expandedAnswerFor(slug, cl);
-  const faqs = expanded?.faqs ?? ([[answer.question[cl], answer.shortAnswer[cl]]] as const);
+  const { question, shortAnswer, expanded } = answerCopy(slug, locale);
+  const faqs = expanded?.faqs ?? ([[question, shortAnswer]] as const);
   const lp = (p: string) => localePath(p, locale);
 
   return (
     <>
       {jsonLd([
         articleSchema({
-          headline: answer.question[cl],
-          description: expanded?.metaDescription ?? answer.shortAnswer[cl],
+          headline: question,
+          description: expanded?.metaDescription ?? shortAnswer,
           slug: answer.slug,
           datePublished: "2026-08-15",
           dateModified: "2026-08-29",
@@ -56,13 +74,13 @@ export default async function LangAnswerPage({ params }: Props) {
         breadcrumbSchema([
           { name: dict.breadcrumbs.home, path: lp("/") },
           { name: dict.breadcrumbs.answers, path: lp("/answers") },
-          { name: answer.question[cl], path: lp(`/answers/${answer.slug}`) },
+          { name: question, path: lp(`/answers/${answer.slug}`) },
         ]),
         webPageSchema({
           path: `/answers/${answer.slug}`,
           locale,
-          name: answer.question[cl],
-          description: expanded?.metaDescription ?? answer.shortAnswer[cl],
+          name: question,
+          description: expanded?.metaDescription ?? shortAnswer,
         }),
       ])}
       <div className="container-site max-w-3xl py-12 sm:py-16">
@@ -71,7 +89,7 @@ export default async function LangAnswerPage({ params }: Props) {
           trail={[
             { name: dict.breadcrumbs.home, path: lp("/") },
             { name: dict.breadcrumbs.answers, path: lp("/answers") },
-            { name: answer.question[cl], path: lp(`/answers/${answer.slug}`) },
+            { name: question, path: lp(`/answers/${answer.slug}`) },
           ]}
         />
         <AnswerArticle slug={slug} locale={locale} dict={dict} />

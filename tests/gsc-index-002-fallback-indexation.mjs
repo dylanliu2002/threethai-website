@@ -255,17 +255,30 @@ test("body-copy language follows the canonical owner, not the URL prefix", () =>
 });
 
 // ---------------------------------------------------------------------------
-// 8 · Core genuinely localised pages are untouched.
+// 8 · Core pages keep their genuine owners.
+//
+// The full supported-locale graph this test used to require on every core path
+// rested on a class-wide exemption: "not a detail page" was treated as
+// "translated in every locale". INTL-DEES-002B removed it — ES/DE translate
+// 128 of 248 UI strings over English body copy — so ES and DE now consolidate
+// onto the English owner here too. What this test is for is unchanged: a page
+// whose copy really exists owns its canonical and declares exactly its real
+// equivalents.
 // ---------------------------------------------------------------------------
-test("core localized pages keep the full supported-locale graph and self-canonical", () => {
+test("core pages keep their genuine localized owners and claim no false one", () => {
   for (const p of CORE_PATHS) {
-    assert.deepEqual([...localizedLocalesFor(p)].sort(), [...locales].sort(), p);
-    for (const locale of locales) {
+    assert.deepEqual([...localizedLocalesFor(p)].sort(), [...TRANSLATED_CONTENT_LOCALES].sort(), p);
+    for (const locale of TRANSLATED_CONTENT_LOCALES) {
       assert.equal(isLocalizedAt(p, locale), true, `${locale} ${p}`);
       assert.equal(canonicalUrlFor(p, locale), `${siteUrl}${localePath(p, locale)}`, `${locale} ${p}`);
     }
+    for (const locale of FALLBACK_LOCALES) {
+      assert.equal(isEnglishFallbackCopy(p, locale), true, `${locale} ${p} claims ownership it has no copy for`);
+      assert.equal(canonicalUrlFor(p, locale), `${siteUrl}${p}`, `${locale} ${p}`);
+      assert.equal(hreflangForRoute(p, locale), undefined, `${locale} ${p} claims a language graph`);
+    }
     const map = hreflangForPath(p);
-    assert.equal(Object.keys(map).length, locales.length + 1, `${p} lost an hreflang alternate`);
+    assert.equal(Object.keys(map).length, TRANSLATED_CONTENT_LOCALES.length + 1, `${p} graph is not its real equivalents`);
     assert.equal(map["x-default"], `${siteUrl}${localePath(p, "en")}`);
   }
 });

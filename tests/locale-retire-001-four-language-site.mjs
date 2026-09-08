@@ -415,8 +415,16 @@ test("REQ 12: hreflang advertises no retired locale on any page", () => {
     }
     assert.ok("x-default" in map, `${p} lost x-default`);
   }
-  // Exactly the four BCP-47 tags, plus x-default, on a fully localised page.
-  assert.deepEqual(Object.keys(hreflangForPath("/quality")).sort(), [...ALLOWED_HREFLANG_UNIVERSE].sort());
+  // Nothing retired may be advertised anywhere. What *is* advertised shrank
+  // again under INTL-DEES-002B: ES and DE are no longer claimed on paths whose
+  // copy they do not carry, so even the most localized core page advertises
+  // EN + ZH + x-default until a page-level promotion proves otherwise.
+  assert.deepEqual(Object.keys(hreflangForPath("/quality")).sort(), ["en", "x-default", "zh-CN"]);
+  for (const tag of [htmlLang.es, htmlLang.de]) {
+    for (const p of ALL_PATHS) {
+      assert.equal(tag in hreflangForPath(p), false, `${p} advertises ${tag} without registered copy`);
+    }
+  }
 });
 
 test("REQ 12: a retired locale can never be an alternate key anywhere in the policy", () => {
@@ -463,12 +471,25 @@ test("REQ 16: the fallback-copy inventory derives from the active locale set", (
   assert.ok(!read("tests/gsc-index-002-fallback-indexation.mjs").includes("FALLBACK_LOCALES.length, 8"));
 });
 
-test("REQ 13-16: ES and DE core pages keep owning their own canonical", () => {
+test("REQ 13-16: ES and DE core pages consolidate onto the English owner", async () => {
+  // LOCALE-RETIRE-001 kept four site languages and this suite pinned their
+  // routing, not their indexation. The indexation posture for paths without
+  // ES/DE copy belongs to the availability policy, and INTL-DEES-002B made it
+  // path-aware: a page owns itself only where its translated copy is
+  // registered. ES/DE chrome is partial over English body copy, so these pages
+  // now consolidate exactly as the deep copies above do — routing unaffected.
+  const { contentHtmlLangOf } = await importSource("src/content/availability.ts");
   for (const p of CORE_PATHS) {
     for (const locale of ["es", "de"]) {
-      assert.equal(canonicalUrlFor(p, locale), `${siteUrl}${localePath(p, locale)}`, `${locale}${p} lost its core page`);
-      assert.equal(isSitemapEligible(p, locale), true, `${locale}${p} must stay in the sitemap`);
-      assert.notEqual(hreflangForRoute(p, locale), undefined, `${locale}${p} lost its language graph`);
+      assert.equal(canonicalUrlFor(p, locale), `${siteUrl}${p}`, `${locale}${p} claims its own canonical`);
+      assert.equal(isSitemapEligible(p, locale), false, `${locale}${p} must not be a sitemap owner`);
+      assert.equal(hreflangForRoute(p, locale), undefined, `${locale}${p} claims a language graph`);
+      assert.equal(contentHtmlLangOf(p, locale), htmlLang.en, `${locale}${p} claims translated body copy`);
+      // Still routed, still served, still reachable from the switcher.
+      const decision = routeFor({ pathname: localePath(p, locale) });
+      assert.equal(decision.kind, "serve", `${locale}${p} stopped being served`);
+      assert.equal(decision.locale, locale, `${locale}${p} no longer routes to its own locale`);
+      assert.equal(localeLabels[locale] !== undefined, true, `${locale} left the language model`);
     }
   }
 });
@@ -693,11 +714,24 @@ test("build: the generated sitemap advertises no retired locale", buildOptions, 
       `sitemap still advertises a /${locale} alternate`,
     );
   }
-  assert.deepEqual(
-    [...new Set(alternates.map((a) => a.tag))].sort(),
-    [...ALLOWED_HREFLANG_UNIVERSE].sort(),
-    "the sitemap advertises an hreflang tag outside the four-language universe",
+  // Every advertised tag must still be one of the four site languages, and the
+  // set itself shrank under INTL-DEES-002B: a language is declared only where a
+  // page really carries its copy, so ES and DE leave the sitemap's alternates
+  // until a page-level promotion registers them. The retired six stay absent by
+  // the loops above; the four remain the site's routing universe regardless.
+  const advertised = [...new Set(alternates.map((a) => a.tag))];
+  assert.ok(
+    advertised.every((tag) => ALLOWED_HREFLANG_UNIVERSE.includes(tag)),
+    `the sitemap advertises an hreflang tag outside the four-language universe: ${advertised.join(",")}`,
   );
+  for (const tag of [htmlLang.es, htmlLang.de]) {
+    assert.equal(
+      advertised.includes(tag),
+      false,
+      `the sitemap declares ${tag} as a localized owner while no page carries ${tag} copy`,
+    );
+  }
+  assert.deepEqual(advertised.sort(), ["en", "x-default", "zh-CN"]);
   // A deep page keeps only the genuinely translated pair plus x-default; ES and
   // DE stay untranslated copies and must not be promoted back by this change.
   const deep = body.slice(body.indexOf("/products/water-soluble-pva-yarn"));
