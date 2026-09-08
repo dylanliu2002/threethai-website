@@ -11,6 +11,7 @@ import {
   bootstrapAuthorityStoreInternal,
   inspectAuthorityStoreInternal,
   issueSyntheticPilotGrantInternal,
+  retireExpiredReadySyntheticPilotActivationInternal,
   rotateExpiredSyntheticPilotGrantInternal,
   writeSignedGrantOnceInternal,
 } from "../internal/pilot-admin-engine.mjs";
@@ -144,6 +145,29 @@ export function rotateExpiredSyntheticPilotGrant(options = {}) {
   return rotateExpiredSyntheticPilotGrantInternal({
     context,
     contract,
+    worktreeRealpath,
+    request: {
+      human_authorization_id: options.human_authorization_id,
+      task_key: options.task_key,
+    },
+  });
+}
+
+export function retireExpiredReadySyntheticPilotActivation(options = {}) {
+  exactOptions(options, ["repoRoot", "human_authorization_id", "task_key"]);
+  const repoRoot = requireRepoRoot(options.repoRoot);
+  if (options.task_key !== SYNTHETIC_PILOT_TASK_KEY) {
+    throw new Error("Expired READY activation retirement is restricted to the exact synthetic pilot task.");
+  }
+  const context = resolveCanonicalControllerContext(repoRoot);
+  requireMatchingCanonicalAuthority(context);
+  const contract = loadContracts(repoRoot)
+    .find((candidate) => candidate.task_key === SYNTHETIC_PILOT_TASK_KEY);
+  if (!contract) throw new Error("Synthetic pilot machine contract is unavailable.");
+  assertSyntheticPilotContract(contract);
+  const worktreeRealpath = assertExactPilotWorktree(context, contract);
+  return retireExpiredReadySyntheticPilotActivationInternal({
+    context,
     worktreeRealpath,
     request: {
       human_authorization_id: options.human_authorization_id,

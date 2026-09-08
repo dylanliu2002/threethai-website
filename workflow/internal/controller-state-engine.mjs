@@ -37,6 +37,7 @@ export function emptyControllerStateInternal() {
       consumed_run_id: null,
     },
     pilot_authorization_history: {},
+    pilot_activation_retirement_history: {},
     grant_rotation_history: {},
     wakeups: {}, tasks: {}, runs: {}, leases: {}, reservations: {}, approvals: {},
     closeouts: {}, publishing: {}, validation_evidence: {},
@@ -283,7 +284,9 @@ export function enableSyntheticPilotOnceInternal(stateDirectory, {
       throw new Error("A one-time synthetic pilot activation is already pending.");
     }
     state.pilot_authorization_history ??= {};
-    if (state.pilot_authorization_history[parsed.human_authorization_id]) {
+    if (state.pilot_authorization_history[parsed.human_authorization_id]
+      || state.pilot_activation_retirement_history?.[parsed.human_authorization_id]
+      || state.grant_rotation_history?.[parsed.human_authorization_id]) {
       throw new Error("Synthetic pilot human authorization ID has already been used.");
     }
     const activeWorkers = Object.values(state.leases ?? {})

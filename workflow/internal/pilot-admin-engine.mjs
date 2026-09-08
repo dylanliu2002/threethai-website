@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { canonicalJson } from "../canonical.mjs";
 import { computeContractDigest } from "../contract.mjs";
 import {
   createSignedGrantInternal,
@@ -21,7 +22,10 @@ import {
   SYNTHETIC_PILOT_TASK_KEY,
   SYNTHETIC_PILOT_WORKTREE,
 } from "../constants.mjs";
-import { SyntheticPilotGrantRotationRequestSchema } from "../schemas.mjs";
+import {
+  SyntheticPilotActivationRetirementRequestSchema,
+  SyntheticPilotGrantRotationRequestSchema,
+} from "../schemas.mjs";
 import { publicKeyFingerprint } from "../trust-anchor.mjs";
 
 const TERMINAL_RUN_STATUSES = new Set([
@@ -32,6 +36,12 @@ const TERMINAL_RUN_STATUSES = new Set([
   "VALIDATION_FAILED",
   "STALE",
 ]);
+
+export const EXPIRED_READY_PILOT_RETIREMENT = Object.freeze({
+  status: "RETIRED_BEFORE_DISPATCH",
+  reason: "GRANT_EXPIRED_BEFORE_DISPATCH",
+  event: "controller.synthetic-pilot.retired-before-dispatch",
+});
 
 function publicKeyPemFromPrivate(privateKeyPem) {
   return crypto.createPublicKey(privateKeyPem).export({ type: "spki", format: "pem" });
@@ -303,6 +313,90 @@ function liveAt(record, nowMs) {
   return !Number.isFinite(record?.expires_at_ms) || record.expires_at_ms > nowMs;
 }
 
+function retiredActivationFromRecord(record) {
+  return {
+    ...structuredClone(record.activation_before),
+    status: EXPIRED_READY_PILOT_RETIREMENT.status,
+    retired_at: record.retired_at,
+    retirement_reason: record.retirement_reason,
+    retirement_human_authorization_id: record.retirement_human_authorization_id,
+    expired_grant_authorization_id: record.expired_grant_authorization_id,
+    expired_grant_digest: record.expired_grant_digest,
+    expired_grant_expires_at: record.expired_grant_expires_at,
+  };
+}
+
+function matchingRetirementRecord(state) {
+  const activation = state.pilot_activation;
+  const humanAuthorizationId = activation?.retirement_human_authorization_id;
+  const record = state.pilot_activation_retirement_history?.[humanAuthorizationId];
+  if (!record
+    || record.activation_id !== activation.activation_id
+    || record.task_key !== activation.task_key
+    || canonicalJson(retiredActivationFromRecord(record)) !== canonicalJson(activation)) {
+    throw new Error("RETIRED_BEFORE_DISPATCH synthetic pilot activation lacks exact durable retirement evidence.");
+  }
+  return record;
+}
+
+function assertRetirementStateSafe(state, grant, humanAuthorizationId, now) {
+  if (state.activation?.authorized !== false) {
+    throw new Error("General autonomous activation must remain disabled during activation retirement.");
+  }
+  const activation = state.pilot_activation;
+  if (activation?.status !== "READY") {
+    throw new Error("Only a READY synthetic pilot activation can be retired before dispatch.");
+  }
+  if (activation.task_key !== SYNTHETIC_PILOT_TASK_KEY
+    || activation.authorization_id !== grant.authorization_id
+    || activation.contract_digest !== grant.contract_digest
+    || activation.card_blob_sha !== grant.card_blob_sha
+    || activation.max_workers !== 1
+    || activation.max_dispatch_attempts !== 1
+    || activation.dispatch_attempts !== 0
+    || activation.network !== grant.activation.synthetic_pilot_once.network
+    || activation.publishing !== false
+    || activation.production !== false
+    || activation.dns !== false
+    || activation.deployment !== false
+    || activation.consumed_at !== null
+    || activation.consumed_run_id !== null) {
+    throw new Error("READY synthetic pilot activation does not exactly match an undispatched expired Grant.");
+  }
+  const activationAuthorization = state.pilot_authorization_history
+    ?.[activation.human_authorization_id];
+  if (!activationAuthorization
+    || activationAuthorization.activation_id !== activation.activation_id
+    || activationAuthorization.task_key !== activation.task_key
+    || activationAuthorization.activated_at !== activation.activated_at) {
+    throw new Error("READY synthetic pilot activation authorization history is unavailable or inconsistent.");
+  }
+  state.pilot_activation_retirement_history ??= {};
+  state.grant_rotation_history ??= {};
+  if (state.pilot_authorization_history[humanAuthorizationId]
+    || state.pilot_activation_retirement_history[humanAuthorizationId]
+    || state.grant_rotation_history[humanAuthorizationId]) {
+    throw new Error("Synthetic pilot human authorization ID has already been used.");
+  }
+  const associatedRuns = Object.values(state.runs ?? {})
+    .filter((run) => run.one_time_pilot_activation_id === activation.activation_id);
+  if (associatedRuns.length > 0) {
+    throw new Error("Undispatched activation retirement requires zero associated runs.");
+  }
+  const nowMs = now.getTime();
+  const liveLeases = Object.values(state.leases ?? {})
+    .filter((lease) => liveAt(lease, nowMs));
+  if (liveLeases.length > 0) {
+    throw new Error("Undispatched activation retirement requires zero live leases.");
+  }
+  const liveReservations = Object.values(state.reservations ?? {})
+    .filter((reservation) => liveAt(reservation, nowMs));
+  if (liveReservations.length > 0) {
+    throw new Error("Undispatched activation retirement requires zero live reservations.");
+  }
+  return activation;
+}
+
 function assertRotationStateSafe(state, humanAuthorizationId, now) {
   if (state.activation?.authorized !== false) {
     throw new Error("General autonomous activation must remain disabled during Grant rotation.");
@@ -311,8 +405,11 @@ function assertRotationStateSafe(state, humanAuthorizationId, now) {
   if (pilotStatus === "READY") {
     throw new Error("A READY synthetic pilot activation blocks Grant rotation.");
   }
-  if (!["DISABLED", "CONSUMED"].includes(pilotStatus)) {
+  if (!["DISABLED", "CONSUMED", EXPIRED_READY_PILOT_RETIREMENT.status].includes(pilotStatus)) {
     throw new Error("Synthetic pilot activation state is not safe for Grant rotation.");
+  }
+  if (pilotStatus === EXPIRED_READY_PILOT_RETIREMENT.status) {
+    matchingRetirementRecord(state);
   }
   if (!state.pilot_authorization_history
     || typeof state.pilot_authorization_history !== "object"
@@ -321,6 +418,7 @@ function assertRotationStateSafe(state, humanAuthorizationId, now) {
   }
   state.grant_rotation_history ??= {};
   if (state.pilot_authorization_history[humanAuthorizationId]
+    || state.pilot_activation_retirement_history?.[humanAuthorizationId]
     || state.grant_rotation_history[humanAuthorizationId]) {
     throw new Error("Synthetic pilot human authorization ID has already been used.");
   }
@@ -340,6 +438,95 @@ function assertRotationStateSafe(state, humanAuthorizationId, now) {
   if (activeRuns.length > 0) {
     throw new Error("Expired Grant rotation requires zero active worker runs.");
   }
+}
+
+export function retireExpiredReadySyntheticPilotActivationInternal({
+  context,
+  worktreeRealpath,
+  request,
+  now = new Date(),
+} = {}) {
+  const parsedRequest = SyntheticPilotActivationRetirementRequestSchema.parse(request);
+  if (!context?.grants_directory || !context?.state_directory
+    || !context?.pinned_public_key_pem || !context?.pinned_key_fingerprint) {
+    throw new Error("Expired READY activation retirement requires controller authority context.");
+  }
+  if (!path.isAbsolute(worktreeRealpath) || !fs.existsSync(worktreeRealpath)
+    || !samePath(worktreeRealpath, fs.realpathSync.native(worktreeRealpath))) {
+    throw new Error("Synthetic pilot worktree must be an existing exact realpath.");
+  }
+  const canonicalGrant = path.join(context.grants_directory, `${SYNTHETIC_PILOT_TASK_KEY}.json`);
+
+  return withStateMutexInternal(context.state_directory, ({ ownerToken }) => {
+    if (!fs.existsSync(canonicalGrant)) {
+      throw new Error("Existing canonical synthetic-pilot Grant is unavailable.");
+    }
+    let grantInput;
+    try {
+      grantInput = JSON.parse(fs.readFileSync(canonicalGrant, "utf8"));
+    } catch (error) {
+      throw new Error("Existing canonical synthetic-pilot Grant is not valid JSON.", { cause: error });
+    }
+    const grant = validateExpiredSyntheticPilotGrantForRetirementInternal(grantInput, {
+      now,
+      trustedPublicKeyPem: context.pinned_public_key_pem,
+      trustedFingerprint: context.pinned_key_fingerprint,
+    });
+    assertRetirableSyntheticPilotGrant(grant, worktreeRealpath);
+    const state = readControllerStateInternal(context.state_directory);
+    const activation = assertRetirementStateSafe(
+      state,
+      grant,
+      parsedRequest.human_authorization_id,
+      now,
+    );
+    const record = {
+      task_key: SYNTHETIC_PILOT_TASK_KEY,
+      activation_id: activation.activation_id,
+      activation_human_authorization_id: activation.human_authorization_id,
+      retirement_human_authorization_id: parsedRequest.human_authorization_id,
+      retirement_reason: EXPIRED_READY_PILOT_RETIREMENT.reason,
+      retired_at: now.toISOString(),
+      expired_grant_authorization_id: grant.authorization_id,
+      expired_grant_digest: grant.envelope_digest,
+      expired_grant_expires_at: grant.provenance.expires_at,
+      activation_before: structuredClone(activation),
+    };
+    const mutation = mutateControllerStateUnderMutexInternal(context.state_directory, ownerToken, {
+      type: EXPIRED_READY_PILOT_RETIREMENT.event,
+      taskKey: SYNTHETIC_PILOT_TASK_KEY,
+      payload: {
+        task_key: record.task_key,
+        activation_id: record.activation_id,
+        activation_human_authorization_id: record.activation_human_authorization_id,
+        retirement_human_authorization_id: record.retirement_human_authorization_id,
+        retirement_reason: record.retirement_reason,
+        retired_at: record.retired_at,
+        expired_grant_authorization_id: record.expired_grant_authorization_id,
+        expired_grant_digest: record.expired_grant_digest,
+        expired_grant_expires_at: record.expired_grant_expires_at,
+        dispatch_attempts: 0,
+      },
+    }, (nextState) => {
+      assertRetirementStateSafe(
+        nextState,
+        grant,
+        parsedRequest.human_authorization_id,
+        now,
+      );
+      nextState.pilot_activation_retirement_history[parsedRequest.human_authorization_id]
+        = structuredClone(record);
+      nextState.pilot_activation = retiredActivationFromRecord(record);
+      return structuredClone(record);
+    });
+    return {
+      retired: true,
+      ...mutation.result,
+      activation_status: EXPIRED_READY_PILOT_RETIREMENT.status,
+      dispatches: 0,
+      workers_started: 0,
+    };
+  });
 }
 
 function restrictedTemporary(target, bytes, options) {
