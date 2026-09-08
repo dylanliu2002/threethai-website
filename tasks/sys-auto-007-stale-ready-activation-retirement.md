@@ -9,7 +9,7 @@
 - **Governance Role / Owner:** `ORCHESTRATOR`
 - **Execution Profile:** `HIGH_RISK_CODE`
 - **Priority:** `P0`
-- **Status:** `IN_PROGRESS`
+- **Status:** `REVIEW`
 - **Risk:** `HIGH`
 - **Branch:** `codex/sys-auto-007-stale-ready-retirement`
 - **Worktree:** `worktrees/sys-auto-007-stale-ready-retirement`
@@ -92,8 +92,25 @@ the separately authorized retire -> rotate -> fresh-activation lifecycle.
 
 ## Completion Record
 
-- Implementation commit: pending
-- Validation results: pending
+- Implementation commit: `0303b24daf9488e931f7960d79d3cb0a31107841`
+- Focused expiry/rotation/retirement tests: `31/31` passed
+- Full workflow tests: `169/169` passed in a disposable independent clone
+  with an unprovisioned, repository-distinct authority namespace; the clone was
+  deleted after the run
+- `validate --all`: passed (`4` contracts; secret scan `87` files)
+- `reconcile --dry-run`: passed; revision/event count `21/21`, zero mutations,
+  zero live leases and zero reservations
+- `tick --dry-run`: passed; zero dispatches, mutations, workers, automation,
+  GitHub mutations, publishing actions, or Grants created
+- Lint, typecheck, and `git diff --check`: passed
+- Canonical controller state SHA-256 before/after:
+  `da13c169e0eabb8ab61323e65779863c1c448352fc18c73f66bca5a193c51ac6`
+- Canonical journal SHA-256 before/after:
+  `cf101fe2f3175f7a4d2289059674a0eedf989f112bc666f0656cd7007d0a1a5d`
+- Canonical Grant file SHA-256 before/after:
+  `86216563d259c05eae7290ebdc1e07e2f604f80123e6d3fcc3d28a83204ba122`
+- All six canonical authority files were byte-identical before and after
+  validation; activation remained `READY` with `dispatch_attempts=0`
 - Canonical controller state mutated: `NO`
 - Grant changed: `NO`
 - Activation created: `NO`
