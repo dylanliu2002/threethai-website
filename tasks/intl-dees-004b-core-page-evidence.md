@@ -108,7 +108,7 @@ This is 002B's blocker #1 in a different costume.
 surface, not permission.** Supporting core evidence without it would ship the
 defect this whole line exists to refuse.
 
-### A3 · Measured state of the four example pages (and their neighbours)
+### A3 · Measured state of the four example pages — **SUPERSEDED, figures wrong; read A3b**
 
 Computed from a production build of `f27bfca` — 222 prerendered documents — by
 comparing each ES/DE document's visible text blocks with its English owner's. A
@@ -132,7 +132,9 @@ is the share of a locale page's prose blocks that are **verbatim English**.
 | `/products/<slug>` | 30 | 19 | 63 pct | 70 pct | 15 pct |
 | `/quality` | 31 | 24 | **77 pct** | 80 pct | 13 pct |
 
-Aggregate over these twelve: **ES 52 pct, DE 57 pct, ZH control 9 pct.**
+Aggregate over these twelve: **ES 52 pct, DE 57 pct, ZH control 9 pct.** — **WRONG:
+every number in A3 understates English because the exclusion regex also ate
+English prose. A3b is the corrected measurement; do not cite this row.**
 
 Read this table as three different problems, not one:
 
@@ -162,6 +164,87 @@ under the model's own guarantee and scores 0-2 pct on nine of the twelve, so the
 detector is not firing on structure alone. The three non-zero `/zh/` rows
 (`/quality` 13 pct, `/products` 29 pct, `/product-finder` 42 pct) are themselves
 findings worth a follow-up look — they are model-guaranteed owners today.
+
+### A3b · Corrected retention measurement (this is the one to cite)
+
+A3 was produced by a script whose non-translatable block class was written
+`/^[\d.,%\s°A-Z()/·—–-]+$/i`. With the `i` flag, `A-Z` matches `a-z` as well, so
+**ordinary English prose was classified as a non-translatable token and dropped
+from the denominator** — leaving mostly CJK and numeric blocks, which flattered
+every ES/DE ratio and made the `/zh/` control look cleaner than it is. The same
+bug existed in the suite's fixture helper (caught there by a fixture asserting
+that surviving English *is* reported) but was not fixed in the tool that produced
+A3, so A3 shipped wrong while its replacement looked plausible.
+
+Re-measured on the same build, case sensitivity restored, only whole-string
+contact details excluded — brand and certificate names deliberately **not**
+excluded, because an English `<title>` containing "ISO 9001" is precisely the
+finding this table exists to show. "Retention" = share of rendered prose blocks
+(longer than 12 characters) that are verbatim identical to the English owner's.
+
+| owner path | ES prose | ES verbatim English | ES retention | DE retention | `/zh/` control |
+| --- | --- | --- | --- | --- | --- |
+| `/request-quote` | 26 | 9 | **35 pct** | 39 pct | 23 pct |
+| `/request-sample` | 21 | 8 | **38 pct** | 40 pct | 36 pct |
+| `/` (homepage) | 103 | 55 | **53 pct** | 56 pct | 10 pct |
+| `/contact` | 28 | 15 | 54 pct | 56 pct | 27 pct |
+| `/product-finder` | 32 | 20 | 63 pct | 67 pct | 53 pct |
+| `/answers` (index) | 110 | 70 | 64 pct | 64 pct | 4 pct |
+| `/knowledge` (index) | 40 | 27 | 68 pct | 69 pct | 14 pct |
+| `/about` | 52 | 39 | 75 pct | 76 pct | 7 pct |
+| `/products` (index) | 63 | 47 | 75 pct | 77 pct | 56 pct |
+| `/knowledge/<slug>` | 51 | 38 | 75 pct | 76 pct | 7 pct |
+| `/manufacturing` | 48 | 38 | 79 pct | 81 pct | 8 pct |
+| `/products/<slug>` | 104 | 87 | **84 pct** | 84 pct | 36 pct |
+| `/quality` | 135 | 121 | **90 pct** | 90 pct | 23 pct |
+
+Aggregate over these thirteen: **ES 71 pct, DE 72 pct, ZH control 21 pct.**
+
+**What changed in the conclusion, not just the numbers.** A3 implied that `/es` and
+`/es/request-quote` were essentially finished pages blocked by a technicality.
+They are not: the best page in the set keeps 35 pct of its prose in English, and
+the homepage 53 pct. **No core page is close enough to translate today that a
+record could be approved honestly.** What is true, and what the corrected
+distribution actually shows, is that the gap is *bimodal per page*: chrome, nav,
+CTAs and the whole quote form are Spanish, while module-backed body copy, inline
+literals and page metadata are English. Confirmed by the residue samples — on
+`/es/request-quote` the 9 English blocks are its `<title>`, the header tagline,
+three contact strings, `company.locationEn`, the "Trades internationally as…"
+identity line and one footnote; on `/quality` they are 121 of 135 blocks
+including the title and every body section.
+
+That is a stronger argument for slot-level evidence than A3's framing was, and a
+weaker argument for promoting anything soon. Both matter: the mechanism this task
+ships is now unambiguously the right shape, and its registry is right to ship
+empty.
+
+**Dictionary coverage, measured directly** (`src/content/i18n`, leaf counts over
+the runtime objects): EN **266** leaves / 247 distinct values; `es.ts` and `de.ts`
+each define **128**, leave **138** absent, and hold 2-3 that are present but
+unchanged — so after `getDictionary` merges toward English, **140 of 266 (53 pct)
+of the effective ES and DE dictionary is still English**. `zh` is complete: 1 leaf
+identical to EN. Per section, ES differing leaves out of EN:
+
+```text
+form   34/34   nav 8/8   actions 19/19   breadcrumbs 12/12   meta 2/4
+home   28/40 (12 untranslated: home.why.points.*.title/.body)
+finder  2/32   about 2/33   qualityPage 2/22   manufacturingPage 2/9
+contact 2/7    productsPage 2/4    answersIndex 0/9    productsIndex 0/12
+```
+
+Two structural consequences for any future surface, both verified by reading the
+code rather than inferred:
+
+1. **`es`/`de` are typed `PartialDictionary`, so a missing key is a runtime
+   fallback, not a compile error** — `zh` is typed `Dictionary` and *would* fail
+   `tsc`. Adding a string to `en.ts` therefore silently becomes an English hole on
+   `/es` and `/de`, invisible to the type system and to any key count. A surface
+   declaration is the first place that hole becomes a build-visible problem, which
+   is part of why it must be exhaustive.
+2. **`getDictionary` merges toward English** (`src/content/i18n/index.ts`), so the
+   dictionary can never itself answer "is this page translated?" — only an
+   enumerated surface plus approved evidence can. This is the same reason 002B's
+   owner rejected a chrome-coverage threshold.
 
 ### A4 · Corroborated against production, not just the build
 
@@ -198,14 +281,52 @@ Two structural conclusions follow:
   English must not become an owner even if its body is fully translated. Slots
   for title/description belong in the surface.
 
+### A6 · Two verified defects that must be cleared before any surface is declared
+
+Both found by investigation and then verified directly in this worktree. Neither
+is caused by this task, and neither is fixed here (both touch files outside the
+allowlist), but a migration that ignores them would produce a promoted page that
+is wrong in a way evidence cannot detect.
+
+1. **`/es` links to the English tree for applications.**
+   `src/components/sections/home-applications.tsx:21` and `:31` build
+   `` href={`/${locale === "zh" ? "zh/" : ""}applications`} `` — hardcoding the
+   assumption that only `zh` is prefixed. On `/es` and `/de` those links resolve to
+   `/applications` and `/applications/<slug>`, bypassing the localized route that
+   `localePath()` (`src/content/company.ts:95-98`) exists to build and that every
+   other link on the same page uses. Today this is a minor navigation inconsistency
+   on a fallback page; **if the homepage were ever promoted to an ES owner, its own
+   internal links would point away from the localized tree**, which is a crawlable,
+   indexable contradiction. Any homepage surface must fix these two lines first.
+   The wider pattern is real — roughly 30 `locale === "zh" ? <zh> : <en>` string
+   ternaries across `src/components/**` treat "not zh" as English, so chrome that
+   sits outside the dictionary is invisible to both dictionary measurement and to
+   any evidence record.
+2. **The English twin of a core route is a second source of copy, and the two have
+   already drifted.** `/` , `/applications`, `/knowledge`, `/answers`,
+   `/request-quote`, `/request-sample` and `/product-finder` are **not** shared
+   components between `src/app/(site)/…` and `src/app/[lang]/…` — they are two
+   independent JSX trees (only `quality`, `manufacturing`, `about`, `contact` and
+   the four detail routes delegate to a shared view). Verified concretely: the
+   footnote in `(site)/request-quote/page.tsx` continues
+   *"…Incoterm. This makes supplier offers comparable (see our price-comparison
+   guide)"* while `[lang]/request-quote/page.tsx` stops at *"…Incoterm."*
+   `tests/seo-route-parity.mjs:59-62` pins only that the two route **sets** match,
+   never that their copy agrees. So a surface keyed to `/request-quote` describes
+   **one** of the two renderers: the English owner URL can show text the reviewed
+   bundle never declared. A surface for a duplicated route is only honest after
+   its twins share one component, or the surface covers both literal sets.
+
 ## Design
 
 ### 1 · Current limitation (one sentence)
 
 Evidence can describe only an entity detail page, because only an entity carries
 an enumerable field list for the render net to check — so a core page with real
-translated copy (`/es`, 84 pct non-English) still cannot own its URL, and a core
-page that merely *declares* it is translated would be unverifiable by construction.
+translated copy in its chrome and forms (`/es/request-quote` renders 34 of 34
+Spanish `form` strings) still cannot own its URL, and no core page is fully
+translated either (the least English-heavy keeps 35 pct of its prose blocks
+verbatim English, A3b), so a boolean door would be both unusable and unfalsifiable.
 
 ### 2 · Proposed architecture
 
@@ -287,15 +408,23 @@ all dictionaries, `next.config.ts`, and every other task's suite.
 | **R3** | Zero promotions ship, so the mechanism has no production consumer yet. | Intentional (the card forbids enabling ES/DE). Every guard is exercised against synthetic fixtures inside the suite — the 003B pattern — because a mutation harness is not in this assignment. If a reviewer prefers a live consumer, the honest alternative is a reference migration of one page, which is content-adjacent work INTL-DEES-001 owns. |
 | **R4** | New reason-code strings grow the server-side gate. | Measured, not assumed: `.next/static/chunks` is byte-identical to the pre-change baseline built in the same worktree (**821,280 B raw / 260,382 B gzip**, same 15 files, 0 chunks carrying any ownership string), because 003B removed the browser's route into this layer. The new literals are added to the suite's `POLICY_STRINGS` list so they cannot leak client-side unnoticed. |
 | **R5** | `honouredPages` previously called `registry.filter(isGenuineTranslation)`; giving that function a second parameter would have silently passed the **array index** as the surfaces registry. | Would have made every registered surface look unregistered. Rewritten as an explicit arrow with a comment saying why; covered by the completeness tests. |
-| **R6** | `/zh/quality`, `/zh/products`, `/zh/product-finder` show 13/29/42 pct English retention while being model-guaranteed owners. | Out of scope here (zh needs no evidence) but a genuine SEO finding surfaced by this audit. Filed as a coordination item for ORCHESTRATOR/TECHNICAL_SEO rather than silently widened into this diff. |
+| **R6** | `/zh/products` (56 pct), `/zh/product-finder` (53 pct), `/zh/request-sample` (36 pct), `/zh/products/<slug>` (36 pct) and `/zh/quality` (23 pct) retain verbatim English prose blocks while `zh` owns those URLs by the content model's guarantee. | Out of scope here (zh needs no evidence) but a genuine SEO finding surfaced by the corrected measurement. Filed as a coordination item for ORCHESTRATOR/TECHNICAL_SEO rather than silently widened into this diff. |
 | **R7** | Metadata slots (title/description) live behind shared `src/lib/seo.tsx`. | Not touched. A future surface for a page whose title is English must include title/description as slots, and that migration will need a §8 request. Documented in A5 so nobody discovers it mid-promotion. |
 | **R8** | High-risk surfaces per §11 (canonical, hreflang, sitemap). | All shipped answers are byte-identical: 222-document fingerprint shows **0 field differences** and **0 total byte delta** versus the pristine base build. Rollback is one `git revert`. |
+| **R9** | Two verified defects sit upstream of any surface declaration: `home-applications.tsx:21,31` builds `/${locale === "zh" ? "zh/" : ""}applications` so `/es` links to the English tree, and seven core routes exist as **two** independent JSX trees that have already drifted (`(site)` vs `[lang]` request-quote footnotes differ). | Documented in A6 with file:line; migration step 0 makes clearing them a precondition. Not fixed here — both are outside this allowlist, and fixing the duplicated trees is a page refactor this card did not ask for. Evidence cannot see either one, which is why they are recorded rather than assumed away. |
+| **R10** | `tests/intl-dees-003a-…mjs:346-347` pins that `/quality` and `/products` records are refused with `path-not-entity-detail`. Passes today only because `SECTION_SURFACES` is empty. | Correct behaviour, and it means the first real surface declaration will fail that suite until its inventory is updated — recorded as migration step 7 rather than weakened now. Also note `es`/`de` are `PartialDictionary`, so a missing Spanish string is a runtime fallback and never a `tsc` error: the type system cannot help here, only the surface can. |
 
 ### 5 · Migration strategy
 
 Landing order, each step independently reviewable, and **none of it required to
 merge this task** — the registry ships empty so this change is inert by design:
 
+0. **Clear A6 first, per page.** For a homepage surface, fix
+   `home-applications.tsx:21,31` to use `localePath()`; for any duplicated route
+   (`/`, `/request-quote`, `/request-sample`, `/product-finder`, the section
+   indexes), unify `(site)` and `[lang]` onto one component or account for both
+   literal sets. Evidence cannot detect either defect, so the surface must not be
+   declared until they are gone.
 1. **Gather one page's body into a single bundle module** (e.g.
    `src/content/quality-copy.ts`) exporting one `{ en, zh }` object per slot,
    including title/description. Pure move of existing English plus the Chinese
@@ -315,16 +444,31 @@ merge this task** — the registry ships empty so this change is inert by design
 6. **A second reviewer approves** (`reviewedBy !== translatedBy`, ISO date, real
    `sourceRevision`) and the page becomes an owner on the next build — canonical,
    hreflang, sitemap entry and `inLanguage` moving together, as 003A designed.
-7. **Expect the neighbours' suites to complain on the first promotion.**
-   `intl-dees-002b` pins `TRANSLATED_PAGES` empty and GSC-INDEX-002 /
-   LOCALE-RETIRE-001 loop every fallback locale over every path; those failures
-   are the inventory saying "update me", the same signal 002B's record describes —
-   not a regression to code around.
+7. **Expect neighbouring suites to complain on the first core promotion**, and
+   read them as inventories rather than regressions. Verified pins that will fail
+   the moment a core path is promoted:
+   `tests/intl-dees-003a-translation-evidence-model.mjs:346-347` asserts that a
+   record for `/products` and for `/quality` is refused with
+   `path-not-entity-detail` (true today, because nothing is declared — and false
+   for a path whose surface exists and whose record is approved);
+   `tests/intl-dees-002b-…mjs:139-152` and `:168-170` assert every core path is an
+   English fallback with `[en, zh]` only;
+   `tests/intl-dees-003b-…mjs:272-273` asserts a `/quality` promotion must not
+   leak to other paths through the bridge;
+   `tests/gsc-index-002-…mjs:268-282` and `tests/locale-retire-001-…mjs:475-492`
+   loop core paths for the same absence. Each needs its inventory updated with the
+   reason inline — 002B set that precedent for exactly this situation.
 
-Suggested sequencing: `/request-quote` and `/` first (83 pct and 84 pct
-non-English today, so the least content work), `/manufacturing` next, and
-`/quality` only after its body copy is actually translated — its 77 pct English
-retention means a record today would be refused, correctly.
+Suggested sequencing, on the corrected numbers: `/request-quote` and
+`/request-sample` first (35 pct / 38 pct English residue and a fully translated
+34-leaf `form` — the least content work, though both are duplicated route trees
+and both currently carry an English `<title>`), then the homepage (53 pct, needing
+12 `home.why.points` strings plus the `localePath()` fix in A6), and treat
+`/manufacturing` (79 pct), `/about` (75 pct) and `/quality` (90 pct) as
+translation work, not architecture work: a record for them today would be refused
+by `copy-not-translated` and by the exact-coverage rule, correctly.
+`/products` and `/answers` indexes sit behind `finder` (2/32) and
+`answersIndex`/`productsIndex` (0 leaves), so they are the longest path.
 
 ## In Scope
 
@@ -443,13 +587,38 @@ Validation: `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` reports 187 tests, 0 fail,
   back to §4's `codex/NN-*`, is a board decision this task cannot make for itself.
 
 - **For `TECHNICAL_SEO` / `SEO_CONTENT` (new finding, not this task's scope):**
-  `/zh/quality` (13 pct), `/zh/products` (29 pct) and `/zh/product-finder`
-  (42 pct) retain verbatim English prose blocks while `zh` owns those URLs by the
-  content model's guarantee — i.e. no evidence is required for them and 004B
-  changes nothing about them. If any of that residue is body copy rather than
-  legitimately identical tokens, it is a live hreflang-claiming page with partial
-  Chinese, which is GSC-INDEX-002's defect class on a path the model assumes is
-  safe. Recommend a small follow-up audit before more ES/DE work is sequenced.
+  after correction, several `zh` routes still carry verbatim English prose blocks
+  while `zh` owns those URLs by the content model's guarantee — `/zh/products`
+  56 pct, `/zh/product-finder` 53 pct, `/zh/request-sample` 36 pct,
+  `/zh/products/<slug>` 36 pct, `/zh/quality` 23 pct (aggregate `zh` control
+  21 pct, against 71-72 pct for ES/DE). Chinese needs no evidence and 004B changes
+  nothing for them, so if any of that residue is body copy rather than legitimately
+  identical tokens it is a live hreflang-claiming page with partial Chinese —
+  GSC-INDEX-002's defect class on a path the model assumes is safe. Recommend a
+  small follow-up audit before more ES/DE work is sequenced.
+
+- **For the INTL-DEES-002B / 003A owners (stale measured figure in merged code):**
+  four places assert the UI dictionary is "128 of 248" strings per locale
+  (`src/content/translation-availability.ts` header, `src/content/translation-evidence.ts`
+  header, `tests/gsc-index-002-fallback-indexation.mjs`, and
+  `tasks/intl-dees-003a-translation-evidence-model.md`). Measured directly on
+  `f27bfca`: **EN has 266 dictionary leaves / 247 distinct values**, `es.ts` and
+  `de.ts` each define 128 leaving 138 absent, of which 2-3 are present but
+  unchanged — so 140 of 266 (53 pct) of the *effective* merged ES/DE dictionary is
+  still English. The numerator is right; **the denominator 248 is not
+  reproducible from the shipped tree.** These are other tasks' files and this task
+  did not edit them; the corrected figures belong in their records, and any future
+  coverage threshold should be defined against a measured denominator.
+
+- **For `INTL-DEES-001` (content sequencing, from A3b/A6):** no core page is
+  promotable today — the least English-heavy keeps 35 pct of its prose blocks in
+  English. Cheapest real wins: `/request-quote` and `/request-sample` need only
+  their `<title>`/description, `company.locationEn`, the identity footnote and a
+  handful of inline strings; the homepage needs the 12 `home.why.points.*`
+  strings plus the `localePath()` fix; `/quality`, `/about` and `/manufacturing`
+  need body-copy translation work (`qualityPage` 2 of 22, `about` 2 of 33,
+  `manufacturingPage` 2 of 9 dictionary leaves). Sequencing and preconditions are
+  in Migration step 0-7.
 
 - **For the INTL-DEES-004A owner:** if that audit exists outside this repository,
   publish it as an artifact (card, report or worklog) so a later worker can review
@@ -459,12 +628,17 @@ Validation: `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` reports 187 tests, 0 fail,
 ## Review Status
 
 - Independent review: **not started**. The implementer is not a reviewer
-  (`AGENTS.md` §13). Highest-value review targets, in order: (1) R1's resolution —
-  whether proving section promotion through `resolvedContentLocaleOf` plus a
-  derivation-equality test is sufficient, given the alternative was editing
-  002B's suite; (2) whether an empty registry with four synthetic-fixture nets
-  counts as "support implemented"; (3) A3's method limits and whether any page in
-  the table was mis-read.
+  (`AGENTS.md` §13). Highest-value review targets, in order: (1) **A3b's corrected
+  measurement** — re-derive it independently, because the first pass of the same
+  tool was wrong in a way this implementer did not catch until a delegated report
+  disagreed with it, and a second bad table here would misdirect the whole content
+  line; (2) R1's resolution — whether proving section promotion through
+  `resolvedContentLocaleOf` plus a derivation-equality test is sufficient, given
+  the alternative was editing 002B's suite; (3) whether an empty registry with four
+  synthetic-fixture nets counts as "support implemented", now that A3b shows no
+  core page is near enough to translation to be promoted anyway; (4) whether A6's
+  two verified defects should gate this merge at all, given nothing is activated by
+  it and the registry ships empty.
 
 ## Completion Record
 
@@ -499,14 +673,36 @@ Validation: `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` reports 187 tests, 0 fail,
      where 003A's whole discipline is that the evidence layer is a leaf. The class
      decision moved into the gate (`promotableClassFor`) and the registry is now
      import-free, pinned by a test that fails if an `import` statement returns.
-  4. A read-only subagent was launched to map per-page copy provenance and test
-     pins. **Its report never arrived in this session's context**, so no claim in
-     A1-A5 or in the design rests on it: every file:line cited here was read or
-     grepped directly in this worktree at `f27bfca`, and every content claim was
-     measured from the build or fetched from production. Recorded explicitly
-     because a delegated summary that was never delivered must not read like a
-     reviewed-and-rejected input, and because this workspace's own history
-     (GSC-LOCALE-003) shows what an unverified confident `path:line` costs.
+  4. A read-only subagent was launched to map per-page copy provenance, dictionary
+     coverage and test pins. Its report arrived **after** the first delivery, and it
+     did not contradict the mechanism — it contradicted A3's numbers, which is how
+     the regex defect was found. Every claim taken from it was then re-verified in
+     this worktree before use: `home-applications.tsx:21,31` (confirmed by grep),
+     the `(site)` / `[lang]` request-quote footnote drift (confirmed by diffing the
+     two files), `tests/intl-dees-003a-…mjs:346-347` (confirmed by grep), and the
+     dictionary leaf counts (re-measured independently, `en` 266 / `es` `de` 128
+     each / `zh` complete). Its one figure I could not verify is left uncited.
+     Recorded plainly because the sequencing matters for review: a delegated
+     summary corrected this task's own headline finding only after that finding had
+     been committed.
+- **Audit correction issued after the first delivery pass.** A3's retention table
+  was wrong and overstated how translated the core pages are — `/es` was reported
+  at 16 pct English and is **53 pct**; `/es/request-quote` 17 pct → **35 pct**;
+  `/es/quality` 77 pct → **90 pct**; aggregate ES 52 pct → **71 pct**. Cause: the
+  measuring script's non-translatable class carried an `i` flag, so `A-Z` matched
+  lowercase and ordinary English prose was excluded from the denominator. The same
+  defect had already been caught and fixed inside this task's own test helper by a
+  fixture — but the fix was not carried back into the tool that produced the
+  headline claim, so the wrong table survived review by me and reached the card and
+  a source-file comment. Corrected measurement is A3b; A3 is marked superseded in
+  place rather than deleted, and `src/content/page-surfaces.ts`'s comment now
+  carries the right numbers. Discovered because a delegated fact-finder reported
+  counts that would not reconcile with my table; I re-measured instead of
+  defending it. **Materiality:** the shipped mechanism, the gates, the tests and
+  every byte-level guarantee are unaffected — no promotion, surface or claim
+  depended on those ratios, and the empty registry is if anything better supported
+  by the corrected data. What was wrong was the framing ("two pages are finished
+  but blocked") and the migration sequencing built on it.
 - Remaining risks: R2 is the one that matters — the architecture cannot itself
   prove a surface is complete, so the per-page review at migration time is load
   bearing, and the retention net is the backstop rather than the guarantee.

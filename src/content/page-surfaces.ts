@@ -12,15 +12,25 @@
  *
  * Core and section routes (`/`, `/manufacturing`, `/quality`, `/request-quote`,
  * `/about`, `/contact`, the section indexes, `/product-finder`,
- * `/request-sample`) do not have that property. Their chrome and CTAs come from
- * the per-locale UI dictionary, which ES and DE already largely carry — measured
- * on the shipped build, `/es` keeps 5 of 31 prose blocks in English and
- * `/es/request-quote` 2 of 12 — while their body prose comes from inline
- * literals in the page's own components, which are still English: `/es/quality`
- * keeps 24 of 31, and its `<title>` is English too. A page in that mixed state
- * cannot be promoted by declaring "this path is translated" — that is a boolean
- * where the site needs a field-level answer, which is the defect GSC-INDEX-002
- * recorded 75 times as "Duplicate, Google chose different canonical".
+ * `/request-sample`) do not have that property, and every one of them is
+ * **partly** translated — which is exactly why a path-level flag is unusable.
+ * Measured on the shipped build, as a share of rendered prose blocks still
+ * verbatim English: `/es` 55 of 103 (53 pct), `/es/request-quote` 9 of 26
+ * (35 pct, the best in the set), `/es/quality` 121 of 135 (90 pct, and its
+ * `<title>` is English too). The dictionary half of that story is the reason the
+ * numbers vary per page: `es` and `de` each define 128 of the 266 English leaves,
+ * so after `getDictionary` merges toward English **53 pct of the dictionary is
+ * still English** — but the distribution is bimodal, `form` 34/34 and `nav` and
+ * `actions` complete, while `qualityPage` carries 2 of 22, `finder` 2 of 32,
+ * `manufacturingPage` 2 of 9 and `about` 2 of 33. A conversion page can therefore
+ * be nearly done while a section page is nearly untouched, and the body prose
+ * that is not dictionary-backed at all — inline literals in each page's own
+ * components and `Record<ContentLocale>` module records — is English on both.
+ *
+ * A page in that state cannot be promoted by declaring "this path is translated":
+ * that is a boolean where the site needs a field-level answer, which is the
+ * defect GSC-INDEX-002 recorded 75 times as "Duplicate, Google chose different
+ * canonical".
  *
  * So the missing piece is not permission for core paths, it is the property an
  * entity already has: an enumerable copy surface that the renderer must agree

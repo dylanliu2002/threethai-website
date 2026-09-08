@@ -226,6 +226,74 @@ No pull request has been opened: the card asks for an audit, the five design
 sections and implementation, and integration is the merge owner's action (§1). The
 branch is pushed so an independent reviewer can diff it.
 
+## 2026-09-08 · CORRECTION: A3's retention table was wrong; the fix is a src comment too
+
+The delegated render-map report landed after delivery. It did not challenge the
+mechanism — it reported per-page copy counts that would not reconcile with my
+retention table. Re-measuring rather than defending it found the cause: the audit
+script's non-translatable class was `/^[\d.,%\s°A-Z()/·—–-]+$/i`. With `i`, `A-Z`
+matches `a-z`, so **ordinary English prose was classified as a non-translatable
+token and removed from the denominator**. What survived was mostly CJK and numeric
+blocks, which flattered every ES/DE ratio and made the `/zh/` control look clean.
+
+Corrected figures (same build, case sensitivity restored, only whole-string contact
+details excluded — brand and certificate names deliberately kept in, because an
+English `<title>` containing "ISO 9001" is the finding, not the noise):
+
+| path | A3 claimed | corrected |
+| --- | --- | --- |
+| `/es` | 5 of 31 (16 pct) | **55 of 103 (53 pct)** |
+| `/es/request-quote` | 2 of 12 (17 pct) | **9 of 26 (35 pct)** |
+| `/es/quality` | 24 of 31 (77 pct) | **121 of 135 (90 pct)** |
+| aggregate ES | 52 pct | **71 pct** |
+| `/zh/` control | 9 pct | **21 pct** |
+
+The framing that dies with them: "two pages are genuinely localized and blocked by
+a technicality." No core page is close enough for an honest record — the best keeps
+a third of its prose in English — and the real pattern is bimodal *within* each
+page: chrome, nav, CTAs and all 34 `form` strings are Spanish, while module-backed
+body copy, inline literals and metadata are English. Measured directly to confirm
+the dictionary half of that: `en` has 266 leaves (247 distinct values); `es` and
+`de` each define 128 with 138 absent and 2-3 unchanged, so after the merge toward
+English **140 of 266 — 53 pct — of the effective ES/DE dictionary is still
+English**; `qualityPage` 2 of 22, `finder` 2 of 32, `manufacturingPage` 2 of 9,
+`about` 2 of 33, `home` 28 of 40, `form` 34 of 34, `nav` and `actions` complete.
+`zh` is complete (1 leaf identical). Note this also means the "128 of 248" figure
+quoted in 002B/003A's comments and in a GSC-INDEX-002 test comment has a
+denominator that is not reproducible from the tree — filed as a coordination item
+for those owners rather than edited here.
+
+Worse than the arithmetic: **I had already found and fixed this exact bug** in the
+suite's fixture helper, and never carried the fix back into the tool that produced
+the headline claim. A bug caught in one place does not stop being a bug in the
+other copy of it.
+
+Two of the report's structural claims were verified before use rather than
+inherited, and both are now A6 / R9 with a migration step 0 in front of everything:
+`home-applications.tsx:21,31` builds `` `/${locale === "zh" ? "zh/" : ""}applications` ``,
+so `/es` links to the English tree and a promoted homepage would point away from
+its own localization; and seven core routes exist as two independent JSX trees that
+have already drifted — `(site)/request-quote` continues past "Incoterm." with a
+link to the price-comparison guide while `[lang]/request-quote` stops. A surface
+keyed to `/request-quote` would describe only one of the two renderers. Also
+confirmed `tests/intl-dees-003a-…mjs:346-347` pins `/quality` → `path-not-entity-detail`,
+which holds today only because the registry is empty.
+
+Materiality, stated so this is not read as bigger or smaller than it is: no
+mechanism, gate, test or byte-level guarantee depended on those ratios; nothing was
+promoted; the empty registry is better supported by the corrected data. What was
+wrong was the audit's framing and the sequencing built on it. A3 is marked
+superseded in place rather than deleted, A3b carries the corrected table, and
+`src/content/page-surfaces.ts`'s doc comment — which had quoted the bad numbers
+into source — was corrected, which is why the gates below were re-run rather than
+reused.
+
+Re-gated at the corrected state: `next build` 225/225 · `REQUIRE_BUILD_OUTPUT=1
+npm run test:seo` **187/187 pass, 0 fail, 0 skipped** · first-wave 5/5 ·
+`.next/static/chunks` 821,280 B raw / 260,382 B gzip, 0 ownership-string chunks ·
+222-document fingerprint 0 field differences. Measurement artifacts
+(`.qwen-dict-count.mjs`, fingerprint JSONs, gate logs) removed after use.
+
 ## Open at hand-off
 
 - Independent review not started (§13). Points worth attacking first are on the
