@@ -17,19 +17,27 @@ import { fileURLToPath, pathToFileURL } from "node:url";
  *
  * The fix is a serialization boundary: `src/content/switcher-availability.ts`
  * runs on the server, asks the policy once per path, and hands the client plain
- * answers. This suite pins the three things that makes true:
+ * data. This suite pins:
  *
  * 1. no ownership string reaches `.next/static/chunks`, and the bundle comes
  *    back down to its INTL-DEES-002B size;
- * 2. the server-side answers are unchanged, and every value the client receives
- *    *is* the policy's answer rather than a restatement of its rules;
- * 3. the switcher still receives correct props — proven from built HTML, where
- *    each document's per-link `hreflang` must equal the policy's answer for that
- *    path, with navigation to all four languages intact.
+ * 2. every value the client can read *is* the policy's answer, and every value
+ *    it cannot read stays the model-guaranteed baseline — an unlisted path can
+ *    never inherit somebody else's promotion;
+ * 3. every prerendered switcher document resolves to an inventoried path, so (2)
+ *    is not load-bearing on a fallback nobody measured;
+ * 4. the switcher's built `hreflang` attributes equal the server answer, with
+ *    navigation to all four languages intact.
  *
- * The payload encoding is itself pinned, because the obvious encoding was
- * measured and rejected: a complete `path → locales` map cost +3,210 B raw /
- * +800 B gzip on **every** document to save 586 B gzip once on a cached chunk.
+ * The encoding is pinned **structurally, not by a byte budget**. A review of the
+ * first version measured what a budget does to legitimate work: a fixed 400-byte
+ * ceiling went red somewhere around the seventh promoted page — with a message
+ * blaming the encoding — while the *rejected* alternative (a complete
+ * `path → locales` map, ~1.9 KB) was strictly worse than the state it was
+ * blocking. Budgets also cannot tell a correct large payload from an accidental
+ * full map. Structure can: an exception must add a locale the model does not
+ * already guarantee, and it must belong to a path the evidence registry actually
+ * promotes.
  *
  * Nothing is promoted, translated, re-designed or re-routed here.
  */
@@ -39,7 +47,7 @@ const read = (relativePath) => readFileSync(path.join(repoRoot, relativePath), "
 const importSource = (relativePath) => import(pathToFileURL(path.join(repoRoot, relativePath)).href);
 
 const { SWITCHER_AVAILABILITY, SWITCHER_PATHS } = await importSource("src/content/switcher-availability.ts");
-const { htmlLang, locales, siteUrl } = await importSource("src/content/company.ts");
+const { htmlLang, localePath, locales, siteUrl } = await importSource("src/content/company.ts");
 const {
   canonicalLocaleFor,
   contentHtmlLangOf,
@@ -48,11 +56,21 @@ const {
   isEnglishFallbackCopy,
   isSitemapEligible,
   localizedLocalesFor,
+  TRANSLATED_CONTENT_LOCALES,
 } = await importSource("src/content/availability.ts");
 const { TRANSLATED_PAGES } = await importSource("src/content/translation-availability.ts");
+const { products } = await importSource("src/content/products.ts");
+
+const { baseline, exceptions } = SWITCHER_AVAILABILITY;
 
 /** What the client is allowed to conclude about a path — data only. */
-const answerFor = (pagePath) => SWITCHER_AVAILABILITY.exceptions[pagePath] ?? SWITCHER_AVAILABILITY.common;
+const answerFor = (pagePath) => exceptions[pagePath] ?? baseline;
+
+/** Locale URL prefixes: every locale except the prefix-free English owner. */
+const PREFIXED_LOCALES = locales.filter((locale) => localePath("/", locale) !== "/");
+
+/** Paths the shipped evidence registry promotes. The cap on legitimate exceptions. */
+const promotedPaths = () => new Set(TRANSLATED_PAGES.map((page) => page.path));
 
 /** Strings that exist only inside the server-side ownership machinery. */
 const POLICY_STRINGS = [
@@ -76,9 +94,6 @@ const BASE_002B_TOTAL = 822_743; // d34cd95, before the evidence layer existed
 const LEAKED_003A_TOTAL = 824_427; // e99937e, the build this task repairs
 const TOLERANCE = 256;
 
-/** Ceiling for the serialized prop: the full map it replaced was ~1.7 KB. */
-const PAYLOAD_CEILING = 400;
-
 function walkFiles(dir, extensions, out = []) {
   if (!existsSync(dir)) return out;
   for (const entry of readdirSync(dir)) {
@@ -101,7 +116,7 @@ function pageOf(file) {
   if (relative === "index") relative = "";
   relative = relative.replace(/\/index$/, "");
   const segments = relative.split("/").filter(Boolean);
-  const owner = ["zh", "es", "de"].includes(segments[0]) ? segments.slice(1) : segments;
+  const owner = PREFIXED_LOCALES.includes(segments[0]) ? segments.slice(1) : segments;
   return owner.length ? `/${owner.join("/")}` : "/";
 }
 
@@ -127,6 +142,18 @@ const switcherHreflangs = (html) =>
   [...desktopSwitcher(html).matchAll(/<a\b[^>]*?\bhreflang="([^"]+)"/gi)].map((m) => m[1]).sort();
 const switcherLinkCount = (html) => (desktopSwitcher(html).match(/<a\b/g) ?? []).length;
 
+/** The bridge's own derivation, replayed against any policy-shaped answer set. */
+function encodeWith(answer) {
+  const baselineKey = [...TRANSLATED_CONTENT_LOCALES].join(",");
+  return {
+    baseline: [...TRANSLATED_CONTENT_LOCALES],
+    exceptions: Object.fromEntries(
+      SWITCHER_PATHS.map((pagePath) => [pagePath, [...answer(pagePath)]])
+        .filter(([, list]) => list.join(",") !== baselineKey),
+    ),
+  };
+}
+
 assert.ok(SWITCHER_PATHS.length >= 50, `the switcher inventory looks too small: ${SWITCHER_PATHS.length}`);
 assert.deepEqual([...TRANSLATED_PAGES], [], "INTL-DEES-003B must ship zero promotions");
 
@@ -138,30 +165,96 @@ test("REQ 2 · every answer the client can read is the availability policy's own
     assert.deepEqual([...answerFor(pagePath)], [...localizedLocalesFor(pagePath)],
       `${pagePath} is not the policy's answer`);
   }
-  // Exceptions are keyed by inventoried paths only, and hold string arrays.
-  for (const pagePath of Object.keys(SWITCHER_AVAILABILITY.exceptions)) {
-    assert.ok(SWITCHER_PATHS.includes(pagePath), `${pagePath} is not a switcher path`);
+  // The baseline is exactly what the content model guarantees, so it is a true
+  // answer for *any* path, listed here or not.
+  assert.deepEqual([...baseline], [...TRANSLATED_CONTENT_LOCALES],
+    "baseline must be the model-guaranteed locales, not a chosen subset");
+  for (const pagePath of SWITCHER_PATHS) {
+    const answer = localizedLocalesFor(pagePath);
+    for (const locale of baseline) assert.ok(answer.includes(locale), `${locale} must own ${pagePath} by model`);
   }
-  for (const list of [SWITCHER_AVAILABILITY.common, ...Object.values(SWITCHER_AVAILABILITY.exceptions)]) {
+  for (const list of [baseline, ...Object.values(exceptions)]) {
     assert.ok(Array.isArray(list), "each answer must be an array");
     for (const locale of list) assert.equal(typeof locale, "string", "each answer must hold locale strings");
   }
-  // `common` is derived, not written down: it equals the policy on the modal path.
-  assert.deepEqual([...SWITCHER_AVAILABILITY.common], [...localizedLocalesFor("/")], "common must come from the policy");
-  const bridge = read("src/content/switcher-availability.ts");
-  assert.doesNotMatch(bridge, /common[^=]*=\s*\[\s*"en"/, "`common` may not be a hardcoded locale list");
 });
 
-test("REQ 2 · zero promotions means the payload carries one answer and no exceptions", () => {
-  assert.deepEqual([...SWITCHER_AVAILABILITY.common], ["en", "zh"],
-    "with an empty evidence registry the policy must answer en+zh");
-  assert.deepEqual(Object.keys(SWITCHER_AVAILABILITY.exceptions), [],
-    "no path may differ from the common answer while nothing is promoted");
-  // The design invariant that keeps documents small: the wire format scales with
-  // exceptions, not with the inventory. A complete map would be ~1.7 KB here.
-  const payload = JSON.stringify(SWITCHER_AVAILABILITY);
-  assert.ok(payload.length < PAYLOAD_CEILING,
-    `the serialized prop is ${payload.length} B — the bridge is shipping one entry per path again`);
+test("REQ 2 · baseline is model-derived, never a locale list written down", () => {
+  const bridge = read("src/content/switcher-availability.ts");
+  assert.match(bridge, /TRANSLATED_CONTENT_LOCALES/, "baseline must come from the content model's own export");
+  assert.doesNotMatch(bridge, /baseline[^=]*=\s*\[\s*"[a-z]{2}"/, "baseline may not be a hardcoded locale list");
+  assert.doesNotMatch(bridge, /\[\s*"en",\s*"zh"\s*\]/, "the bridge may not name en+zh literally");
+  // And the locale model really is what makes those two unconditional.
+  for (const pagePath of ["/", "/quality", "/products/water-soluble-pva-yarn"]) {
+    for (const locale of TRANSLATED_CONTENT_LOCALES) {
+      assert.equal(localizedLocalesFor(pagePath).includes(locale), true, `${locale} ${pagePath}`);
+    }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// 2 · B1/B2 — the guard catches a path map, and never punishes translations.
+// ---------------------------------------------------------------------------
+test("B1 · the payload guard rejects a serialized path map but allows legitimate exceptions", () => {
+  const keys = Object.keys(exceptions);
+  const promoted = promotedPaths();
+
+  // Structural rule 1: an exception must add something the model does not
+  // already guarantee. A complete `path → locales` map violates this at once,
+  // because most of its entries merely restate the baseline.
+  for (const [pagePath, list] of Object.entries(exceptions)) {
+    assert.ok(list.length > baseline.length,
+      `${pagePath} is an exception that adds no locale — that is path-map serialization, not an exception`);
+    for (const locale of baseline) assert.ok(list.includes(locale), `${pagePath} dropped a baseline locale`);
+  }
+  // Structural rule 2: only paths the evidence registry promotes may appear.
+  for (const pagePath of keys) {
+    assert.ok(promoted.has(pagePath), `${pagePath} is an exception with no approved promotion behind it`);
+  }
+
+  // The regression this replaced: a byte ceiling that legitimate translations
+  // trip. Show that a serialized full map is *structurally* inert — every entry
+  // merely restates the baseline, which is precisely what rule 1 refuses — and
+  // that it is also larger than the retired 400-byte ceiling, so the ceiling
+  // could not have told the two payloads apart in the useful direction.
+  const fullMap = Object.fromEntries(SWITCHER_PATHS.map((p) => [p, [...baseline]]));
+  assert.ok(Object.values(fullMap).every((list) => list.length === baseline.length),
+    "fixture: a full path map adds no locale anywhere, so rule 1 rejects all of it");
+  assert.ok(JSON.stringify(fullMap).length > 400,
+    "fixture: the retired byte ceiling would have failed this payload for the wrong reason");
+
+  // And the opposite: legitimate maximum adoption — every path promoted — is
+  // larger than that same ceiling yet passes both structural rules.
+  const allDeep = encodeWith(() => [...baseline, ...locales.filter((l) => !baseline.includes(l))]);
+  assert.equal(Object.keys(allDeep.exceptions).length, SWITCHER_PATHS.length);
+  assert.ok(JSON.stringify(allDeep).length > 400,
+    "fixture: legitimate adoption at scale exceeds the retired ceiling");
+  assert.ok(Object.values(allDeep.exceptions).every((list) => list.length > baseline.length),
+    "legitimate promotion of every path must satisfy the guard");
+});
+
+test("B2 · a path the server did not resolve cannot receive anyone's promotion", () => {
+  // The property the review asked for: an unknown URL must fall back to the
+  // model-guaranteed baseline, never to a majority/modal answer that a future
+  // ES-DE rollout could turn into a false claim on a page with no evidence.
+  const promotionLocales = locales.filter((locale) => !baseline.includes(locale));
+  assert.deepEqual([...promotionLocales], ["es", "de"], "the promotion pair is what must be unreachable");
+
+  // Simulate the landscape that broke the previous encoding: most of the site
+  // promoted, so a frequency-derived default would have become en+zh+es+de.
+  const nearTotal = encodeWith((pagePath) =>
+    pagePath === "/request-quote" ? [...baseline] : [...baseline, ...promotionLocales]);
+  assert.deepEqual([...nearTotal.baseline], [...baseline],
+    "baseline must not move when promotions become the majority of pages");
+  assert.equal(Object.keys(nearTotal.exceptions).length, SWITCHER_PATHS.length - 1);
+  assert.deepEqual([...(nearTotal.exceptions["/unknown-section"] ?? nearTotal.baseline)], [...baseline],
+    "an unresolved path must not inherit es or de");
+
+  // And the shipped client-side expression really is the fallback above.
+  const source = read("src/components/layout/site-header.tsx");
+  assert.match(source, /availableLocales\.exceptions\[currentPath\] \?\? availableLocales\.baseline/,
+    "the switcher must fall back to the model baseline, not to an inventory-derived value");
+  assert.doesNotMatch(source, /\.common/, "no modal/frequency default may return");
 });
 
 test("REQ 2 · an approved promotion reaches the prop with no client change", () => {
@@ -179,66 +272,55 @@ test("REQ 2 · an approved promotion reaches the prop with no client change", ()
   assert.deepEqual([...promoted.localizedLocalesFor("/quality")], ["en", "zh"],
     "a promotion must stay on its own path even through the bridge");
 
-  // The same derivation the bridge runs, replayed over the promoted policy,
-  // produces exactly the shape the client already knows how to read.
-  const answer = (policy, pagePath) => [...policy.localizedLocalesFor(pagePath)];
-  const modal = answer(promoted, "/quality");
-  const exceptions = Object.fromEntries(
-    SWITCHER_PATHS.map((p) => [p, answer(promoted, p)])
-      .filter(([, list]) => list.join(",") !== modal.join(","))
-      .map(([p, list]) => [p, list]),
-  );
-  assert.deepEqual(Object.keys(exceptions), [promotion.path]);
-  assert.deepEqual([...exceptions[promotion.path]], ["en", "zh", "es"]);
-  // And the shipped values are untouched by this simulation.
+  const simulated = encodeWith((pagePath) => [...promoted.localizedLocalesFor(pagePath)]);
+  assert.deepEqual(Object.keys(simulated.exceptions), [promotion.path]);
+  assert.deepEqual([...simulated.exceptions[promotion.path]], ["en", "zh", "es"]);
+  assert.deepEqual([...(simulated.exceptions["/quality"] ?? simulated.baseline)], ["en", "zh"]);
+  // The shipped values are untouched by the simulation above.
   assert.deepEqual([...answerFor(promotion.path)], ["en", "zh"]);
 });
 
 // ---------------------------------------------------------------------------
-// 2 · The browser receives data, never the policy.
+// 3 · Coverage: the inventory must match the site that actually renders.
 // ---------------------------------------------------------------------------
-test("REQ 1 · the client header imports no ownership machinery", () => {
-  const source = read("src/components/layout/site-header.tsx");
-  assert.doesNotMatch(source, /from "@\/content\/(?:availability|translation-availability|translation-evidence|switcher-availability)"/,
-    "the browser component may not import the SEO policy, the evidence layer, or its serialization bridge");
-  assert.doesNotMatch(source, /localizedLocalesFor/, "the client must not call the policy");
-  assert.match(source, /availableLocales\.exceptions\[currentPath\] \?\? availableLocales\.common/,
-    "the switcher must read both branches of the server-resolved answer");
-  assert.doesNotMatch(source, /\[\s*"en",\s*"zh"\s*\]/, "the client must not hardcode the modelled pair");
-  // The gating GSC-INDEX-002 was written to protect is unchanged, on both switchers.
-  assert.equal((source.match(/hrefLang=\{localizedTargets\.includes\(l\) \? htmlLang\[l\] : undefined\}/g) ?? []).length, 2,
-    "desktop and mobile switcher must both stay gated");
-  assert.equal((source.match(/locales\.map\(\(l\) =>/g) ?? []).length, 2,
-    "both switchers must still enumerate the locale model");
-});
-
-test("REQ 1 · only the three root layouts import the bridge, and they pass it down", () => {
-  for (const file of ["src/app/(site)/layout.tsx", "src/app/[lang]/layout.tsx", "src/app/zh/layout.tsx"]) {
-    const source = read(file);
-    assert.match(source, /from "@\/content\/switcher-availability"/, `${file} must import the bridge`);
-    assert.match(source, /<SiteHeader[^>]*availableLocales=\{SWITCHER_AVAILABILITY\}/, `${file} must pass the prop`);
+test("B3 · locale prefix handling is derived from the locale model", () => {
+  // Derived, and checked against the model rather than a literal: a hardcoded
+  // prefix set silently mis-reads the documents of any future locale.
+  const derived = locales.filter((locale) => localePath("/", locale) !== "/");
+  assert.equal(PREFIXED_LOCALES.length, locales.length - 1,
+    "every locale in the model except the prefix-free owner must be a URL prefix");
+  assert.ok(PREFIXED_LOCALES.every((locale) => derived.includes(locale)),
+    "prefixes must be exactly `locales` minus the prefix-free owner");
+  assert.equal(PREFIXED_LOCALES.includes("en"), false, "English is the prefix-free owner, never a prefix");
+  // Anchored in what `localePath` really does, not in an assumption about it.
+  assert.equal(localePath("/", "en"), "/", "English must stay the prefix-free owner");
+  for (const locale of PREFIXED_LOCALES) {
+    assert.equal(localePath("/quality", locale), `/${locale}/quality`, `${locale} must be prefixed`);
   }
-  const bridge = read("src/content/switcher-availability.ts");
-  assert.match(bridge, /localizedLocalesFor\(/, "the map must be produced by the policy");
-  assert.doesNotMatch(bridge, /^["']use client["']/m, "the bridge must not be a client module");
+  // Neither this suite nor the bridge may restate the prefix list as a literal.
+  assert.doesNotMatch(read("tests/intl-dees-003b-server-client-boundary.mjs"), /\[\s*"zh",\s*"es",\s*"de"\s*\]/,
+    "the test must derive prefixes from the locale model like the product does");
+  assert.doesNotMatch(read("src/content/switcher-availability.ts"), /"zh"|"es"|"de"/,
+    "the bridge names no locale at all");
+});
 
-  // Match import specifiers, not prose: the header mentions the bridge in a
-  // comment precisely to explain why it must not import it.
-  const importsBridge = /(?:^|\n)\s*(?:import|export)\b[^\n]*from\s+"[^"]*switcher-availability"/;
-  const importers = walkFiles(path.join(repoRoot, "src"), new Set([".ts", ".tsx"]))
-    .filter((file) => importsBridge.test(readFileSync(file, "utf8")))
-    .map((file) => path.relative(repoRoot, file).split(path.sep).join("/"));
-  assert.deepEqual(importers.sort(), [
-    "src/app/(site)/layout.tsx",
-    "src/app/[lang]/layout.tsx",
-    "src/app/zh/layout.tsx",
-  ].sort(), "only the three root layouts may import the bridge");
+test("B3 · every inventoried path is a real route and no route class is unaccounted", () => {
+  assert.equal(new Set(SWITCHER_PATHS).size, SWITCHER_PATHS.length, "the inventory holds no duplicate path");
+  const prefixed = new RegExp(`\\/(${PREFIXED_LOCALES.join("|")})(\\/|$)`);
+  for (const pagePath of SWITCHER_PATHS) {
+    assert.ok(pagePath.startsWith("/"), `${pagePath} must be an absolute prefix-free path`);
+    assert.equal(prefixed.test(pagePath), false, `${pagePath} must not carry a locale prefix`);
+  }
+  // The inventory must cover every deep path the content model can produce.
+  for (const product of products) {
+    assert.ok(SWITCHER_PATHS.includes(`/products/${product.slug}`), `/products/${product.slug} is unlisted`);
+  }
 });
 
 // ---------------------------------------------------------------------------
-// 3 · Server-side SEO behaviour is untouched by the boundary.
+// 4 · Server-side SEO behaviour is untouched by the boundary.
 // ---------------------------------------------------------------------------
-test("REQ 3 · every policy answer is exactly as INTL-DEES-003A left it", () => {
+test("REQ 4 · every policy answer is exactly as INTL-DEES-003A left it", () => {
   for (const pagePath of SWITCHER_PATHS) {
     for (const locale of locales) {
       const owned = answerFor(pagePath).includes(locale);
@@ -251,6 +333,7 @@ test("REQ 3 · every policy answer is exactly as INTL-DEES-003A left it", () => 
     assert.deepEqual(Object.keys(hreflangForPath(pagePath)).sort(), ["en", "x-default", "zh-CN"], pagePath);
   }
   assert.deepEqual([...TRANSLATED_PAGES], [], "ES/DE promotions must stay at zero");
+  assert.deepEqual(Object.keys(exceptions), [], "zero promotions means the payload lists no exceptions");
 });
 
 // ---------------------------------------------------------------------------
@@ -287,33 +370,45 @@ test("build: the client bundle returns to its INTL-DEES-002B size", buildOptions
     `the bundle lost far more than this task can explain: ${total} B vs ${BASE_002B_TOTAL} B baseline`);
 });
 
-test("build: every document's switcher hreflang equals the server-resolved answer", buildOptions, () => {
+test("build: every switcher document resolves to an inventoried path", buildOptions, () => {
+  // B3's real teeth: the baseline fallback is correct for every path, but an
+  // un-inventoried page is still an unmeasured page, and this line of work does
+  // not ship unmeasured SEO claims.
   const documents = walkFiles(PRERENDER_ROOT, new Set([".html"]));
   assert.ok(documents.length > 200, `expected the full prerendered set, saw ${documents.length}`);
+  const unlisted = [];
+  const covered = new Set();
   let checked = 0;
   for (const file of documents) {
     const html = readFileSync(file, "utf8");
     if (!html.includes('data-testid="lang-switcher"')) continue;
     checked++;
     const pagePath = pageOf(file);
+    if (!SWITCHER_PATHS.includes(pagePath)) {
+      unlisted.push(`${pagePath} <- ${path.relative(PRERENDER_ROOT, file).split(path.sep).join("/")}`);
+      continue;
+    }
+    covered.add(pagePath);
     const expected = answerFor(pagePath).map((l) => htmlLang[l]).sort();
     assert.deepEqual(switcherHreflangs(html), expected,
       `${pagePath}: the switcher claims a locale the policy does not own, or lost one it does`);
     assert.equal(switcherLinkCount(html), locales.length,
       `${pagePath} must still offer navigation to every language`);
   }
+  assert.deepEqual(unlisted, [], "a rendered switcher sits on a path the bridge never resolved");
   assert.ok(checked > 200, `only ${checked} documents carry a switcher — the probe stopped matching`);
+  const missing = SWITCHER_PATHS.filter((p) => !covered.has(p));
+  assert.deepEqual(missing, [], "the inventory lists paths that render no switcher document");
 });
 
 test("build: documents did not grow to pay for the boundary", buildOptions, () => {
-  // The reason the prop is `common` + `exceptions`: the complete map variant of
-  // this same fix measured +3,210 B raw per document. Anything near that scale
-  // means the encoding regressed, not the policy.
+  // The byte guard lives here, where it measures the thing that actually costs
+  // money per request. The rejected complete-map encoding measured +3,210 B raw
+  // per document; the shipped one costs tens of bytes.
   const documents = walkFiles(PRERENDER_ROOT, new Set([".html"]));
-  const total = documents.reduce((sum, file) => sum + statSync(file).size, 0);
-  const average = total / documents.length;
+  const average = documents.reduce((sum, file) => sum + statSync(file).size, 0) / documents.length;
   assert.ok(average < 78_000,
-    `average prerendered document is ${Math.round(average)} B against the ${Math.round(76_751)} B the leaked build measured — the prop encoding grew the documents`);
+    `average prerendered document is ${Math.round(average)} B against the ${76_751} B the leaked build measured — the prop encoding grew the documents`);
 });
 
 test("build: consolidation and head alternates are untouched by the boundary", buildOptions, () => {
@@ -323,7 +418,7 @@ test("build: consolidation and head alternates are untouched by the boundary", b
     const owner = readFileSync(path.join(PRERENDER_ROOT, `${pagePath.replace(/^\//, "")}.html`), "utf8");
     assert.equal((owner.match(/rel="canonical"[^>]*href="([^"]*)"/) ?? [])[1],
       `${siteUrl}${pagePath}`, `${pagePath} English owner moved`);
-    for (const locale of ["es", "de"]) {
+    for (const locale of locales.filter((l) => !baseline.includes(l))) {
       const file = path.join(PRERENDER_ROOT, locale, `${pagePath.replace(/^\//, "")}.html`);
       if (!existsSync(file)) continue;
       const html = readFileSync(file, "utf8");

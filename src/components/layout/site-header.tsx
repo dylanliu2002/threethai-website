@@ -55,15 +55,17 @@ export default function SiteHeader({
   locale: Locale;
   dict: Dictionary;
   /**
-   * The server-resolved ownership answers: `common` is the availability policy's
-   * modal answer across the site's paths, `exceptions` the paths it answers
-   * differently, keyed by prefix-free owner. INTL-DEES-003B. This component is
-   * `"use client"`, and which locale may claim a URL is an SEO ownership
-   * decision: it must arrive as answers, never as a rule this file can re-derive
-   * or a locale list it can hardcode.
+   * The server-resolved ownership answers: `baseline` is the set of locales the
+   * content model carries on **every** page, `exceptions` the complete answer for
+   * each path the policy resolves beyond it, keyed by prefix-free owner.
+   * INTL-DEES-003B. This component is `"use client"`, and which locale may claim
+   * a URL is an SEO ownership decision: it must arrive as answers, never as a
+   * rule this file can re-derive or a locale list it can hardcode. A path with no
+   * entry resolves to `baseline`, so it can never gain a promotion this file did
+   * not receive from the server.
    */
   availableLocales: {
-    readonly common: readonly Locale[];
+    readonly baseline: readonly Locale[];
     readonly exceptions: Readonly<Record<string, readonly Locale[]>>;
   };
 }) {
@@ -87,10 +89,11 @@ export default function SiteHeader({
   // Locales that genuinely have this page. The switcher keeps linking users to
   // every language (English-fallback copies included), but `hreflang`/`lang`
   // are only claims we can honour — advertising them on a fallback copy is what
-  // tells Google the copy is an independent localised document. Both branches of
-  // that answer are server-resolved data (003B): this browser component holds no
-  // ownership rule, imports no policy, and names no locale list of its own.
-  const localizedTargets = availableLocales.exceptions[currentPath] ?? availableLocales.common;
+  // tells Google the copy is an independent localised document. Both branches are
+  // server-resolved data (003B): this browser component holds no ownership rule,
+  // imports no policy, names no locale list, and an unknown path falls back to
+  // the model-guaranteed baseline rather than to anyone's promotion.
+  const localizedTargets = availableLocales.exceptions[currentPath] ?? availableLocales.baseline;
 
   const currentLabel = localeLabels[locale];
 

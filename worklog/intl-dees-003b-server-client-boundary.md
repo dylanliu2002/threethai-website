@@ -111,6 +111,77 @@ Work Log:
   was deliberately not used as evidence: on this host two builds of identical
   source differ by ~14 bytes in every document (see that note in project memory).
 
+- Review came back **REQUEST_CHANGES** on `34c7fa8` with four bounded issues; the
+  server/client architecture was accepted, so this entry records only the
+  correction. Before doing any of it I stated the governance problem on the
+  record: the review was written by the same agent that implemented the branch,
+  so it cannot serve as §13 independent sign-off even though its findings were
+  real. The card's Review Status now says that explicitly rather than letting a
+  self-review look like an approval trail.
+- **B2 first, because it changed the shape.** The reviewed head defaulted an
+  unresolved path to `common`, the policy's *modal* answer across the inventory.
+  That is a statistical default wearing a structural role: replaying the bridge's
+  own derivation over synthetic registries showed that at 32 of 43 deep paths
+  promoted, the mode becomes `en+zh+es+de`, so any page outside the inventory
+  would advertise `hreflang="es"` on copy no evidence covers. The direction is
+  precisely the one GSC-INDEX-002 was created to refuse (75 "Duplicate, Google
+  chose different canonical" entries from claiming a locale the copy does not
+  carry), and it is why my earlier "fail-closed `?? []`" instinct was wrong in a
+  different way — `[]` would have stripped `hreflang` from every page today.
+  Replaced with `baseline` = `TRANSLATED_CONTENT_LOCALES`, the locales the content
+  model carries on *every* page by construction: an unresolved path now gets a
+  provably true answer, promotions can only ever be added per path by the server,
+  and no locale literal appears in the bridge or the header.
+- **B1, the guard that punished the work it was protecting.** `PAYLOAD_CEILING =
+  400` was a byte budget on a payload whose correct size grows with translations.
+  Measured: 4 promoted deep paths → 263 B, 11 → 673 B, 22 → 1,476 B. So the gate
+  would have gone red around the **7th** promoted page with a message blaming the
+  encoding, while the thing it was meant to catch — the complete `path → locales`
+  map — is ~1.9 KB and strictly worse than the state it blocks. Replaced with two
+  structural rules: every exception must add a locale the model does not already
+  guarantee, and every exception key must be a path the evidence registry
+  actually promotes. A serialized path map is rejected in full because its entries
+  restate the baseline; maximum legitimate adoption passes at any byte size. The
+  byte budget now lives only where it measures real per-request cost, in the
+  built-HTML assertion.
+- **B3, a guard I had documented but not written.** The card claimed "the build
+  test that walks every prerendered switcher document is the guard" for
+  un-inventoried paths. It was not: the suite asserted only exception-keys ⊆
+  inventory, and the per-document comparison ran through a helper that cannot fail
+  for an unknown path because it returns the default by design. Restored in both
+  directions — no rendered switcher on an unlisted path, no listed path without a
+  rendered document (passes 55 ↔ 55 today) — and the hardcoded prefix list in
+  `pageOf` was replaced by `locales` filtered through what `localePath` actually
+  returns, with a self-scan forbidding the literal three-locale array in the suite
+  and any locale name in the bridge. That duplication matters here specifically:
+  LOCALE-RETIRE-001's whole architecture fact is that shrinking `locales` retires
+  a language everywhere at once, and a test that restates the prefix set does not
+  follow it.
+- **B4, the record was wrong about its own curve.** Risk 2 read that if a
+  majority of paths were promoted, "`common` would shift and `exceptions` would
+  shrink". The payload is non-monotonic: 1,476 B at 22 promoted, *falling* to
+  1,079 B at 32. Rewritten with the measured points, plus the reason the shipped
+  `baseline` shape is monotonic instead — which is the property that makes it
+  budgetable at all.
+- Kept honest through the correction rather than implied: the review's numbers
+  were reproduced by me before acting on them, and one of them — my own claim
+  that this task costs "tens of bytes" per document — was re-measured afterwards
+  (+69 B raw / +26 B gzip per document, 222 documents) instead of restated.
+- Re-validated everything the correction could move, at the corrected head:
+  lint PASS, typecheck PASS, `next build` PASS 225/225,
+  `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` **169/169 pass, 0 fail, 0 skipped**
+  (suite 11 → 13 tests), `first-wave-correctness` PASS, `git diff --check` clean.
+  Preserved by measurement, not by argument: client bundle 821,259 B raw /
+  260,369 B gzip (unchanged by the correction, still below the `d34cd95`
+  baseline of 822,743 / 260,950) with **zero** chunks carrying an ownership
+  string; the 222-document SEO fingerprint against `e99937e` still shows 0 pages
+  added or removed and 0 field differences; promotions still zero.
+- One measurement gap recorded instead of papered over: the card's earlier
+  validation table had copied the `d34cd95` document total from the #27 column,
+  but that number was never measured (the temporary base worktree had already been
+  removed). It is now marked "not measured", and the document rows compare only
+  the pair that was actually built — #27 versus this head.
+
 Stage Summary:
 - Deliverable: the browser no longer imports or executes the SEO ownership
   policy; it receives the answer as ~90 bytes of data. The shared client bundle

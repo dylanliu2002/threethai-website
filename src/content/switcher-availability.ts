@@ -1,5 +1,5 @@
 import type { Locale } from "./company";
-import { localizedLocalesFor } from "./availability";
+import { localizedLocalesFor, TRANSLATED_CONTENT_LOCALES } from "./availability";
 import { applications } from "./applications";
 import { buyerAnswers } from "./answers";
 import { articles } from "./articles";
@@ -25,20 +25,49 @@ import { products } from "./products";
  * stays decided in exactly one place while the switcher keeps gating `hreflang`
  * exactly as GSC-INDEX-002 requires.
  *
- * The encoding is `common` + `exceptions`, measured into existence. The first
- * version shipped the complete `path → locales` map and cost **+3,210 B raw /
- * +800 B gzip per document** (222 documents, +4.5 % of total HTML) to save 586 B
- * gzip once on a chunk browsers cache across the visit — the wrong side of the
- * trade. `common` is the policy's own modal answer, computed here rather than
- * written down, so nothing in the client states which locales a page defaults to:
- * a new promotion moves one path into `exceptions`, a change to the content
- * model moves `common`, and the header re-renders with no edit. `common` is also
- * the fallback for a path this inventory does not list, which is what the policy
- * itself answered for such a path before the boundary existed.
+ * ## The shape: `baseline` plus per-path answers
  *
- * `tests/intl-dees-003b-server-client-boundary.mjs` pins both halves: no
- * ownership string reaches `.next/static/chunks`, and every `common`/`exceptions`
- * entry equals the policy's answer for its path.
+ * `baseline` is `TRANSLATED_CONTENT_LOCALES` — the locales whose body copy the
+ * content model itself carries, so they own *every* page by construction rather
+ * than by evidence. `exceptions` lists the paths the policy answers with more
+ * than that, and each entry is a complete answer, not an increment. A path with
+ * no entry therefore resolves to `baseline`, which is the model-guaranteed
+ * answer for every page, so an unlisted path cannot be over-claimed; it simply
+ * cannot gain a promotion it has no evidence for. That replaces an earlier
+ * encoding whose default was the *modal* answer across the inventory, which
+ * would have let a future majority of promoted ES/DE pages advertise `es` on a
+ * page no evidence covers — the fail-open direction this whole line of work
+ * exists to refuse (GSC-INDEX-002: 75 "Duplicate, Google chose different
+ * canonical" entries from advertising a locale the copy does not carry).
+ *
+ * ## Encoding history, measured rather than assumed
+ *
+ * Two alternatives were built and rejected on numbers, not taste:
+ *
+ * - **Complete `path → locales` map** (55 entries): fell the bundle by the same
+ *   amount but grew **every** document by +3,210 B raw / +800 B gzip (+4.5 % of
+ *   total HTML), because RSC serializes props into each page's own payload. That
+ *   spends ~800 gzip bytes on every page view to save 586 once on a cached
+ *   chunk, so it is the wrong side of the trade.
+ * - **Modal `common` plus exceptions**: smallest today, but its default is
+ *   content-dependent (fail-open, above) and its payload is **non-monotonic** in
+ *   adoption — measured by replaying the derivation over synthetic registries,
+ *   22 of 43 deep pages promoted cost 1,476 B and peaked near the tipping point,
+ *   then *fell* to 1,079 B at 32 of 43 once the mode flipped. A size that goes
+ *   down as translations increase is not a property anyone can budget against.
+ *
+ * This shape is monotonic: one entry per promoted path, nothing else. It starts
+ * at 38 bytes with zero promotions and reaches roughly the complete map's size
+ * only when nearly every page is promoted — at which point the complete map is
+ * no longer a worse choice and the comparison is moot. Nothing here is a
+ * constant the content team has to stay under; `tests/intl-dees-003b-*` guards
+ * the *structure* (an exception that adds nothing is a path-map regression)
+ * rather than a byte ceiling that legitimate translations would trip.
+ *
+ * `tests/intl-dees-003b-server-client-boundary.mjs` pins the contract: every
+ * value equals the policy's own answer, no ownership string reaches
+ * `.next/static/chunks`, and every prerendered switcher document resolves to an
+ * inventoried path.
  */
 
 /**
@@ -67,47 +96,34 @@ export const SWITCHER_PATHS: readonly string[] = [
 ];
 
 /**
- * What the browser is allowed to know about ownership: the policy's most common
- * answer, plus the paths the policy answers differently. Strings and arrays of
- * strings only — no functions, no live reference to the policy.
+ * What the browser is allowed to know about ownership: the locales the content
+ * model guarantees on every page, plus the complete answer for each path the
+ * policy resolves beyond it. Strings and arrays of strings only — no functions,
+ * no live reference to the policy, nothing this component can extend on its own.
  */
 export type SwitcherAvailability = {
-  readonly common: readonly Locale[];
+  readonly baseline: readonly Locale[];
   readonly exceptions: Readonly<Record<string, readonly Locale[]>>;
 };
 
-/** The answer for one path, straight from the availability policy. */
+/** The policy's own answer for one path, as a plain array. */
 const answerFor = (path: string): readonly Locale[] => [...localizedLocalesFor(path)];
 
 /**
- * The modal answer across the inventory — chosen by frequency, ties broken by
- * first appearance in `SWITCHER_PATHS` so the value is deterministic. This is
- * data derived from the policy, never a locale list written into this file.
+ * The locales that own every page without evidence, because the content model
+ * carries their copy (`ContentLocale`). Taken from the policy module's derived
+ * export rather than written here, so a change to the content model — not a
+ * literal in this file — is what moves it.
  */
-const modalAnswer = (answers: ReadonlyMap<string, readonly Locale[]>): readonly Locale[] => {
-  const counts = new Map<string, { locales: readonly Locale[]; seen: number; hits: number }>();
-  let seen = 0;
-  for (const locales of answers.values()) {
-    const key = locales.join(",");
-    const entry = counts.get(key);
-    if (entry) entry.hits++;
-    else counts.set(key, { locales, seen: seen, hits: 1 });
-    seen++;
-  }
-  return [...counts.values()]
-    .sort((a, b) => b.hits - a.hits || a.seen - b.seen)[0]!
-    .locales;
+const baseline: readonly Locale[] = [...TRANSLATED_CONTENT_LOCALES];
+
+const baselineKey = baseline.join(",");
+
+export const SWITCHER_AVAILABILITY: SwitcherAvailability = {
+  baseline,
+  exceptions: Object.fromEntries(
+    SWITCHER_PATHS
+      .map((path): [string, readonly Locale[]] => [path, answerFor(path)])
+      .filter(([, list]) => list.join(",") !== baselineKey),
+  ),
 };
-
-const answers = new Map(SWITCHER_PATHS.map((path) => [path, answerFor(path)]));
-const common = modalAnswer(answers);
-const commonKey = common.join(",");
-
-const exceptions = Object.fromEntries(
-  SWITCHER_PATHS.filter((path) => answerFor(path).join(",") !== commonKey).map((path) => [
-    path,
-    answers.get(path)!,
-  ]),
-);
-
-export const SWITCHER_AVAILABILITY: SwitcherAvailability = { common, exceptions };
