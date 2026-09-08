@@ -7,7 +7,6 @@ import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 import type { Dictionary } from "@/content/i18n";
 import { company, htmlLang, localeLabels, localePath, locales, type Locale } from "@/content/company";
-import { localizedLocalesFor } from "@/content/availability";
 
 const UI_PREFIXES = locales.filter((l) => l !== "en");
 
@@ -48,7 +47,28 @@ function Wordmark({ locale }: { locale: Locale }) {
   );
 }
 
-export default function SiteHeader({ locale, dict }: { locale: Locale; dict: Dictionary }) {
+export default function SiteHeader({
+  locale,
+  dict,
+  availableLocales,
+}: {
+  locale: Locale;
+  dict: Dictionary;
+  /**
+   * The server-resolved ownership answers: `baseline` is the set of locales the
+   * content model carries on **every** page, `exceptions` the complete answer for
+   * each path the policy resolves beyond it, keyed by prefix-free owner.
+   * INTL-DEES-003B. This component is `"use client"`, and which locale may claim
+   * a URL is an SEO ownership decision: it must arrive as answers, never as a
+   * rule this file can re-derive or a locale list it can hardcode. A path with no
+   * entry resolves to `baseline`, so it can never gain a promotion this file did
+   * not receive from the server.
+   */
+  availableLocales: {
+    readonly baseline: readonly Locale[];
+    readonly exceptions: Readonly<Record<string, readonly Locale[]>>;
+  };
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -69,8 +89,11 @@ export default function SiteHeader({ locale, dict }: { locale: Locale; dict: Dic
   // Locales that genuinely have this page. The switcher keeps linking users to
   // every language (English-fallback copies included), but `hreflang`/`lang`
   // are only claims we can honour — advertising them on a fallback copy is what
-  // tells Google the copy is an independent localised document.
-  const localizedTargets = localizedLocalesFor(currentPath);
+  // tells Google the copy is an independent localised document. Both branches are
+  // server-resolved data (003B): this browser component holds no ownership rule,
+  // imports no policy, names no locale list, and an unknown path falls back to
+  // the model-guaranteed baseline rather than to anyone's promotion.
+  const localizedTargets = availableLocales.exceptions[currentPath] ?? availableLocales.baseline;
 
   const currentLabel = localeLabels[locale];
 

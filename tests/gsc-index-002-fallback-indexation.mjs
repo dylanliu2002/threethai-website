@@ -388,7 +388,17 @@ test("deep-content structured data reports the canonical owner", () => {
 
 test("language switcher keeps navigation but stops claiming false hreflang", () => {
   const source = read("src/components/layout/site-header.tsx");
-  assert.match(source, /localizedLocalesFor\(currentPath\)/);
+  // INTL-DEES-003B moved this question across the server/client boundary. The
+  // switcher is `"use client"`, and calling the availability policy from it
+  // shipped the whole evidence gate to browsers (+1,684 B raw / +586 B gzip on a
+  // chunk loaded by 220 of 222 documents) to answer something the server already
+  // knows. The gate's *answer* now arrives as a serializable prop, and an
+  // unresolved path falls back to the model-guaranteed baseline (never to another
+  // page's promotion); the gating below is byte-for-byte the behaviour this test
+  // was written to protect.
+  assert.match(source, /const localizedTargets = availableLocales\.exceptions\[currentPath\] \?\? availableLocales\.baseline;/);
+  assert.doesNotMatch(source, /@\/content\/(?:availability|translation-availability|translation-evidence)/,
+    "the browser component may not import the ownership policy");
   assert.match(
     source,
     /hrefLang=\{localizedTargets\.includes\(l\) \? htmlLang\[l\] : undefined\}/,
