@@ -468,7 +468,8 @@ Validation: `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` reports 187 tests, 0 fail,
 
 ## Completion Record
 
-- Commit: see "Delivery" below; branch head is authoritative.
+- Commit: `4eae62f2cc1706976242243d40e44e7baa7c249d` (delivery record below; a
+  follow-up commit amends only this card and the worklog with that SHA).
 - Base: `f27bfcae83d0d7b6a758246ea8c72e65739c0015` (`origin/main` at branch
   creation and re-verified before delivery). No rebase needed.
 - Changed files: the allowlist, with `src/content/availability.ts` ultimately
@@ -517,8 +518,12 @@ Validation: `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` reports 187 tests, 0 fail,
 ## Delivery
 
 - Branch: `qwen/intl-dees-004b-core-page-evidence`
-- Head commit: recorded in the worklog entry accompanying the push.
-- Pushed: task branch only. `main` untouched, per §9 and §13.
+- Implementation commit: `4eae62f2cc1706976242243d40e44e7baa7c249d`
+- Head commit: the documentation commit that records this SHA; the pushed branch
+  head is authoritative.
+- Pushed: task branch only. `main` untouched, per §9 and §13. No pull request
+  opened — integration is the merge owner's action, and §13 requires a reviewer
+  on another role/worker/thread before this is called approved.
 - Post-deploy note for whoever merges: nothing observable changes on
   `threethai.com`. The change is inert until a surface and an approved record
   exist, so the verification that matters after merge is that ES/DE output is

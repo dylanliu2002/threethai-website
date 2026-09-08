@@ -194,6 +194,38 @@ The card pinned neither Provider nor Model Family for this task, and none was
 switched mid-task. Executor platform is Qwen Code per the requester's assignment;
 platform choice changed no scope, no allowlist and no review obligation (§6).
 
+## 2026-09-08 · Delivered
+
+Commit `4eae62f2cc1706976242243d40e44e7baa7c249d` — "feat: make core and section
+pages promotable by evidence, not by path class" — one commit on
+`qwen/intl-dees-004b-core-page-evidence`, based on `f27bfcae83d0d7b6a758246ea8c72e65739c0015`,
+pushed to `origin` (task branch only; `main` untouched, per §9/§13).
+
+§3 identity gate verified on **this** commit, not a historical one:
+
+```text
+Author:  dylanliu2002 <dylanliu2002@gmail.com>
+Commit:  dylanliu2002 <dylanliu2002@gmail.com>
+```
+
+Staged set was checked against the allowlist before committing: 7 files —
+`src/content/page-surfaces.ts` (new), `src/content/translation-evidence.ts`,
+`src/content/translation-availability.ts`,
+`tests/intl-dees-004b-core-page-evidence.mjs` (new), `package.json`
+(`test:seo` filename only), this card and this worklog.
+`src/content/availability.ts` is **absent from the diff**, which is R1's outcome
+visible in Git rather than only asserted in prose.
+
+Working tree clean afterwards; all measurement artifacts (fingerprint JSONs,
+commit-message scratch file, gate logs) removed, `git diff --check f27bfca..HEAD`
+clean. Validation numbers in the card were taken from the same tree this commit
+records — the build was regenerated after the `availability.ts` revert, so no
+figure describes a state that was never shipped.
+
+No pull request has been opened: the card asks for an audit, the five design
+sections and implementation, and integration is the merge owner's action (§1). The
+branch is pushed so an independent reviewer can diff it.
+
 ## Open at hand-off
 
 - Independent review not started (§13). Points worth attacking first are on the
