@@ -4,6 +4,15 @@ import { readControllerStateInternal } from "./controller-state-engine.mjs";
 import { reserveTaskDispatchInternal } from "./lease-engine.mjs";
 import { pilotTaskKeyAuthorized } from "../pilot-security.mjs";
 
+export function activationScopedCliWakeupIdInternal(pilotActivation) {
+  if (pilotActivation?.status !== "READY"
+    || typeof pilotActivation.activation_id !== "string"
+    || pilotActivation.activation_id.length === 0) {
+    throw new Error("Default CLI wakeup identity requires a READY synthetic pilot activation.");
+  }
+  return `cli-tick:${pilotActivation.activation_id}`;
+}
+
 export function isDispatchEligibleInternal(contract, grant, contracts) {
   if (contract.status === "ON_HOLD" || contract.status === "BLOCKED") return false;
   const activationEligible = grant.activation.autonomous

@@ -18,7 +18,10 @@ import { readControllerStateInternal } from "./internal/controller-state-engine.
 import { productionEngineInternal } from "./internal/production-engine.mjs";
 import { reconcileRuntimeInternal } from "./internal/recovery-engine.mjs";
 import { runCodexExecInternal } from "./internal/run-engine.mjs";
-import { planScheduleInternal } from "./internal/scheduler-engine.mjs";
+import {
+  activationScopedCliWakeupIdInternal,
+  planScheduleInternal,
+} from "./internal/scheduler-engine.mjs";
 import {
   assertSyntheticPilotGrant,
   oneTimePilotPolicy,
@@ -103,7 +106,6 @@ function workerPrompt(contract) {
 export async function tick(repoRoot = defaultRepoRoot(), options = {}) {
   assertNoAuthorityOverrides(options);
   const dryRun = options.dryRun !== false;
-  const wakeupId = options.wakeupId ?? "cli-tick";
   const contracts = loadContracts(repoRoot);
   const context = resolveCanonicalControllerContext(repoRoot);
   const runtime = reconcileRuntimeInternal(context.state_directory);
@@ -121,6 +123,8 @@ export async function tick(repoRoot = defaultRepoRoot(), options = {}) {
   if (state.pilot_activation.task_key !== SYNTHETIC_PILOT_TASK_KEY) {
     throw new Error("One-time pilot activation names an unauthorized task.");
   }
+  const wakeupId = options.wakeupId
+    ?? activationScopedCliWakeupIdInternal(state.pilot_activation);
 
   const contract = contracts.find((item) => item.task_key === SYNTHETIC_PILOT_TASK_KEY);
   if (!contract) throw new Error("Synthetic pilot machine contract is unavailable.");
