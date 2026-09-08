@@ -185,11 +185,41 @@ Validation: `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` must report the new suite
 
 ## Completion Record
 
-- Commit: see PR head (`qwen/intl-dees-003a-translation-evidence-model`)
+- Commit: `a0995cc` (implementation) + this record's follow-up commit.
+  PR head is authoritative.
 - Base / rebase commit: `d34cd95` (`origin/main` at the base gate and re-checked
-  before opening the PR)
-- Changed files: the five in the allowlist, plus this card and the worklog.
-- Validation results: recorded in the PR body and the worklog entry.
+  before opening the PR; it had not moved, so no rebase was performed).
+- Changed files: `src/content/translation-evidence.ts` (new),
+  `src/content/translation-availability.ts`, `src/content/availability.ts`,
+  `tests/intl-dees-003a-translation-evidence-model.mjs` (new), `package.json`
+  (test filename only), plus this card and the worklog. 7 files,
+  1,386 insertions / 123 deletions at `a0995cc`.
+- Validation results, all at the committed state:
+  - `npm run lint` → PASS (0 errors).
+  - `npm run typecheck` → PASS.
+  - `npm run build` → PASS, 225/225 static pages generated (three times: the
+    pre-edit tree and twice at the final commit, all exit 0).
+  - `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` → **156 tests, 156 pass, 0 fail,
+    0 skipped**. Baseline at `d34cd95` before any edit: 132 tests, 111 pass,
+    0 fail, 21 skipped.
+  - `git diff --check` and `git show --check` → clean.
+  - Built sitemap bytes (`.next/server/app/sitemap.xml.body`): 55 `<loc>`
+    entries, all prefix-free, 0 with an `/es` or `/de` path segment, hreflang
+    tag set exactly `en, x-default, zh-CN`.
+- No-behaviour-change proof, measured against a build of the base commit rather
+  than argued: a semantic fingerprint of every prerendered document (page set,
+  `<html lang>`/`dir`, canonical, every `rel=alternate` hreflang pair, title,
+  description, robots, `og:locale`, `og:url`, JSON-LD `@type` set, every
+  `inLanguage` value, and the full rendered text) was taken from a production
+  build of `d34cd95` and from this head — **222 documents both sides, 0 pages
+  added or removed, 0 field differences**. `sitemap.xml.body`,
+  `robots.txt.body`, and every `.json`/`.meta`/`.map` output file are also
+  hash-identical.
+  Byte hashing of `.html`/`.rsc` is **not** a usable method on this host: two
+  builds of the same source differ by ~14 bytes in every document, and the shift
+  oscillates between builds, so it was replaced by the semantic comparison
+  above. An initial delegated byte-identity report was checked and found not
+  reproducible against these manifests, and is therefore not cited here.
 - Worklog: `worklog/intl-dees-003a-translation-evidence-model.md`
 - Remaining risks:
   1. The gate trusts the record's `requiredFields` as the reviewer's statement of

@@ -3,7 +3,8 @@ Task Key: INTL-DEES-003A
 Role: TECHNICAL_SEO
 Task: Translation Evidence Model
 Branch: qwen/intl-dees-003a-translation-evidence-model
-Commit: (this entry is appended by the push step; the PR head is authoritative)
+Commit: a0995cc0b083ed0d2f76efce79a534c9c369948a (implementation); this record
+  is completed by the following docs commit on the same branch.
 Date: 2026-09-08
 
 Work Log:
@@ -121,6 +122,39 @@ Work Log:
   no ES/DE core-page change, no change to locale routing, serving, the
   four-language switcher, document `lang`, schema types, or any other task's
   card, worklog or suite.
+- Re-measured the gates at the committed state (`a0995cc`) rather than reusing
+  the pre-commit numbers, because two source edits landed after the first build
+  (a `provenance-review-date-not-iso` reason split and test text): lint PASS,
+  typecheck PASS, `next build` PASS 225/225, `REQUIRE_BUILD_OUTPUT=1
+  npm run test:seo` → 156 tests / 156 pass / 0 fail / 0 skipped,
+  `git show --check` clean.
+- Found out that byte-hashing the build is not a valid no-change proof on this
+  machine, and corrected the method instead of the claim: a hash manifest of
+  `.next/server/app` (buildId normalised) showed all 222 `.html` and 1,941
+  `.rsc` files differing by ~14 bytes between the pre-edit and post-edit builds,
+  which would have looked like my edit changing rendered output. Rebuilding the
+  same source a third time reproduced the difference and the size shifted back
+  (`_global-error.html` 5,725 → 5,711), so the shift is Turbopack build
+  nondeterminism, not a behaviour change. `.json`, `.meta`, `.map`,
+  `sitemap.xml.body` and `robots.txt.body` were hash-identical in all three.
+- Replaced the invalidated comparison with a semantic one measured directly:
+  fingerprinted every prerendered document (page set, `<html lang>`/`dir`,
+  canonical, all hreflang `rel=alternate` pairs, title, description, robots,
+  `og:locale`, `og:url`, JSON-LD `@type` set, all `inLanguage` values, and the
+  full rendered text) from a production build of the base commit `d34cd95`
+  (temporary detached worktree, own `npm ci` + build) and from this head →
+  222 documents both sides, 0 pages added or removed, **0 field differences**.
+  The temp worktree was removed through `git worktree remove` afterwards.
+- One delegation handled honestly: a subagent reported the two builds
+  "byte-identical, 1,532 HTML documents" — a count that does not match this
+  tree's 222 `.html` documents under `.next/server/app`, and a claim my own
+  manifest contradicted. It was treated as a lead, not as evidence, and the
+  conclusion above rests only on measurements taken here. Future build
+  comparisons in this repo should fingerprint content, not hash files.
+- Directly measured the crawler-facing inventory at the final commit:
+  `sitemap.xml.body` holds 55 `<loc>` entries, none carrying an `/es` or `/de`
+  path segment, and the advertised hreflang tag set is exactly
+  `en, x-default, zh-CN`.
 
 Stage Summary:
 - Deliverable: ES/DE SEO ownership now has exactly one precondition — an
