@@ -3,29 +3,38 @@ import { answerBySlug, expandedAnswerFor } from "@/content/answers";
 import { productBySlug } from "@/content/products";
 import type { Dictionary } from "@/content/i18n";
 import { contentLocaleOf, localePath, type Locale } from "@/content/company";
+import { pageCopyFor } from "@/content/translation-availability";
 
 /**
  * Full buyer-answer article for the /[lang] routes. Deep content is
  * bilingual (en + zh); UI strings come from the resolved dictionary and
  * internal links are locale-prefixed.
+ *
+ * The answer's own copy resolves through `pageCopyFor`, the same call the SEO
+ * policy reads, so a promoted page renders the registered translation. `cl`
+ * stays for the English/Chinese expansion material and the related product,
+ * which a promotion of this page does not cover.
  */
 export default function AnswerArticle({ slug, locale, dict }: { slug: string; locale: Locale; dict: Dictionary }) {
-  const answer = answerBySlug(slug)!;
+  const answerRecord = answerBySlug(slug)!;
+  const { entity: answer, contentLocale } = pageCopyFor(`/answers/${slug}`, locale, answerRecord);
   const cl = contentLocaleOf(locale);
-  const expanded = expandedAnswerFor(slug, cl);
+  // The expansion pack exists for the modelled locales only; a promoted page
+  // must not have English blocks folded back into it.
+  const expanded = contentLocale === cl ? expandedAnswerFor(slug, cl) : undefined;
   const lp = (p: string) => localePath(p, locale);
   const related = answer.relatedProduct ? productBySlug(answer.relatedProduct) : undefined;
 
   return (
     <article className="mt-8">
       <p className="eyebrow">{expanded?.eyebrow ?? dict.answersIndex.eyebrow}</p>
-      <h1 className="mt-3 text-2xl font-semibold leading-tight tracking-tight text-ink sm:text-3xl">{answer.question[cl]}</h1>
+      <h1 className="mt-3 text-2xl font-semibold leading-tight tracking-tight text-ink sm:text-3xl">{answer.question[contentLocale]}</h1>
       <div className="mt-6 rounded-lg border border-gold/40 bg-accent/40 p-5">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-deep">{expanded?.directLabel ?? dict.answersIndex.directLabel}</p>
-        <p className="mt-2 leading-relaxed text-foreground/90">{answer.shortAnswer[cl]}</p>
+        <p className="mt-2 leading-relaxed text-foreground/90">{answer.shortAnswer[contentLocale]}</p>
       </div>
 
-      {answer.details[cl].map(([heading, body]) => (
+      {answer.details[contentLocale].map(([heading, body]) => (
         <section key={heading} className="mt-8">
           <h2 className="text-xl font-semibold tracking-tight text-ink">{heading}</h2>
           <p className="mt-3 text-base leading-relaxed text-muted-foreground">{body}</p>
@@ -90,7 +99,7 @@ export default function AnswerArticle({ slug, locale, dict }: { slug: string; lo
       <section className="mt-8">
         <h2 className="text-xl font-semibold tracking-tight text-ink">{dict.answersIndex.askHeading}</h2>
         <ul className="mt-4 space-y-2">
-          {answer.askFor[cl].map((item) => (
+          {answer.askFor[contentLocale].map((item) => (
             <li key={item} className="flex items-start gap-3 text-sm leading-relaxed text-foreground/85">
               <span aria-hidden="true" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" />
               {item}

@@ -8,8 +8,12 @@ import {
   type Locale,
 } from "./company";
 import {
-  isTranslationAvailable,
+  DEEP_CONTENT_SECTIONS,
+  deepContentSectionOf,
+  isDeepContentDetail,
+  resolvedContentLocaleOf,
   TRANSLATED_PAGES,
+  type DeepContentSection,
   type TranslatedPage,
 } from "./translation-availability";
 
@@ -25,61 +29,38 @@ import {
  * different canonical than user", all of them /answers/* and /knowledge/*
  * under es, pt, ru, ar, tr, vi, id, de).
  *
- * The rule is the one already encoded by `ContentLocale` in ./company: deep
- * content exists in genuinely translated form for EN and ZH only. The two
- * remaining locales get translated chrome (nav, breadcrumbs, CTAs, index
- * headings) over English body copy, so their entity detail pages are copies of
- * the English original rather than localised documents.
+ * The answer is one call: `resolvedContentLocaleOf(path, locale) === locale`.
+ * That is the same resolution a route uses to pick the body copy it renders, so
+ * a URL can only own itself in a language whose copy the page actually shows.
+ * Ownership and rendering cannot be pulled apart by registering a claim in one
+ * place while the other keeps serving English.
  *
- * Scope is deliberately narrow: only entity DETAIL pages are treated as
- * fallback copies. Section index pages (/answers, /knowledge, /products,
- * /applications), the homepage and the core buyer-journey pages lead with
- * translated chrome and are not flagged by Search Console, so they keep their
- * existing self-canonical + full hreflang behaviour.
- *
- * A fallback copy is a per-page state, not a per-language one: an ES or DE
- * detail page stops being one the moment ./translation-availability carries
- * reviewed translated copy for that exact path. Every answer below is therefore
- * path-aware, and a promoted page becomes self-canonical, a symmetric hreflang
- * alternate and a sitemap owner through this module alone.
+ * For EN and ZH that resolution is the content model's own guarantee:
+ * `ContentLocale` carries their copy on every entity, so `contentLocaleOf`
+ * returns the locale itself. For ES and DE it is a per-page fact with no
+ * exemptions. Entity detail pages render English body copy, and core and
+ * section routes render partially translated chrome over English body copy, so
+ * neither kind of page is an ES or DE owner today. Nothing here may treat a
+ * locale, or a class of paths, as translated by default: assuming it for deep
+ * pages produced 86 duplicate copies, and assuming it for core pages would do
+ * the same to the rest of the site.
  */
 
-/** Sections whose detail pages render body copy from `Record<ContentLocale>` data. */
-export const DEEP_CONTENT_SECTIONS = [
-  "answers",
-  "knowledge",
-  "products",
-  "applications",
-] as const;
-
-export type DeepContentSection = (typeof DEEP_CONTENT_SECTIONS)[number];
-
-const deepDetailPath = new RegExp(
-  `^/(${DEEP_CONTENT_SECTIONS.join("|")})/[^/]+/?$`,
-);
-
-/** Which deep-content section (if any) a site path belongs to. */
-export function deepContentSectionOf(path: string): DeepContentSection | null {
-  const match = deepDetailPath.exec(path);
-  return match ? (match[1] as DeepContentSection) : null;
-}
-
-/** Is this path an entity detail page whose copy comes from ContentLocale data? */
-export function isDeepContentDetail(path: string): boolean {
-  return deepContentSectionOf(path) !== null;
-}
+/** The page-shape model lives with the evidence, beside the copy it describes. */
+export { DEEP_CONTENT_SECTIONS, deepContentSectionOf, isDeepContentDetail };
+export type { DeepContentSection };
 
 const isModelledContentLocale = (locale: Locale): locale is ContentLocale =>
   contentLocaleOf(locale) === locale;
 
 /**
- * Locales whose deep content the model itself can hold, on every page.
+ * Locales whose body copy the model itself carries, on every page.
  *
  * Derived from `contentLocaleOf` — the function that picks which
  * `Record<ContentLocale>` key a route renders — rather than restated as a
- * literal, so this list can never claim a language the content model has no
- * copy for. A locale promoted page by page through ./translation-availability
- * is deliberately absent: it gains ownership of one path, not of the site.
+ * literal, so this list cannot claim a language the content model has no copy
+ * for. A locale promoted page by page through ./translation-availability is
+ * deliberately absent: it gains ownership of one path, not of the site.
  */
 export const TRANSLATED_CONTENT_LOCALES: readonly ContentLocale[] =
   locales.filter(isModelledContentLocale);
@@ -87,29 +68,23 @@ export const TRANSLATED_CONTENT_LOCALES: readonly ContentLocale[] =
 /**
  * The policy, built over one evidence registry.
  *
- * Production always uses the shipped registry (`TRANSLATED_PAGES`) via the
+ * Production always uses the shipped registry (`TRANSLATED_PAGES`) through the
  * exported functions below; the factory exists so a caller can evaluate the
  * same code against a different set of promoted pages, which is how
- * `tests/intl-dees-002b-page-aware-translation-availability.mjs` proves a
- * single page can be promoted without touching any other path.
+ * `tests/intl-dees-002b-page-aware-translation-availability.mjs` proves one page
+ * can be promoted without touching any other path or locale.
  */
 export function createAvailabilityPolicy(registry: readonly TranslatedPage[] = TRANSLATED_PAGES) {
   /**
    * Locales that may be advertised as real language equivalents of `path`:
-   * every locale the model carries, plus the promotion locales whose copy has
-   * been proven for this exact page.
+   * every locale whose copy this route actually renders, in `locales` order.
    */
   const localizedLocalesFor = (path: string): readonly Locale[] =>
-    locales.filter((locale) => {
-      if (isModelledContentLocale(locale)) return true;
-      // Chrome-localised routes keep their existing full graph (GSC-INDEX-002).
-      if (!isDeepContentDetail(path)) return true;
-      return isTranslationAvailable(path, locale, registry);
-    });
+    locales.filter((locale) => resolvedContentLocaleOf(path, locale, registry) === locale);
 
   /** Does this exact route render genuinely localised content in `locale`? */
   const isLocalizedAt = (path: string, locale: Locale): boolean =>
-    localizedLocalesFor(path).includes(locale);
+    resolvedContentLocaleOf(path, locale, registry) === locale;
 
   /**
    * The locale whose URL owns the canonical for (path, locale). Fallback copies

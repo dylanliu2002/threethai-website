@@ -7,14 +7,18 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 /**
  * INTL-DEES-002B — page-aware ES/DE translation availability.
  *
- * The architecture under test has two layers: `src/content/translation-availability.ts`
- * carries the evidence (which page, in which language, with what copy) and
- * `src/content/availability.ts` turns that evidence into the SEO answers
- * (canonical ownership, hreflang membership, sitemap eligibility). The card for
- * this task forbids translating anything, so the shipped registry must be empty
- * and every current ES/DE deep page must still behave exactly as GSC-INDEX-002
- * left it. Promotion is proven with a synthetic registry passed to
- * `createAvailabilityPolicy` — no shipped page is ever promoted here.
+ * Two blockers, two invariants:
+ *
+ * 1. A page may not become an SEO owner in a language its renderer does not
+ *    serve. Ownership and body copy come from one resolution
+ *    (`resolvedContentLocaleOf` / `pageCopyFor`) reading one registry, and a
+ *    promotion whose entry leaves out a field the page renders fails at render.
+ * 2. Availability is a per-path fact for ES and DE everywhere, including the
+ *    core and section routes GSC-INDEX-002 used to exempt by path class.
+ *
+ * Nothing is translated or promoted here: the shipped registry stays empty, so
+ * every ES/DE answer is the fallback posture, and promotion is proven only
+ * through synthetic registries passed to `createAvailabilityPolicy`.
  */
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -29,8 +33,8 @@ const {
   createAvailabilityPolicy,
   hreflangForPath,
   hreflangForRoute,
-  isDeepContentDetail,
   isEnglishFallbackCopy,
+  isLocalizedAt,
   isSitemapEligible,
   localizedLocalesFor,
 } = await importSource("src/content/availability.ts");
@@ -39,18 +43,19 @@ const {
   TRANSLATED_PAGES,
   isGenuineTranslation,
   isTranslationAvailable,
+  pageCopyFor,
   rejectedTranslations,
-  translatedCopyFor,
+  resolvedContentLocaleOf,
   translatedLocalesFor,
+  translatedPageFor,
 } = await importSource("src/content/translation-availability.ts");
 
-const { htmlLang, localePath, locales, siteUrl } = await importSource("src/content/company.ts");
+const { contentLocaleOf, htmlLang, locales, siteUrl } = await importSource("src/content/company.ts");
 const { products } = await importSource("src/content/products.ts");
 const { applications } = await importSource("src/content/applications.ts");
 const { articles } = await importSource("src/content/articles.ts");
 const { buyerAnswers } = await importSource("src/content/answers.ts");
 
-/** Locales that need page-level evidence before they can own anything. */
 const PROMOTION_LOCALES = locales.filter((l) => !TRANSLATED_CONTENT_LOCALES.includes(l));
 
 const DEEP_PATHS = [
@@ -75,61 +80,72 @@ const CORE_PATHS = [
   "/product-finder",
 ];
 
-/** The page and section the promotion fixtures are built around. */
+/** The fields of an entity record that hold one value per content locale. */
+function contentFieldsOf(record) {
+  return Object.entries(record)
+    .filter(([, value]) => value !== null && typeof value === "object" && !Array.isArray(value)
+      && "en" in value && "zh" in value && Object.keys(value).length === 2)
+    .map(([field]) => field);
+}
+
+/** A test-only "translation": marked, non-empty, same shape as the English. */
+function synth(value) {
+  if (Array.isArray(value)) return value.map(synth);
+  return `traducido | ${value}`;
+}
+
+/** A complete honest entry covering every body field of one record. */
+function entryFor(record, pagePath, locale, only) {
+  const source = {};
+  const content = {};
+  for (const field of only ?? contentFieldsOf(record)) {
+    source[field] = record[field].en;
+    content[field] = synth(record[field].en);
+  }
+  return { path: pagePath, locale, source, content };
+}
+
 const PROMOTED = products[0];
 const PROMOTED_PATH = `/products/${PROMOTED.slug}`;
 const SIBLING_PATH = `/products/${products[1].slug}`;
+const FIELDS = contentFieldsOf(PROMOTED);
+const COMPLETE_ES_PAGE = entryFor(PROMOTED, PROMOTED_PATH, "es");
 
-/**
- * Test-only evidence: one page, one language, real Spanish copy that does not
- * exist in the shipped registry. Nothing here reaches `src/content/`, and no
- * shipped URL is promoted by this file.
- */
-const SYNTHETIC_ES_PAGE = {
-  path: PROMOTED_PATH,
-  locale: "es",
-  source: [PROMOTED.name.en, PROMOTED.metaDescription.en, PROMOTED.intro.en],
-  translated: [
-    "Fabricante de fibra corta de PVA",
-    "Proveedor de fibra soluble en agua para procesos textiles y de papel.",
-    "Explique su proceso y revisamos la especificación antes de confirmar muestras.",
-  ],
-};
-
-assert.ok(
-  PROMOTION_LOCALES.length === 2 && PROMOTION_LOCALES.every((l) => ["es", "de"].includes(l)),
-  `expected ES and DE to be the promotion pair, got ${PROMOTION_LOCALES.join(",")}`,
-);
+assert.ok(FIELDS.length >= 6, `expected a product record to carry its body fields, found ${FIELDS.length}`);
 assert.ok(DEEP_PATHS.length > 40, `deep-content inventory looks too small: ${DEEP_PATHS.length}`);
-assert.notEqual(PROMOTED_PATH, SIBLING_PATH, "promotion fixture needs two distinct product pages");
+assert.deepEqual(PROMOTION_LOCALES, ["es", "de"], "ES and DE must be the promotion pair");
 
 // ---------------------------------------------------------------------------
-// 1 · The genuine content locales are untouched by this change.
+// 1 · The locales the content model carries keep owning every page.
 // ---------------------------------------------------------------------------
-test("EN and ZH deep pages keep owning themselves", () => {
+test("EN and ZH keep owning every page, deep and core", () => {
+  for (const p of [...DEEP_PATHS, ...CORE_PATHS]) {
+    for (const locale of TRANSLATED_CONTENT_LOCALES) {
+      assert.equal(resolvedContentLocaleOf(p, locale), locale, `${locale} ${p}`);
+      assert.equal(isLocalizedAt(p, locale), true, `${locale} ${p}`);
+      assert.equal(canonicalLocaleFor(p, locale), locale, `${locale} ${p}`);
+      assert.equal(isEnglishFallbackCopy(p, locale), false, `${locale} ${p}`);
+      assert.notEqual(hreflangForRoute(p, locale), undefined, `${locale} ${p} lost its graph`);
+    }
+  }
   for (const p of DEEP_PATHS) {
     assert.deepEqual([...localizedLocalesFor(p)], ["en", "zh"], p);
-    assert.equal(canonicalLocaleFor(p, "en"), "en", p);
-    assert.equal(canonicalLocaleFor(p, "zh"), "zh", p);
-    assert.equal(canonicalUrlFor(p, "en"), `${siteUrl}${p}`, p);
-    assert.equal(canonicalUrlFor(p, "zh"), `${siteUrl}/zh${p}`, p);
-    assert.equal(isEnglishFallbackCopy(p, "en"), false, p);
-    assert.equal(isEnglishFallbackCopy(p, "zh"), false, p);
     assert.deepEqual(Object.keys(hreflangForPath(p)).sort(), ["en", "x-default", "zh-CN"], p);
   }
 });
 
 // ---------------------------------------------------------------------------
-// 2 & 3 · Every current ES and DE deep page is still an English fallback copy.
+// 2 & 3 · Every current ES and DE page — deep and core — is still a fallback.
 // ---------------------------------------------------------------------------
 for (const locale of PROMOTION_LOCALES) {
-  test(`every current ${locale.toUpperCase()} deep page is still an English fallback copy`, () => {
-    for (const p of DEEP_PATHS) {
+  test(`every current ${locale.toUpperCase()} page, deep and core, is an English fallback copy`, () => {
+    for (const p of [...DEEP_PATHS, ...CORE_PATHS]) {
+      assert.equal(resolvedContentLocaleOf(p, locale), "en", `${locale} ${p} resolved to its own copy`);
       assert.equal(isEnglishFallbackCopy(p, locale), true, `${locale} ${p} was promoted`);
       assert.equal(canonicalLocaleFor(p, locale), "en", `${locale} ${p} no longer consolidates`);
       assert.equal(canonicalUrlFor(p, locale), `${siteUrl}${p}`, `${locale} ${p} moved off its owner`);
-      assert.ok(!canonicalUrlFor(p, locale).includes(`/${locale}/`), `${locale} ${p} went self-canonical`);
       assert.equal(hreflangForRoute(p, locale), undefined, `${locale} ${p} claims a language graph`);
+      assert.equal(isSitemapEligible(p, locale), false, `${locale} ${p} is a sitemap owner`);
       assert.equal(contentHtmlLangOf(p, locale), htmlLang.en, `${locale} ${p} claims translated body copy`);
       assert.equal(isTranslationAvailable(p, locale), false, `${locale} ${p} has no evidence yet`);
     }
@@ -137,65 +153,55 @@ for (const locale of PROMOTION_LOCALES) {
 }
 
 // ---------------------------------------------------------------------------
-// 4 · The shipped registry promotes nothing, so nothing is a sitemap owner.
+// 4 · The shipped registry promotes nothing, on any path.
 // ---------------------------------------------------------------------------
-test("untranslated ES and DE pages are not sitemap owners and not alternates", () => {
-  // Delivery-state pins for this card: no page may be promoted here, and a
-  // page registered without its copy is a registry error the suite must catch.
+test("the shipped registry promotes zero ES or DE pages", () => {
   assert.deepEqual([...TRANSLATED_PAGES], [], "INTL-DEES-002B must ship an empty evidence registry");
   assert.deepEqual([...rejectedTranslations()], [], "a registered page must carry its translated copy");
-  for (const p of DEEP_PATHS) {
+  assert.deepEqual([...TRANSLATED_CONTENT_LOCALES], ["en", "zh"], "the model baseline must not absorb a promotion");
+  for (const p of [...DEEP_PATHS, ...CORE_PATHS]) {
     assert.deepEqual([...translatedLocalesFor(p)], [], p);
     for (const locale of PROMOTION_LOCALES) {
-      assert.equal(isSitemapEligible(p, locale), false, `${locale} ${p} is a sitemap owner`);
-    }
-    // The sitemap declares alternates from this same map, so an absent locale
-    // here is absent from the sitemap too.
-    for (const url of Object.values(hreflangForPath(p))) {
-      for (const locale of PROMOTION_LOCALES) {
-        assert.ok(!url.includes(`${siteUrl}/${locale}/`), `${locale} advertised on ${p}`);
-      }
+      assert.equal(translatedPageFor(p, locale), undefined, `${locale} ${p}`);
     }
   }
-});
-
-// ---------------------------------------------------------------------------
-// 5 · The helper answers per path, not per language.
-// ---------------------------------------------------------------------------
-test("the availability helper is path-aware", () => {
   for (const p of CORE_PATHS) {
-    assert.equal(isDeepContentDetail(p), false, `${p} is not a chrome-localised route`);
-    assert.deepEqual([...localizedLocalesFor(p)].sort(), [...locales].sort(), `${p} lost a locale`);
-  }
-  // Evidence for one path must not leak to another spelling, page or section.
-  const policy = createAvailabilityPolicy([SYNTHETIC_ES_PAGE]);
-  const cases = [
-    ["the promoted page", PROMOTED_PATH, true],
-    ["another page in the same section", SIBLING_PATH, false],
-    ["a trailing-slash form", `${PROMOTED_PATH}/`, false],
-    ["a prefix of the promoted slug", PROMOTED_PATH.slice(0, -1), false],
-    ["a page in another deep section", `/knowledge/${articles[0].slug}`, false],
-  ];
-  for (const [label, path, expected] of cases) {
-    assert.equal(policy.isSitemapEligible(path, "es"), expected, `${label} answered ${expected ? "no" : "yes"}`);
-    assert.equal(isTranslationAvailable(path, "es", [SYNTHETIC_ES_PAGE]), expected, `${label} bypassed the policy`);
+    assert.deepEqual([...localizedLocalesFor(p)], ["en", "zh"], `${p} still claims a locale it cannot render`);
   }
 });
 
 // ---------------------------------------------------------------------------
-// 6 · A page with real translated copy can become a localized SEO owner.
+// 5 · Ownership and rendering are the same resolution, on one page.
 // ---------------------------------------------------------------------------
-test("a proven translation makes that one page self-canonical, reciprocal and sitemap-eligible", () => {
-  const promoted = createAvailabilityPolicy([SYNTHETIC_ES_PAGE]);
+test("a promotion moves SEO ownership and rendered copy together, for that page only", () => {
+  // Unpromoted: the renderer gets the model record and the key it always used.
+  for (const locale of locales) {
+    const plain = pageCopyFor(SIBLING_PATH, locale, PROMOTED);
+    assert.equal(plain.entity, PROMOTED, `${locale} ${SIBLING_PATH} altered an unpromoted record`);
+    assert.equal(plain.contentLocale, contentLocaleOf(locale), `${locale} changed the render key`);
+  }
 
-  assert.equal(promoted.isSitemapEligible(PROMOTED_PATH, "es"), true);
-  assert.equal(promoted.isEnglishFallbackCopy(PROMOTED_PATH, "es"), false);
-  assert.equal(promoted.canonicalLocaleFor(PROMOTED_PATH, "es"), "es");
+  const promoted = createAvailabilityPolicy([COMPLETE_ES_PAGE]);
+  const policyPath = (fn) => fn(PROMOTED_PATH);
+
+  assert.equal(policyPath((p) => promoted.isSitemapEligible(p, "es")), true);
   assert.equal(promoted.canonicalUrlFor(PROMOTED_PATH, "es"), `${siteUrl}/es${PROMOTED_PATH}`);
   assert.equal(promoted.contentHtmlLangOf(PROMOTED_PATH, "es"), htmlLang.es);
   assert.deepEqual([...promoted.localizedLocalesFor(PROMOTED_PATH)], ["en", "zh", "es"]);
 
-  // Symmetric: the English owner and the promoted page declare the same graph.
+  // The same registry entry is what the renderer resolves: it indexes every body
+  // field in the promoted language, so ownership never precedes the copy.
+  const rendered = pageCopyFor(PROMOTED_PATH, "es", PROMOTED, [COMPLETE_ES_PAGE]);
+  assert.equal(rendered.contentLocale, "es");
+  assert.notEqual(rendered.entity, PROMOTED, "the promoted page must not render the English record");
+  for (const field of FIELDS) {
+    assert.deepEqual(rendered.entity[field].es, synth(PROMOTED[field].en), field);
+    assert.equal(rendered.entity[field].en, PROMOTED[field].en, `${field} overwrote the English owner`);
+  }
+  assert.equal(resolvedContentLocaleOf(PROMOTED_PATH, "es", [COMPLETE_ES_PAGE]), rendered.contentLocale,
+    "policy and renderer disagreed about the language of this page");
+
+  // Symmetric hreflang, and the English owner now declares the real equivalent.
   const fromEn = promoted.hreflangForRoute(PROMOTED_PATH, "en");
   const fromEs = promoted.hreflangForRoute(PROMOTED_PATH, "es");
   assert.deepEqual(fromEn, fromEs);
@@ -203,91 +209,88 @@ test("a proven translation makes that one page self-canonical, reciprocal and si
   assert.equal(fromEn["x-default"], `${siteUrl}${PROMOTED_PATH}`);
 
   // The promotion stays on its page and its language.
-  assert.deepEqual([...promoted.localizedLocalesFor(SIBLING_PATH)], ["en", "zh"]);
+  assert.equal(promoted.isSitemapEligible(SIBLING_PATH, "es"), false);
   assert.equal(promoted.canonicalUrlFor(PROMOTED_PATH, "de"), `${siteUrl}${PROMOTED_PATH}`);
-  assert.equal(promoted.isSitemapEligible(PROMOTED_PATH, "de"), false);
-  assert.equal(
-    promoted.canonicalUrlFor(SIBLING_PATH, "es"),
-    canonicalUrlFor(SIBLING_PATH, "es"),
-    "the shipped policy must keep answering an unrelated path the same way",
-  );
-  // A promoted page never rewrites the site-wide content-locale baseline.
-  assert.deepEqual([...TRANSLATED_CONTENT_LOCALES], ["en", "zh"]);
-  assert.deepEqual([...PROMOTION_LOCALES], ["es", "de"]);
+  assert.equal(pageCopyFor(SIBLING_PATH, "es", products[1], [COMPLETE_ES_PAGE]).contentLocale, "en");
+  assert.deepEqual([...promoted.localizedLocalesFor(SIBLING_PATH)], ["en", "zh"]);
 
-  // The copy that justifies the promotion is the copy the route must render.
-  assert.deepEqual([...translatedCopyFor(PROMOTED_PATH, "es", [SYNTHETIC_ES_PAGE])], SYNTHETIC_ES_PAGE.translated);
-  assert.equal(translatedCopyFor(PROMOTED_PATH, "de", [SYNTHETIC_ES_PAGE]), undefined);
-  assert.equal(translatedCopyFor(PROMOTED_PATH, "es"), undefined, "shipped registry must stay empty");
-
-  // DE gets the same treatment through the same mechanism, without touching ES.
-  const promotedDe = createAvailabilityPolicy([{ ...SYNTHETIC_ES_PAGE, locale: "de" }]);
+  // DE reaches the same status through the same mechanism, without ES alongside it.
+  const promotedDe = createAvailabilityPolicy([entryFor(PROMOTED, PROMOTED_PATH, "de")]);
   assert.equal(promotedDe.isSitemapEligible(PROMOTED_PATH, "de"), true);
   assert.equal(promotedDe.isSitemapEligible(PROMOTED_PATH, "es"), false);
 });
 
 // ---------------------------------------------------------------------------
-// 7 · A claim without copy is refused.
+// 6 · Evidence cannot outrun the renderer.
 // ---------------------------------------------------------------------------
-test("a page marked available without real translated copy is never promoted", () => {
-  const claims = [
-    { label: "no copy at all", page: { ...SYNTHETIC_ES_PAGE, translated: [] } },
-    {
-      label: "a partial page",
-      page: { ...SYNTHETIC_ES_PAGE, translated: SYNTHETIC_ES_PAGE.translated.slice(0, 2) },
-    },
-    { label: "an empty block", page: { ...SYNTHETIC_ES_PAGE, translated: ["", "  ", SYNTHETIC_ES_PAGE.translated[2]] } },
-    {
-      label: "the English copy pasted back",
-      page: { ...SYNTHETIC_ES_PAGE, translated: [...SYNTHETIC_ES_PAGE.source] },
-    },
-    {
-      label: "one translated block over an English page",
-      page: {
-        ...SYNTHETIC_ES_PAGE,
-        translated: [SYNTHETIC_ES_PAGE.translated[0], SYNTHETIC_ES_PAGE.source[1], SYNTHETIC_ES_PAGE.source[2]],
-      },
-    },
-  ];
+test("evidence alone cannot make an owner whose renderer still uses English", () => {
+  // An entry that covers only some of the page's body fields proves less than
+  // the page renders: it is honest about itself, so the policy would promote it,
+  // and the renderer then refuses to ship rather than label English copy Spanish.
+  const partial = entryFor(PROMOTED, PROMOTED_PATH, "es", FIELDS.slice(0, FIELDS.length - 1));
+  assert.equal(isGenuineTranslation(partial), true, "the entry itself is internally honest");
+  assert.equal(isTranslationAvailable(PROMOTED_PATH, "es", [partial]), true);
+  assert.throws(
+    () => pageCopyFor(PROMOTED_PATH, "es", PROMOTED, [partial]),
+    /has no translated/,
+    "a page may not be promoted while a field it renders is uncovered",
+  );
 
-  for (const { label, page } of claims) {
+  const claims = [
+    ["no fields at all", { ...COMPLETE_ES_PAGE, content: {}, source: {} }],
+    ["an empty block", { ...COMPLETE_ES_PAGE, content: { ...COMPLETE_ES_PAGE.content, name: "   " } }],
+    ["a one-sided field map", { ...COMPLETE_ES_PAGE, content: { name: "Fabricante de fibra de PVA" } }],
+    ["the English pasted back", { ...COMPLETE_ES_PAGE, content: { ...COMPLETE_ES_PAGE.source } }],
+    ["one field left in English", {
+      ...COMPLETE_ES_PAGE,
+      content: { ...COMPLETE_ES_PAGE.content, intro: COMPLETE_ES_PAGE.source.intro },
+    }],
+    ["a path outside the entity routes", entryFor(PROMOTED, "/quality", "es")],
+    ["the section index", entryFor(PROMOTED, "/products", "es")],
+  ];
+  for (const [label, page] of claims) {
     assert.equal(isGenuineTranslation(page), false, `${label} must not count as a translation`);
     assert.equal(isTranslationAvailable(PROMOTED_PATH, "es", [page]), false, label);
     const claimed = createAvailabilityPolicy([page]);
     assert.equal(claimed.canonicalUrlFor(PROMOTED_PATH, "es"), `${siteUrl}${PROMOTED_PATH}`, label);
     assert.equal(claimed.hreflangForRoute(PROMOTED_PATH, "es"), undefined, label);
     assert.equal(claimed.isSitemapEligible(PROMOTED_PATH, "es"), false, label);
+    assert.equal(pageCopyFor(PROMOTED_PATH, "es", PROMOTED, [page]).contentLocale, "en", label);
   }
 
-  assert.equal(rejectedTranslations(claims.map((c) => c.page)).length, claims.length);
-  // The honest entry next to the dishonest ones still promotes only its page.
-  const mixed = createAvailabilityPolicy([...claims.map((c) => c.page), SYNTHETIC_ES_PAGE]);
+  assert.equal(rejectedTranslations(claims.map(([, page]) => page)).length, claims.length);
+  // Honest and complete entry beside dishonest ones promotes its page alone.
+  const mixed = createAvailabilityPolicy([...claims.map(([, page]) => page), COMPLETE_ES_PAGE]);
   assert.equal(mixed.isSitemapEligible(PROMOTED_PATH, "es"), true);
   assert.equal(mixed.isSitemapEligible(SIBLING_PATH, "es"), false);
 });
 
 // ---------------------------------------------------------------------------
-// Wiring: the SEO surfaces must keep deriving from the one policy.
+// 7 · Nothing beside the policy and the resolution may answer availability.
 // ---------------------------------------------------------------------------
-test("no SEO surface keeps a private answer about translation availability", () => {
-  const sitemap = read("src/app/sitemap.ts");
-  assert.match(sitemap, /hreflangForPath\(path\)/, "sitemap must declare alternates through the policy");
-  assert.match(sitemap, /localePath\(path, "en"\)/, "sitemap owners must stay prefix-free English");
-  for (const locale of PROMOTION_LOCALES) {
-    assert.doesNotMatch(sitemap, new RegExp(`"${locale}"`), `sitemap enumerates ${locale}`);
-  }
+test("the SEO surfaces and the deep renderers share one source of the answer", () => {
+  const policy = read("src/content/availability.ts");
+  assert.match(policy, /locales\.filter\(\(locale\) => resolvedContentLocaleOf\(path, locale, registry\) === locale\)/,
+    "the policy must ask the render resolution, not a class of paths");
+  assert.doesNotMatch(policy, /if \(!isDeepContentDetail\(path\)\) return true/, "the path-class exemption must stay gone");
+  assert.doesNotMatch(policy, /=== "es"|"es" ===|"de" ===/, "the policy may not special-case a locale");
+  assert.match(read("src/app/sitemap.ts"), /hreflangForPath\(path\)/, "sitemap must declare alternates through the policy");
+  assert.doesNotMatch(read("src/app/sitemap.ts"), /translation-availability/, "only the policy may read the evidence");
+  assert.match(read("src/lib/seo.tsx"), /canonicalUrlFor\(path, locale\)/);
+  assert.doesNotMatch(read("src/lib/seo.tsx"), /translation-availability/, "metadata must not bypass the policy");
 
-  const seo = read("src/lib/seo.tsx");
-  assert.match(seo, /canonicalUrlFor\(path, locale\)/);
-  assert.match(seo, /hreflangForRoute\(path, locale\)/);
-  assert.match(seo, /indexabilityForRoute\(path, locale\)/);
-
-  // The promotion API must not be re-implemented beside the policy.
-  const policySource = read("src/content/availability.ts");
-  assert.match(policySource, /isTranslationAvailable\(path, locale, registry\)/);
-  assert.doesNotMatch(policySource, /=== "es"|"es" ===/, "the policy may not special-case a locale");
-  assert.doesNotMatch(sitemap, /translation-availability/, "only the policy may read the evidence");
-  for (const file of ["src/lib/seo.tsx", "src/components/layout/site-header.tsx", "src/app/[lang]/products/[slug]/page.tsx"]) {
-    assert.doesNotMatch(read(file), /translation-availability/, `${file} bypasses the policy`);
+  const deepRenderers = [
+    "src/components/product/product-view.tsx",
+    "src/components/application/application-view.tsx",
+    "src/components/answers/answer-article.tsx",
+    "src/app/[lang]/products/[slug]/page.tsx",
+    "src/app/[lang]/applications/[slug]/page.tsx",
+    "src/app/[lang]/answers/[slug]/page.tsx",
+    "src/app/[lang]/knowledge/[slug]/page.tsx",
+  ];
+  for (const file of deepRenderers) {
+    const source = read(file);
+    assert.match(source, /pageCopyFor\(/, `${file} must resolve its own page copy through the registry`);
+    assert.match(source, /contentLocale/, `${file} must index its own fields with the resolved key`);
   }
 });

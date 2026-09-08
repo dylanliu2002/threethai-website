@@ -11,12 +11,21 @@ import { articles } from "@/content/articles";
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
 import { contentLocaleOf, localePath } from "@/content/company";
+import { pageCopyFor } from "@/content/translation-availability";
 
 /**
  * Shared product-page template (master prompt §12). All four product pages
  * render through this component — no duplicated page implementations.
+ *
+ * The page's own body copy comes from `pageCopyFor`, the same resolution the SEO
+ * policy reads: an unpromoted route gets the model record and the
+ * `contentLocaleOf` key back unchanged, and a promoted one gets the entity whose
+ * fields carry the registered translation. `cl` stays for copy belonging to
+ * *other* entities (related apps, answers, articles, the next product) and for
+ * shared notices — a promotion only ever describes this page's own record.
  */
 export default function ProductView({ product, locale, dict }: { product: Product; locale: Locale; dict: Dictionary }) {
+  const { entity, contentLocale } = pageCopyFor(`/products/${product.slug}`, locale, product);
   const cl = contentLocaleOf(locale);
   const t = dict.productsIndex;
   const lp = (path: string) => localePath(path, locale);
@@ -38,17 +47,17 @@ export default function ProductView({ product, locale, dict }: { product: Produc
                 trail={[
                   { name: dict.breadcrumbs.home, path: lp("/") },
                   { name: dict.breadcrumbs.products, path: lp("/products") },
-                  { name: product.name[cl], path: lp(`/products/${product.slug}`) },
+                  { name: entity.name[contentLocale], path: lp(`/products/${product.slug}`) },
                 ]}
               />
             </div>
             <p className="eyebrow-light mt-6">{locale === "zh" ? "产品系列" : "Product family"}</p>
             <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
-              {product.name[cl]}
+              {entity.name[contentLocale]}
             </h1>
-            <p className="mt-4 max-w-xl text-base leading-relaxed text-white/75 sm:text-lg">{product.tagline[cl]}</p>
+            <p className="mt-4 max-w-xl text-base leading-relaxed text-white/75 sm:text-lg">{entity.tagline[contentLocale]}</p>
             <ul className="mt-6 flex flex-wrap gap-2">
-              {product.highlights[cl].map((item) => (
+              {entity.highlights[contentLocale].map((item) => (
                 <li key={item} className="rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-white/85">
                   {item}
                 </li>
@@ -66,7 +75,7 @@ export default function ProductView({ product, locale, dict }: { product: Produc
           <figure className="relative aspect-[4/3] overflow-hidden rounded-lg border border-white/15 shadow-2xl">
             <Image
               src={product.image}
-              alt={product.imageAlt[cl]}
+              alt={entity.imageAlt[contentLocale]}
               fill
               priority
               sizes="(min-width: 1024px) 45vw, 100vw"
@@ -82,8 +91,8 @@ export default function ProductView({ product, locale, dict }: { product: Produc
           <Reveal>
             <p className="eyebrow">{t.overviewTitle}</p>
             <div className="mt-4 space-y-4 text-base leading-relaxed text-foreground/90">
-              <p>{product.intro[cl]}</p>
-              {product.technicalOverview[cl].map((paragraph) => (
+              <p>{entity.intro[contentLocale]}</p>
+              {entity.technicalOverview[contentLocale].map((paragraph) => (
                 <p key={paragraph.slice(0, 32)}>{paragraph}</p>
               ))}
             </div>
@@ -92,7 +101,7 @@ export default function ProductView({ product, locale, dict }: { product: Produc
             <aside className="card-line p-6">
               <h2 className="display-3 !text-base">{t.selectionTitle}</h2>
               <ul className="mt-4 space-y-3">
-                {product.selection[cl].map((item) => (
+                {entity.selection[contentLocale].map((item) => (
                   <li key={item} className="flex items-start gap-3 text-sm leading-relaxed text-muted-foreground">
                     <span aria-hidden="true" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" />
                     {item}
@@ -175,7 +184,7 @@ export default function ProductView({ product, locale, dict }: { product: Produc
             </h2>
           </Reveal>
           <ol className="mt-8 grid gap-5 md:grid-cols-3">
-            {product.processGuide[cl].map(([heading, body], i) => (
+            {entity.processGuide[contentLocale].map(([heading, body], i) => (
               <Reveal as="li" key={heading} delay={i * 70}>
                 <div className="card-line h-full p-6">
                   <p aria-hidden="true" className="text-sm font-bold text-gold-deep">{String(i + 1).padStart(2, "0")}</p>
@@ -228,7 +237,7 @@ export default function ProductView({ product, locale, dict }: { product: Produc
             <h2 className="display-2 !text-2xl sm:!text-3xl">{t.faqTitle}</h2>
           </Reveal>
           <div className="mt-6 space-y-3">
-            {product.faqs[cl].map(([question, answer], i) => (
+            {entity.faqs[contentLocale].map(([question, answer], i) => (
               <Reveal key={question} delay={i * 60}>
                 <details className="card-line group px-5 py-4 open:border-primary/30">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold text-ink [&::-webkit-details-marker]:hidden">

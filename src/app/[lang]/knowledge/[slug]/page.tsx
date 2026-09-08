@@ -6,6 +6,7 @@ import { articles, articleBySlug } from "@/content/articles";
 import { products } from "@/content/products";
 import { buildMetadata, articleSchema, breadcrumbSchema, jsonLd } from "@/lib/seo";
 import { localePath, contentLocaleOf } from "@/content/company";
+import { pageCopyFor } from "@/content/translation-availability";
 import { langParams, resolveLang } from "../../_lang";
 
 type Props = { params: Promise<{ lang: string; slug: string }> };
@@ -14,15 +15,20 @@ export function generateStaticParams() {
   return langParams().flatMap(({ lang }) => articles.map(({ slug }) => ({ lang, slug })));
 }
 
+/**
+ * The article's own copy resolves through `pageCopyFor`, the same call the
+ * availability policy reads. `cl` stays for the product and article links in the
+ * footer: other entities' copy, which a promotion of this page never covers.
+ */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const article = articleBySlug(slug);
-  if (!article) return {};
+  const record = articleBySlug(slug);
+  if (!record) return {};
   const { locale } = await resolveLang(params, notFound);
-  const cl = contentLocaleOf(locale);
+  const { entity: article, contentLocale } = pageCopyFor(`/knowledge/${slug}`, locale, record);
   return buildMetadata({
-    title: article.title[cl],
-    description: article.metaDescription[cl],
+    title: article.title[contentLocale],
+    description: article.metaDescription[contentLocale],
     path: `/knowledge/${article.slug}`,
     locale,
     type: "article",
@@ -33,9 +39,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function LangArticlePage({ params }: Props) {
   const { slug } = await params;
-  const article = articleBySlug(slug);
-  if (!article) notFound();
+  const record = articleBySlug(slug);
+  if (!record) notFound();
   const { dict, locale } = await resolveLang(params, notFound);
+  const { entity: article, contentLocale } = pageCopyFor(`/knowledge/${slug}`, locale, record);
   const cl = contentLocaleOf(locale);
   const lp = (p: string) => localePath(p, locale);
   const others = articles.filter((a) => a.slug !== article.slug).slice(0, 3);
@@ -44,8 +51,8 @@ export default async function LangArticlePage({ params }: Props) {
     <>
       {jsonLd([
         articleSchema({
-          headline: article.title[cl],
-          description: article.metaDescription[cl],
+          headline: article.title[contentLocale],
+          description: article.metaDescription[contentLocale],
           slug: article.slug,
           datePublished: article.datePublished,
           dateModified: article.dateModified,
@@ -55,7 +62,7 @@ export default async function LangArticlePage({ params }: Props) {
         breadcrumbSchema([
           { name: dict.breadcrumbs.home, path: lp("/") },
           { name: dict.breadcrumbs.knowledge, path: lp("/knowledge") },
-          { name: article.title[cl], path: lp(`/knowledge/${article.slug}`) },
+          { name: article.title[contentLocale], path: lp(`/knowledge/${article.slug}`) },
         ]),
       ])}
       <div className="container-site max-w-3xl py-12 sm:py-16">
@@ -64,20 +71,20 @@ export default async function LangArticlePage({ params }: Props) {
         trail={[
           { name: dict.breadcrumbs.home, path: lp("/") },
           { name: dict.breadcrumbs.knowledge, path: lp("/knowledge") },
-          { name: article.title[cl], path: lp(`/knowledge/${article.slug}`) },
+          { name: article.title[contentLocale], path: lp(`/knowledge/${article.slug}`) },
         ]}
       />
       <article>
-        <p className="eyebrow mt-8">{article.category[cl]} · PVA knowledge</p>
-        <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl">{article.title[cl]}</h1>
+        <p className="eyebrow mt-8">{article.category[contentLocale]} · PVA knowledge</p>
+        <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl">{article.title[contentLocale]}</h1>
         <p className="mt-4 text-sm text-muted-foreground">
           <time dateTime={article.datePublished}>{dict.knowledgeIndex.published} {article.datePublished}</time>
           <span aria-hidden="true"> · </span>
           <time dateTime={article.dateModified}>{dict.knowledgeIndex.updated} {article.dateModified}</time>
         </p>
-        <p className="mt-6 border-l-2 border-gold pl-5 text-lg leading-relaxed text-foreground/90">{article.intro[cl]}</p>
+        <p className="mt-6 border-l-2 border-gold pl-5 text-lg leading-relaxed text-foreground/90">{article.intro[contentLocale]}</p>
 
-        {article.sections[cl].map((section) => (
+        {article.sections[contentLocale].map((section) => (
           <section key={section[0]} className="mt-8">
             <h2 className="text-xl font-semibold tracking-tight text-ink">{section[0]}</h2>
             <p className="mt-3 text-base leading-relaxed text-muted-foreground">{section[1]}</p>

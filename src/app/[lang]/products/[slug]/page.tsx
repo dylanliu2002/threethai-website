@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import ProductView from "@/components/product/product-view";
 import { products, productBySlug } from "@/content/products";
 import { buildMetadata, breadcrumbSchema, faqSchema, jsonLd, productPageSchema } from "@/lib/seo";
-import { localePath, contentLocaleOf } from "@/content/company";
+import { localePath } from "@/content/company";
+import { pageCopyFor } from "@/content/translation-availability";
 import { langParams, resolveLang } from "../../_lang";
 
 type Props = { params: Promise<{ lang: string; slug: string }> };
@@ -14,15 +15,21 @@ export function generateStaticParams() {
   );
 }
 
+/**
+ * Published copy resolves through `pageCopyFor`, the same call the availability
+ * policy reads: unpromoted this is the model record and the `contentLocaleOf`
+ * key it always used, promoted it is the registered translation that also
+ * earned the URL its ownership.
+ */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const product = productBySlug(slug);
   if (!product) return {};
   const { locale } = await resolveLang(params, notFound);
-  const cl = contentLocaleOf(locale);
+  const { entity, contentLocale } = pageCopyFor(`/products/${slug}`, locale, product);
   return buildMetadata({
-    title: `${product.name[cl]} Manufacturer & Supplier`,
-    description: product.metaDescription[cl],
+    title: `${entity.name[contentLocale]} Manufacturer & Supplier`,
+    description: entity.metaDescription[contentLocale],
     path: `/products/${product.slug}`,
     locale,
     image: product.image,
@@ -35,16 +42,16 @@ export default async function LangProductPage({ params }: Props) {
   const product = productBySlug(slug);
   if (!product) notFound();
   const { dict, locale } = await resolveLang(params, notFound);
-  const cl = contentLocaleOf(locale);
+  const { entity, contentLocale } = pageCopyFor(`/products/${slug}`, locale, product);
   return (
     <>
       {jsonLd([
-        productPageSchema({ name: product.name[cl], description: product.metaDescription[cl], slug: product.slug, locale }),
-        faqSchema(product.faqs[cl]),
+        productPageSchema({ name: entity.name[contentLocale], description: entity.metaDescription[contentLocale], slug: product.slug, locale }),
+        faqSchema(entity.faqs[contentLocale]),
         breadcrumbSchema([
           { name: dict.breadcrumbs.home, path: localePath("/", locale) },
           { name: dict.breadcrumbs.products, path: localePath("/products", locale) },
-          { name: product.name[cl], path: localePath(`/products/${product.slug}`, locale) },
+          { name: entity.name[contentLocale], path: localePath(`/products/${product.slug}`, locale) },
         ]),
       ])}
       <ProductView product={product} locale={locale} dict={dict} />

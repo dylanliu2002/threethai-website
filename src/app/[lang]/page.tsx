@@ -10,6 +10,7 @@ import HomeKnowledge from "@/components/sections/home-knowledge";
 import HomeCta from "@/components/sections/home-cta";
 import { buildMetadata, jsonLd } from "@/lib/seo";
 import { siteUrl } from "@/content/company";
+import { contentHtmlLangOf } from "@/content/availability";
 import { resolveLang } from "./_lang";
 
 type Props = { params: Promise<{ lang: string }> };
@@ -37,7 +38,9 @@ export default async function LangHomePage({ params }: Props) {
           url: `${siteUrl}${locale === "en" ? "" : `/${locale}`}/`,
           name: dict.meta.defaultTitle,
           description: dict.meta.defaultDescription,
-          inLanguage: locale,
+          // The URL locale is not a content claim: `inLanguage` reports the copy
+          // this page renders, from the same availability policy as the canonical.
+          inLanguage: contentHtmlLangOf("/", locale),
           isPartOf: { "@id": `${siteUrl}/#website` },
           about: { "@id": `${siteUrl}/#organization` },
         },
