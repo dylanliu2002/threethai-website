@@ -499,11 +499,14 @@ Validation: `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` reports 187 tests, 0 fail,
      where 003A's whole discipline is that the evidence layer is a leaf. The class
      decision moved into the gate (`promotableClassFor`) and the registry is now
      import-free, pinned by a test that fails if an `import` statement returns.
-  4. The audit initially planned to trust a subagent's file-level map of page
-     copy. Its per-path claims were left out of A3/A5 in favour of what this task
-     measured from the build and from production, because a confident `path:line`
-     that nobody checked against the target ref is this workspace's recorded
-     failure mode.
+  4. A read-only subagent was launched to map per-page copy provenance and test
+     pins. **Its report never arrived in this session's context**, so no claim in
+     A1-A5 or in the design rests on it: every file:line cited here was read or
+     grepped directly in this worktree at `f27bfca`, and every content claim was
+     measured from the build or fetched from production. Recorded explicitly
+     because a delegated summary that was never delivered must not read like a
+     reviewed-and-rejected input, and because this workspace's own history
+     (GSC-LOCALE-003) shows what an unverified confident `path:line` costs.
 - Remaining risks: R2 is the one that matters — the architecture cannot itself
   prove a surface is complete, so the per-page review at migration time is load
   bearing, and the retention net is the backstop rather than the guarantee.
