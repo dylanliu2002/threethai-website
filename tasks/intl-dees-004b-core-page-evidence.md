@@ -718,11 +718,17 @@ Validation: `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` reports 187 tests, 0 fail,
 
 - Branch: `qwen/intl-dees-004b-core-page-evidence`
 - Implementation commit: `4eae62f2cc1706976242243d40e44e7baa7c249d`
-- Head commit: the documentation commit that records this SHA; the pushed branch
-  head is authoritative.
-- Pushed: task branch only. `main` untouched, per §9 and §13. No pull request
-  opened — integration is the merge owner's action, and §13 requires a reviewer
-  on another role/worker/thread before this is called approved.
+- Validated code head: `a9b7a514b185b1bff4c77ed0ab1761e270e06848` — every gate in
+  the Validation table was measured at this tree. Commits after it are records-only;
+  `git diff --name-only a9b7a51 HEAD` returns just this card and the worklog, so the
+  gated code and the delivered code are the same tree. The pushed branch head is
+  authoritative.
+- Pushed: task branch only. `main` untouched, per §9 and §13.
+- Pull request: **#32**, `https://github.com/dylanliu2002/threethai-website/pull/32`,
+  opened 2026-09-08 against `main` @ `f27bfca` at head `a9b7a51`; `state: OPEN`,
+  `mergeable: MERGEABLE`, `reviewDecision` empty. Not merged, and the merge owner
+  is the only party who may integrate it (§1, §13) — this task asked explicitly not
+  to be merged on its own description.
 - Post-deploy note for whoever merges: nothing observable changes on
   `threethai.com`. The change is inert until a surface and an approved record
   exist, so the verification that matters after merge is that ES/DE output is

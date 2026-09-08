@@ -294,6 +294,40 @@ npm run test:seo` **187/187 pass, 0 fail, 0 skipped** · first-wave 5/5 ·
 222-document fingerprint 0 field differences. Measurement artifacts
 (`.qwen-dict-count.mjs`, fingerprint JSONs, gate logs) removed after use.
 
+## 2026-09-08 · Pull request opened (supersedes the "not opened" line above)
+
+The Delivered entry says no pull request was opened, which was true at the time and
+is now corrected by this later entry rather than by editing it (append-only, §7).
+On the requester's instruction, **PR #32** was opened against `main`:
+`https://github.com/dylanliu2002/threethai-website/pull/32`.
+
+Pre-flight verification, all four checks measured rather than assumed:
+
+- working tree clean (`git status --short` empty) after removing the PR-body scratch
+  file, so no artifact entered the branch;
+- branch head `a9b7a514b185b1bff4c77ed0ab1761e270e06848` identical locally and on
+  `origin`, and equal to the SHA the requester named;
+- `origin/main` re-fetched and still `f27bfcae83d0d7b6a758246ea8c72e65739c0015` —
+  the base the PR describes, so main had **not** moved unexpectedly during this
+  task (unlike the 003B re-land cycle, where it moved mid-review);
+- `git merge-tree --write-tree origin/main HEAD` → exit 0, clean merge, single tree
+  `c7f67b02…`.
+
+No code was modified to open the PR, and no commit was squashed, amended or
+rewritten — the four commits `4eae62f`, `e931c06`, `879863e`, `a9b7a51` are the
+history as pushed, plus this records-only commit. GitHub reports
+`state: OPEN`, `mergeable: MERGEABLE`, `changedFiles: 7`, `+1835 / −37`,
+`reviewDecision` empty, `mergedAt: null`. Its file list independently confirms R1:
+`src/content/availability.ts` is **not** among the seven.
+
+The description carries the four facts a reviewer needs up front (004A existed only
+as a claim, so the audit was performed in-task; 003A/003B are already on `main`;
+`SECTION_SURFACES` ships empty; ES/DE promotions stay at zero with no SEO output
+change), the validation table, the retention correction with its cause, A6's two
+verified upstream defects, the migration contract, and an explicit instruction not
+to merge on the description alone. Requested and not yet done: an independent
+reviewer on a different role/worker/thread (§13).
+
 ## Open at hand-off
 
 - Independent review not started (§13). Points worth attacking first are on the
