@@ -1,15 +1,33 @@
 import { contentLocaleOf, type ContentLocale, type Locale } from "./company";
+import {
+  approvedPromotions,
+  DEEP_CONTENT_SECTIONS,
+  deepContentSectionOf,
+  isDeepContentDetail,
+  isGenuineTranslation,
+  type DeepContentSection,
+  type PromotionLocale,
+  type TranslatedPage,
+  type TranslatedValue,
+} from "./translation-evidence";
 
 /**
- * Translation evidence — the path-aware source of truth for localized copy.
+ * Translation availability — resolving promoted copy for pages and policies.
  *
  * This module answers one question — "does *this page* have copy in *this
- * language*?" — and answers it from the copy itself rather than from a claim:
- * the entry that makes a page available is the same object its renderer reads
- * body copy from (`pageCopyFor`). SEO ownership is therefore derived from
- * rendering instead of asserted beside it, which is the GSC-INDEX-002 defect
- * kept out page by page: a locale can only become an owner of a page by
- * carrying the text that page will show in that locale.
+ * language*, and what does its renderer read?" — from the copy itself rather
+ * than from a claim: the promotion that makes a page available is the same
+ * object its renderer reads body copy from (`pageCopyFor`). SEO ownership is
+ * therefore derived from rendering instead of asserted beside it, which is the
+ * GSC-INDEX-002 defect kept out page by page: a locale can only become an owner
+ * of a page by carrying the text that page will show in that locale.
+ *
+ * What a promotion *is* belongs to `./translation-evidence`: the record, its
+ * reviewed field list, its provenance and its approval status. This module is
+ * the consumer of that answer, not a second place to state it. Its only registry
+ * is `TRANSLATED_PAGES`, and `TRANSLATED_PAGES` is `approvedPromotions()` over
+ * the shipped evidence — so a page that nobody approved has no entry here to
+ * find, in the policy and in the renderer alike.
  *
  * `./availability` is the policy surface that turns these answers into
  * canonical, hreflang, content-language and sitemap decisions. Nothing else
@@ -17,113 +35,25 @@ import { contentLocaleOf, type ContentLocale, type Locale } from "./company";
  *
  * Nothing is promoted today. ES and DE deep pages still render the English
  * record, and ES/DE core and section pages render partially translated chrome
- * over English body copy (measured: 128 of 248 UI strings per locale), so
- * `TRANSLATED_PAGES` is empty and no ES or DE page owns a URL anywhere on the
- * site.
+ * over English body copy (measured: 128 of 248 UI strings per locale), so the
+ * evidence registry is empty, `TRANSLATED_PAGES` is empty with it, and no ES or
+ * DE page owns a URL anywhere on the site.
  */
 
-/**
- * A locale the content model holds no body copy for. `en` and `zh` are absent
- * because `ContentLocale` already carries their copy on every entity.
- */
-export type PromotionLocale = Exclude<Locale, ContentLocale>;
+/* The evidence layer owns these; they stay reachable here so the INTL-DEES-002B
+   surface and its suite keep resolving without a rename. New callers should
+   import them from `./translation-evidence`. */
+export { DEEP_CONTENT_SECTIONS, deepContentSectionOf, isDeepContentDetail, isGenuineTranslation };
+export type { DeepContentSection, PromotionLocale, TranslatedPage, TranslatedValue };
 
 /**
- * One localized value. Nested on purpose: a product's `faqs` and `processGuide`
- * hold pairs inside lists, and an entry must mirror the field's own shape so the
- * renderer consumes it unchanged.
- */
-export type TranslatedValue = string | readonly TranslatedValue[];
-
-/**
- * One page, in one language.
+ * Promoted pages: every promotion the shipped evidence grants, and nothing else.
  *
- * `source` is the English owner's field map verbatim and `content` is the
- * translated field map, both keyed by the entity's own field names (`name`,
- * `intro`, `faqs`, …). Keying by field rather than by position is what lets the
- * renderer consume the entry: the copy lands exactly where the page already
- * looks, and an entry that leaves out a field the entity carries fails at
- * render instead of shipping a half-translated page that claims ownership.
- *
- * `path` is the prefix-free English owner (`/products/pva-staple-fiber`), never
- * a locale-prefixed URL: the promotion describes the page, and `localePath()`
- * derives the prefixed form from it.
- */
-export type TranslatedPage = {
-  path: string;
-  locale: PromotionLocale;
-  source: Readonly<Record<string, TranslatedValue>>;
-  content: Readonly<Record<string, TranslatedValue>>;
-};
-
-/**
- * Promoted pages. Empty by fact, not by policy: an ES or DE page becomes a
- * localized owner only through an entry here, and no ES or DE page has
+ * Empty by fact, not by policy — an ES or DE page becomes a localized owner only
+ * through an approved `TranslationEvidence` record, and no ES or DE page has
  * translated copy yet (INTL-DEES-001 owns that content work).
  */
-export const TRANSLATED_PAGES: readonly TranslatedPage[] = [];
-
-/** Sections whose entity detail pages carry `Record<ContentLocale, …>` copy. */
-export const DEEP_CONTENT_SECTIONS = [
-  "answers",
-  "knowledge",
-  "products",
-  "applications",
-] as const;
-
-export type DeepContentSection = (typeof DEEP_CONTENT_SECTIONS)[number];
-
-const deepDetailPath = new RegExp(`^/(${DEEP_CONTENT_SECTIONS.join("|")})/[^/]+/?$`);
-
-/** Which deep-content section (if any) a site path belongs to. */
-export function deepContentSectionOf(path: string): DeepContentSection | null {
-  const match = deepDetailPath.exec(path);
-  return match ? (match[1] as DeepContentSection) : null;
-}
-
-/**
- * Is this an entity detail page — the only kind of page a promotion can
- * describe? Copy elsewhere on the site comes from the UI dictionary rather than
- * from an entity record, so an entry for a core or section path is a registry
- * mistake the policy refuses rather than a claim it honours. Widening
- * promotions to those routes is a separate change with its own evidence.
- */
-export function isDeepContentDetail(path: string): boolean {
-  return deepDetailPath.test(path);
-}
-
-const sameText = (a: TranslatedValue, b: TranslatedValue): boolean =>
-  JSON.stringify(a) === JSON.stringify(b);
-
-const textLeaves = (value: TranslatedValue): string[] =>
-  typeof value === "string" ? [value] : value.flatMap((part) => textLeaves(part));
-
-const nonEmpty = (value: TranslatedValue): boolean => {
-  const leaves = textLeaves(value);
-  return leaves.length > 0 && leaves.every((leaf) => leaf.trim().length > 0);
-};
-
-/**
- * Does this entry actually carry translated copy?
- *
- * Deliberately conservative: an unproven entry leaves the page an English
- * fallback copy, the safe direction. The field sets must match (no partial
- * page), every value must be present, and no value may be its own English text
- * again — a "translation" that pastes the source back is the fabrication this
- * module exists to refuse.
- */
-export function isGenuineTranslation(page: TranslatedPage): boolean {
-  const { path, source, content } = page;
-  if (!isDeepContentDetail(path)) return false;
-  const fields = Object.keys(content);
-  if (fields.length === 0 || fields.length !== Object.keys(source).length) return false;
-  return fields.every((field) => {
-    if (!(field in source)) return false;
-    const translated = content[field];
-    const english = source[field];
-    return nonEmpty(translated) && nonEmpty(english) && !sameText(translated, english);
-  });
-}
+export const TRANSLATED_PAGES: readonly TranslatedPage[] = approvedPromotions();
 
 function honouredPages(registry: readonly TranslatedPage[]): readonly TranslatedPage[] {
   return registry.filter(isGenuineTranslation);
@@ -215,10 +145,10 @@ function isContentField(value: unknown): value is Record<ContentLocale, unknown>
  * Unpromoted — every EN and ZH page, and every ES/DE page today — this returns
  * the entity untouched with the same key `contentLocaleOf` always gave, so
  * rendering is unchanged. For a promoted page it returns a per-request copy of
- * the entity whose body fields carry the entry's translated values, so SEO
- * ownership and localized body copy are the same registration read twice. A
- * promoted entity with a field the entry does not cover throws rather than
- * rendering part of the page in English under a localized label, and because
+ * the entity whose body fields carry the record's translated values, so SEO
+ * ownership and localized body copy are the same approved evidence record read
+ * twice. A promoted entity with a field that record does not cover throws rather
+ * than rendering part of the page in English under a localized label, and because
  * detail pages are prerendered, that failure stops the build.
  *
  * Fields belonging to *other* entities (related-product teasers, cross-linked
@@ -242,9 +172,10 @@ export function pageCopyFor<T extends object>(
     if (!isContentField(value)) continue;
     if (!(field in page.content)) {
       throw new Error(
-        `translation-availability: the ${locale} promotion of ${path} has no translated ` +
-          `"${field}", which this page renders. Add the field to the entry or withdraw the ` +
-          `promotion: a page may not own a localized URL while part of its copy is English.`,
+        `translation-evidence: the ${locale} promotion of ${path} has no translated ` +
+          `"${field}", which this page renders. Add the field to that record's requiredFields ` +
+          `and content, or withdraw the evidence: a page may not own a localized URL while ` +
+          `part of its copy is English.`,
       );
     }
     rendered[field] = { ...value, [locale]: page.content[field] };
