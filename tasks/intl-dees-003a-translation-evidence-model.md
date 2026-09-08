@@ -142,6 +142,14 @@ Measured at the base, before any edit, for comparison:
 
 ## Coordination Items
 
+- **For `ORCHESTRATOR` / `BRAND_UX` (proposed, not started):** `src/components/layout/site-header.tsx`
+  is `"use client"` and imports `localizedLocalesFor` from `@/content/availability`,
+  which transitively forces this task's evidence gate into a browser chunk
+  (+1,684 B raw / +586 B gzip, loaded by 220 of 222 documents) to answer a
+  question that is fixed at build time. Suggested card: have a server component
+  resolve the localized locale list and pass it to the header as a prop, leaving
+  the client bundle with no route into the SEO policy. Out of scope here (shared
+  component, different file ownership) and not a blocker for this change.
 - **For `ORCHESTRATOR` (shared file):** `package.json` is shared under
   `AGENTS.md` §8. The change is one appended filename in `test:seo`, required so
   this card's suite actually runs in the gate the card specifies. Same shape as
@@ -214,27 +222,57 @@ Validation: `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` must report the new suite
   build of `d34cd95` and from this head — **222 documents both sides, 0 pages
   added or removed, 0 field differences**. `sitemap.xml.body`,
   `robots.txt.body`, and every `.json`/`.meta`/`.map` output file are also
-  hash-identical.
-  Byte hashing of `.html`/`.rsc` is **not** a usable method on this host: two
-  builds of the same source differ by ~14 bytes in every document, and the shift
-  oscillates between builds, so it was replaced by the semantic comparison
-  above. An initial delegated byte-identity report was checked and found not
-  reproducible against these manifests, and is therefore not cited here.
+  hash-identical. Byte hashing of `.html`/`.rsc` is **not** a usable method on
+  this host: two builds of the same source differ by ~14 bytes in every
+  document, and the shift oscillates between builds, so it was replaced by the
+  semantic comparison above. An initial delegated byte-identity report was
+  checked, does not reproduce against these manifests, and is not cited — but
+  the client-bundle half of its later full report **does** reproduce, and is
+  measured here directly.
+- **What did move: the client bundle.** Measured against a second production
+  build of `d34cd95`: `.next/static/chunks` totals **822,743 → 824,427 bytes raw
+  (+1,684 B, +0.205 %)** and **260,950 → 261,536 bytes gzip (+586 B,
+  +0.225 %)**. The added code is this module's decision machinery — chunk
+  `128996572d69177c.js` (34,654 B raw / 12,052 B gz) contains every reason
+  literal (`status-not-approved`, `provenance-missing`, `copy-not-translated`,
+  …) and is referenced by **220 of 222** prerendered documents. At base, no
+  client chunk contained any `translation-availability` string at all, so this
+  is new weight rather than a rename. Mechanism: `TRANSLATED_PAGES` is an
+  eagerly-evaluated module-scope `const`, `availability.ts` imports it, and
+  `site-header.tsx` (`"use client"`) imports `localizedLocalesFor` — so
+  `approvedPromotions() → approvedEvidence() → evidenceDecisionFor()` is live
+  code on the browser path and cannot be tree-shaken. No document, canonical,
+  hreflang, sitemap or robots byte changed; the cost is 586 gzip bytes of
+  validation logic shipped to browsers that never run it, recorded as remaining
+  risk 4 with the change that would actually remove it.
 - Worklog: `worklog/intl-dees-003a-translation-evidence-model.md`
 - Remaining risks:
   1. The gate trusts the record's `requiredFields` as the reviewer's statement of
-     what the page renders. It cannot measure the live entity — importing the
-     content corpus into this layer would pull the whole product/answer corpus
-     into the client chunk that `site-header.tsx` builds (it is `"use client"`
-     and reaches `@/content/availability`). The second net is `pageCopyFor`, which
-     resolves against the real record at prerender and throws. A record that
-     under-declares therefore fails the **build**, not production. Pinned by
+     what the page renders. It cannot measure the live entity: this module is a
+     leaf importing only `./company`, because `site-header.tsx` is `"use client"`
+     and reaches it through `@/content/availability`, so importing the entity
+     corpus would put the whole product/answer text in a browser chunk. (That
+     keeps the client cost at kilobytes rather than hundreds of kilobytes; it
+     does not make it zero — see risk 4.) The second net is `pageCopyFor`, which
+     resolves against the real record at prerender and throws, so a record that
+     under-declares fails the **build**, not production. Pinned by
      `REQ 3 · a partially translated page stays a fallback…`.
   2. `sourceRevision` is recorded but never re-verified: nothing compares it to
      Git, so a stale approval does not self-expire. Stated, not assumed away.
   3. A high-risk surface (canonical, hreflang, sitemap, schema language) is
      touched; behaviour is unchanged because the registry ships empty, but the
      surface is why this card is `Risk: HIGH`.
+  4. **The gate's code now runs in the browser, where it has no job.** +1,684 B
+     raw / +586 B gzip on a chunk loaded by 220 of 222 documents, because
+     `TRANSLATED_PAGES` is an eager module-scope `const` that the client header
+     depends on transitively. It is inert — the registry is empty and the result
+     is only used to answer `localizedLocalesFor` — but it is real weight, and it
+     will grow with every rule added here. Removing it needs a different seam,
+     not a tweak: the header should be handed its locale list by a server
+     component (or the shipped promotion set resolved server-side and passed
+     down), which is a `site-header.tsx` / layout change owned by a separate
+     card. Deliberately not done here: it is outside this allowlist and would
+     widen a governance diff for 0.2 % of JS.
 
 ## Rollback
 

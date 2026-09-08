@@ -156,6 +156,39 @@ Work Log:
   path segment, and the advertised hreflang tag set is exactly
   `en, x-default, zh-CN`.
 
+- Corrected my own earlier conclusion after a fuller delegated report made a
+  specific, falsifiable claim that contradicted it: **the new gate's code ships in
+  a browser chunk.** I had checked only `.next/server/app` for build drift and
+  reported "no client chunk grew", which was wrong — the client chunks live under
+  `.next/static/chunks`, outside the tree I hashed. Re-measured directly rather
+  than trusting the report: `.next/static/chunks` totals 822,743 → 824,427 bytes
+  raw (+1,684 B, +0.205 %) and 260,950 → 261,536 bytes gzip (+586 B, +0.225 %)
+  against a fresh production build of `d34cd95` in a second temporary detached
+  worktree. Chunk `128996572d69177c.js` (34,654 B / 12,052 B gz) contains every
+  reason literal from `evidenceDecisionFor` and is loaded by 220 of 222
+  prerendered documents; no base client chunk contains any
+  `translation-availability` string, so this is new weight, not a rename.
+  Mechanism: `TRANSLATED_PAGES` is an eagerly-evaluated module-scope `const`,
+  `availability.ts` imports it, and `"use client"` `site-header.tsx` imports
+  `localizedLocalesFor` — the whole derivation is live code on the browser path
+  and cannot be tree-shaken. Documents, canonicals, hreflang, sitemap and robots
+  are still unchanged; the cost is inert validation logic in the client.
+- Consequence for the design story, recorded because the first version of it was
+  half-true: keeping this module a leaf bounds the client cost (kilobytes rather
+  than the whole product/answer corpus) but does not eliminate it. The claim in
+  the card was corrected, a fourth remaining risk was written, and a follow-up
+  card was proposed as a Coordination Item — hand the header its locale list from
+  a server component so the browser has no route into the SEO policy. Not
+  implemented here: `site-header.tsx` and the layouts are outside this allowlist
+  and belong to another task's ownership.
+- Method lesson kept: a scoped comparison proves only what it covers. Hashing
+  `server/app` and concluding "build unchanged" missed 100 % of the client
+  bundle. Any future "nothing shipped differently" claim in this repo should
+  report `server/app` **and** `static/chunks`, raw **and** gzip.
+- Both temporary base worktrees were removed through `git worktree remove
+  --force` and `git worktree list` shows neither; this worktree's
+  `git status --porcelain` is empty at every step of that re-verification.
+
 Stage Summary:
 - Deliverable: ES/DE SEO ownership now has exactly one precondition — an
   approved, complete, independently reviewed evidence record for that path and

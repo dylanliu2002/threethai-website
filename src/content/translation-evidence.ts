@@ -48,6 +48,14 @@ import { contentLocaleOf, locales, type ContentLocale, type Locale } from "./com
  * if the page renders body copy no approved evidence covers. The declaration
  * gate and the render gate are two independent nets, and the build fails
  * between them.
+ *
+ * And a cost worth knowing before adding a rule: `TRANSLATED_PAGES` is evaluated
+ * at module scope, `./availability` imports it, and `src/components/layout/site-header.tsx`
+ * is `"use client"` and imports `localizedLocalesFor` — so this file's decision
+ * machinery is reachable from the browser and ships there (measured at 1.7 KB
+ * raw / 0.6 KB gzip of the shared chunk, loaded by 220 of 222 documents). Every
+ * rule added here is paid for on the client too, until the header is handed its
+ * locale list from a server component instead.
  */
 
 /**
