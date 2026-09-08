@@ -5,13 +5,18 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 /**
- * GSC-I18N-001 — document-level HTML lang / dir.
+ * GSC-I18N-001 — document-level HTML lang.
  *
  * The defect: the site had exactly one document root, a hardcoded
  * `<html lang="en">`, so every document reported English to parsers no matter
  * what the inner wrapper underneath it claimed. The fix gives each locale route
  * tree its own root layout rendering the shared document root, so the emitted
- * `<html>` element carries the route's own language and writing direction.
+ * `<html>` element carries the route's own language.
+ *
+ * Writing direction was part of this task as filed, and is no longer part of it:
+ * LOCALE-RETIRE-001 retired Arabic, the site's only right-to-left language, so
+ * `dir` is asserted to be *absent* rather than to be correct. The four active
+ * languages are all left-to-right and inherit the document default.
  *
  * These tests pin WHERE the locale signal lives — the document root, derived
  * from the route locale, from the one existing tag map — and prove it against
@@ -29,7 +34,8 @@ const read = (relativePath) => readFileSync(path.join(repoRoot, relativePath), "
 const importSource = (relativePath) => import(pathToFileURL(path.join(repoRoot, relativePath)).href);
 
 const company = await importSource("src/content/company.ts");
-const { locales, htmlLang, isRtl, localePath, siteUrl } = company;
+const { locales, htmlLang, localePath, siteUrl } = company;
+const { retiredLocales } = await importSource("src/content/locale-routing.ts");
 
 /** The three route trees that now own a document: English, prefixed locales, static Chinese. */
 const ROOT_LAYOUTS = ["src/app/(site)/layout.tsx", "src/app/[lang]/layout.tsx", "src/app/zh/layout.tsx"];
@@ -50,19 +56,33 @@ test("no hardcoded document root survives outside the route tree", () => {
   }
 });
 
-test("the document root takes lang and dir from the route locale", () => {
+test("the document root takes its language from the route locale", () => {
   const source = read(DOCUMENT_ROOT);
   assert.match(
     source,
-    /<html\s+lang=\{htmlLang\[locale\]\}\s+dir=\{isRtl\(locale\) \? "rtl" : undefined\}/,
-    "the root <html> no longer derives both attributes from the route locale"
+    /<html\s+lang=\{htmlLang\[locale\]\}/,
+    "the root <html> no longer derives its language from the route locale"
   );
-  assert.match(source, /import \{[^}]*htmlLang[^}]*isRtl[^}]*\} from "@\/content\/company"/);
+  assert.match(source, /import \{[^}]*htmlLang[^}]*\} from "@\/content\/company"/);
   assert.doesNotMatch(
     source,
     /"(zh-CN|es|de|ar|pt|ru|tr|vi|id)"/,
     "a second locale→tag map was introduced instead of reusing htmlLang"
   );
+  // LOCALE-RETIRE-001 took Arabic, the site's only right-to-left language, out of
+  // service. A direction attribute on the document would advertise a language
+  // this site no longer publishes, so the runtime logic must stay gone.
+  assert.doesNotMatch(source, /\bisRtl\b/, "Arabic/RTL runtime logic returned to the document root");
+  assert.doesNotMatch(source, /\bdir=\{/, "the document root derives a direction from a locale again");
+  assert.doesNotMatch(source, /\bdirection\b\s*[:=]/, "a direction map was reintroduced");
+});
+
+test("the retired Arabic locale leaves no runtime path anywhere in src", () => {
+  for (const file of [DOCUMENT_ROOT, ...ROOT_LAYOUTS, "src/content/company.ts", "src/app/global-not-found.tsx"]) {
+    const source = read(file);
+    assert.doesNotMatch(source, /\bisRtl\b/, `${file} still computes a writing direction`);
+    assert.doesNotMatch(source, /["']rtl["']/, `${file} still emits a right-to-left document`);
+  }
 });
 
 test("the locale signal is no longer carried by an inner wrapper", () => {
@@ -95,7 +115,7 @@ test("the unknown-locale 404 and the redirect-only /en alias survive the restruc
     "the locale route guard was relaxed — unknown prefixes could render"
   );
   assert.match(read("src/app/[lang]/layout.tsx"), /resolveLang\(params, notFound\)/);
-  for (const directory of ["src/app/en", "src/app/fr"]) {
+  for (const directory of ["src/app/en", "src/app/fr", ...retiredLocales.map((l) => `src/app/${l}`)]) {
     assert.ok(!existsSync(path.join(repoRoot, directory)), `${directory} exists — a locale prefix became a renderable route`);
   }
 });
@@ -148,16 +168,15 @@ test("build: the root <html> carries every locale's language", buildOptions, () 
   }
 });
 
-test("build: only Arabic gets a right-to-left document root", buildOptions, () => {
+test("build: no active four-language document gets a right-to-left root", buildOptions, () => {
+  // Arabic used to be the one locale carrying dir="rtl". It is retired, so every
+  // document this site publishes must now be left-to-right by omission.
+  assert.deepEqual(locales.filter((l) => l === "ar"), [], "Arabic is a supported locale again");
   for (const locale of locales) {
     for (const sitePath of ["/", PRODUCT]) {
       const urlPath = urlFor(sitePath, locale);
       const root = documentRoot(htmlFor(urlPath));
-      if (isRtl(locale)) {
-        assert.match(root, /dir="rtl"/, `${urlPath} lost its document direction`);
-      } else {
-        assert.doesNotMatch(root, /dir="rtl"/, `${urlPath} claims a right-to-left document`);
-      }
+      assert.doesNotMatch(root, /dir=/, `${urlPath} declares a document direction: ${root}`);
     }
   }
 });
@@ -194,7 +213,7 @@ test("build: no route tree re-declares the global stylesheet", buildOptions, () 
   // (site), [lang] and zh each own a document root; per-tree CSS duplication
   // would show up here as a different stylesheet count for one of them.
   const counts = {};
-  for (const urlPath of ["/", "/zh", "/es", "/ar"]) {
+  for (const urlPath of ["/", "/zh", "/es", "/de"]) {
     counts[urlPath] = (htmlFor(urlPath).match(/<link rel="stylesheet"/g) ?? []).length;
     assert.ok(counts[urlPath] >= 1, `${urlPath} got no stylesheet bundle`);
   }
@@ -217,7 +236,7 @@ test("build: canonical and hreflang strings are unchanged by the document rewrit
   const alternates = (english.match(/rel="alternate"/g) ?? []).length;
   assert.ok(alternates > 1, `${PRODUCT} lost its hreflang alternates (${alternates})`);
 
-  for (const locale of ["es", "de", "ar"]) {
+  for (const locale of ["es", "de"]) {
     const urlPath = urlFor(PRODUCT, locale);
     const html = htmlFor(urlPath);
     assert.equal(
@@ -230,7 +249,7 @@ test("build: canonical and hreflang strings are unchanged by the document rewrit
 });
 
 test("build: no locale prefix became a renderable route", buildOptions, () => {
-  for (const segment of ["en", "fr"]) {
+  for (const segment of ["en", "fr", ...retiredLocales]) {
     assert.ok(!existsSync(path.join(prerenderRoot, segment)), `.next/server/app/${segment} exists — /${segment}/* now renders`);
   }
 });

@@ -35,14 +35,20 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const read = (relativePath) => readFileSync(path.join(repoRoot, relativePath), "utf8");
 const importSource = (relativePath) => import(pathToFileURL(path.join(repoRoot, relativePath)).href);
 
-const { canonicalUrlFor, contentHtmlLangOf, isEnglishFallbackCopy } = await importSource(
-  "src/content/availability.ts",
-);
-const { siteUrl } = await importSource("src/content/company.ts");
+const { canonicalUrlFor, contentHtmlLangOf, isEnglishFallbackCopy, TRANSLATED_CONTENT_LOCALES } =
+  await importSource("src/content/availability.ts");
+const { siteUrl, locales } = await importSource("src/content/company.ts");
 const { products } = await importSource("src/content/products.ts");
 
-const FALLBACK_LOCALES = ["es", "pt", "ru", "ar", "tr", "vi", "id", "de"];
-const ALL_LOCALES = ["en", "zh", ...FALLBACK_LOCALES];
+/**
+ * Derived from the locale model rather than listed. GSC-SCHEMA-001 checked all
+ * ten languages that existed when it shipped; LOCALE-RETIRE-001 retired six of
+ * them, and a literal here would look for prerendered `/pt/products/…` pages
+ * that the four-language site no longer builds. What this suite pins is that no
+ * locale — present or future — emits an unsupported commercial node.
+ */
+const FALLBACK_LOCALES = locales.filter((l) => !TRANSLATED_CONTENT_LOCALES.includes(l));
+const ALL_LOCALES = [...locales];
 
 /** The two URLs Search Console reported, plus the rest of the same template. */
 const REPORTED_SLUGS = ["water-soluble-pva-yarn", "pva-staple-fiber"];
@@ -373,8 +379,15 @@ test("rendered schema stays parseable JSON across the site", buildOptions, () =>
     }
   };
   visit(prerenderRoot);
-  assert.ok(files > 400, `expected the full prerendered site, found ${files} pages`);
-  assert.ok(blocks > 400, `expected JSON-LD on every page, found ${blocks} blocks`);
+  // Scale guard, not an inventory pin. The literal `> 400` was the ten-locale
+  // prerender count; LOCALE-RETIRE-001 retired six of those languages and the
+  // same site now builds ~222 documents. Deriving the floor from the locale set
+  // keeps its real purpose — catching a sweep that quietly covered almost
+  // nothing — without re-asserting an architecture this task changed on purpose.
+  // The behaviour that matters is above: every JSON-LD block on every page is
+  // parsed, and a throw fails the test.
+  assert.ok(files > 40 * locales.length, `expected the full prerendered site, found ${files} pages`);
+  assert.ok(blocks > 40 * locales.length, `expected JSON-LD on every page, found ${blocks} blocks`);
 });
 
 test("only product detail routes changed their entity node type", buildOptions, async () => {

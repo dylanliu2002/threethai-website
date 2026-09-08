@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
-import { company, htmlLang, isRtl, type Locale } from "@/content/company";
+import { company, htmlLang, type Locale } from "@/content/company";
 import { en } from "@/content/i18n";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -63,8 +63,12 @@ export const rootViewport: Viewport = {
  * locale split is therefore also its root-layout split — `(site)` for the
  * prefix-free English owner, `[lang]` for the prefixed locales, `zh` for the
  * hand-translated static Chinese routes — and each renders through here so the
- * attributes that vary (lang / dir) come from the route locale while every
+ * attributes that vary (lang) come from the route locale while every
  * shared document service stays in one place and renders exactly once.
+ *
+ * `dir` is deliberately absent: LOCALE-RETIRE-001 retired Arabic, the site's
+ * only right-to-left language, so a direction attribute would be a claim about a
+ * language this site no longer publishes. It stays at the document default.
  */
 export function RootDocument({
   locale,
@@ -74,7 +78,7 @@ export function RootDocument({
   children: React.ReactNode;
 }) {
   return (
-    <html lang={htmlLang[locale]} dir={isRtl(locale) ? "rtl" : undefined} suppressHydrationWarning>
+    <html lang={htmlLang[locale]} suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} min-h-screen antialiased bg-background text-foreground [font-family:var(--font-geist-sans),'PingFang_SC','Hiragino_Sans_GB','Microsoft_YaHei',sans-serif]`}>
         {children}
         <Toaster />

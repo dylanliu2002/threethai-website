@@ -45,12 +45,6 @@ const OG_LOCALE: Record<Locale, string> = {
   en: "en_US",
   zh: "zh_CN",
   es: "es_ES",
-  pt: "pt_BR",
-  ru: "ru_RU",
-  ar: "ar_AR",
-  tr: "tr_TR",
-  vi: "vi_VN",
-  id: "id_ID",
   de: "de_DE",
 };
 
