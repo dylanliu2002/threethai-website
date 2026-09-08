@@ -56,3 +56,36 @@
 - Final pre-review fetch confirmed `origin/main` remained
   `d34cd9560870c15da922a84f4dab7808201dd89d`. Rebasing the task branch
   onto that exact commit was a no-op.
+
+## 2026-09-08 — Independent-review remediation
+
+- Fresh independent review of
+  `98b5814ed2847d39e51ea19bf90a794138bbdd2e` returned `CHANGES_REQUIRED`.
+  The blocker showed that the successful test fixture supplied
+  `max_dispatch_attempts` even though the real activation constructor does not;
+  the major finding showed that retirement evidence could be reused while
+  rotating a different authentic expired Grant.
+- Updated the retirement path to operate on the real activation schema. The
+  fixture now creates the `READY` activation through
+  `enableSyntheticPilotOnceInternal`, and the successful regression asserts
+  that the constructed activation has no fixture-only maximum-attempt field.
+- Bound retirement history and its append-only journal event to the expired
+  Grant authorization ID, Grant digest, contract digest, and card blob. The
+  rotation admission check receives the exact Grant being rotated and rejects
+  evidence whose activation or Grant bindings do not match it.
+- Added a cross-Grant regression that retires against Grant A, installs a
+  different authentic expired Grant B in the disposable authority, and proves
+  rotation is rejected before archive, state, or journal mutation.
+- Focused tests passed `32/32`; the complete workflow suite passed `170/170` in
+  a disposable exact-head clone with an unprovisioned authority namespace.
+  `validate --all`, `reconcile --dry-run`, `tick --dry-run`, lint, typecheck,
+  syntax checking, and `git diff --check` passed.
+- Canonical state was read only. All six canonical authority hashes matched the
+  pre-remediation baseline, controller state remained revision `21`, journal
+  remained at `21` events, and activation
+  `e8a5889a-6381-46da-ab2b-4e4c0dc9041b` remained `READY` with
+  `dispatch_attempts=0`. No Grant rotation, activation creation, retirement,
+  dispatch, run, lease, worker, thread, or model invocation occurred.
+- The prior reviewer findings are resolved in implementation commit
+  `35614588e5c854e5037fbc972b10d5a636cf5824`; the updated head requires fresh
+  independent review.

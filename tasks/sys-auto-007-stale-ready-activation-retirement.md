@@ -51,16 +51,19 @@ scope.
 - Require a fresh human authorization ID and the exact synthetic-pilot task.
 - Authenticate the installed Grant against the pinned controller identity and
   require it to be truly expired.
-- Require an exact `READY` activation binding to that Grant, one maximum
-  dispatch attempt, zero dispatch attempts, no consumed identity/timestamp, no
-  associated run, no live lease, no live reservation, and general activation
-  off.
+- Require an exact `READY` activation binding to that Grant, a Grant limited to
+  one maximum dispatch attempt, zero activation dispatch attempts, no consumed
+  identity/timestamp, no associated run, no live lease, no live reservation,
+  and general activation off. The retirement operation must use the real
+  activation schema and must not depend on fixture-only fields.
 - Transition to terminal `RETIRED_BEFORE_DISPATCH` with reason
   `GRANT_EXPIRED_BEFORE_DISPATCH` and append one journal event.
 - Preserve a complete immutable copy of the pre-retirement activation in
   dedicated durable retirement history.
 - Permit the existing rotation path to accept `RETIRED_BEFORE_DISPATCH` only
-  when its durable retirement evidence is present and consistent.
+  when its durable retirement evidence is present, consistent, and bound to
+  the exact expired Grant being rotated, including authorization ID, digest,
+  contract digest, and card blob.
 - Do not modify the Grant, archive, Task Contract, activation authorization
   history, runs, leases, reservations, or prior journal events.
 
@@ -79,7 +82,9 @@ npm run typecheck
 
 Tests must prove successful retirement and journal replay, rejection of
 `CONSUMED`, rejection of an unexpired Grant, exact historical preservation, and
-the separately authorized retire -> rotate -> fresh-activation lifecycle.
+the separately authorized retire -> rotate -> fresh-activation lifecycle. A
+real activation-constructor probe and cross-Grant evidence-reuse rejection are
+required regressions.
 
 ## Coordination Items
 
@@ -117,6 +122,34 @@ the separately authorized retire -> rotate -> fresh-activation lifecycle.
 - Grant changed: `NO`
 - Activation created: `NO`
 - Worker/model executed: `NO`
+
+### Review remediation
+
+- Fresh review of head `98b5814ed2847d39e51ea19bf90a794138bbdd2e`
+  identified one blocker and one major issue: the retirement operation relied
+  on a fixture-only `max_dispatch_attempts` activation field, and rotation did
+  not bind retirement evidence to the exact expired Grant being rotated.
+- Remediation commit: `35614588e5c854e5037fbc972b10d5a636cf5824`
+- The focused fixture now creates its `READY` activation through the real
+  activation constructor. Retirement no longer depends on the absent field;
+  the authenticated Grant remains responsible for the one-dispatch limit.
+- Retirement history and its journal event now carry the expired Grant's
+  authorization ID, digest, contract digest, and card blob. Rotation verifies
+  every binding against the exact Grant selected for rotation and rejects
+  evidence created for a different authentic expired Grant.
+- Focused expiry/rotation/retirement tests: `32/32` passed, including the real
+  constructor probe, stale-expired success, valid-Grant rejection, consumed
+  rejection, and cross-Grant evidence-reuse rejection.
+- Full workflow tests: `170/170` passed in a disposable exact-head clone with a
+  separate unprovisioned authority namespace; the clone was removed afterward.
+- `validate --all`, `reconcile --dry-run`, `tick --dry-run`, lint, typecheck,
+  and `git diff --check` passed after remediation.
+- All six canonical authority file hashes remained identical to the recorded
+  baseline; controller state remained revision `21`, journal event count
+  remained `21`, and the canonical activation remained `READY` with
+  `dispatch_attempts=0`.
+- This remediation requires a fresh independent review; it does not carry
+  forward approval of the superseded head.
 
 ## Rollback
 
