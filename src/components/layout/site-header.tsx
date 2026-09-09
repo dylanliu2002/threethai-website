@@ -194,7 +194,7 @@ export default function SiteHeader({
                     document-level event — every locale serves its own prerendered
                     page — and next/link would try to resolve it in the client router
                     instead. Measured in Chrome: English is the prefix-free owner, so
-                    its `/en/products` exists only as a 308 from the proxy, which the
+                    its `/en/products` exists only as a redirect from the proxy, which the
                     router never consults; it picked another locale out of its prefetch
                     data and landed a visitor who clicked English on /es/products.
                   */}
