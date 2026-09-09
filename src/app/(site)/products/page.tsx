@@ -88,7 +88,7 @@ export default function ProductsPage() {
                       <td>
                         <ul className="flex flex-wrap gap-x-5 gap-y-1">
                           {entry.specs.map((spec) => (
-                            <li key={spec}>{spec}</li>
+                            <li key={spec.en}>{spec.en}</li>
                           ))}
                         </ul>
                       </td>

@@ -52,7 +52,7 @@ export default async function LangProductFinderPage({ params }: Props) {
               {temperatureCatalog.map((entry) => (
                 <div key={entry.temperature}>
                   <dt className="text-sm font-bold text-ink">{entry.temperature}</dt>
-                  <dd className="mt-1 text-xs leading-relaxed text-muted-foreground">{entry.specs.join(" · ")}</dd>
+                  <dd className="mt-1 text-xs leading-relaxed text-muted-foreground">{entry.specs.map((spec) => spec[locale]).join(" · ")}</dd>
                 </div>
               ))}
             </dl>

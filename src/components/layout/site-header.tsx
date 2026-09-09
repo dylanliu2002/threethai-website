@@ -35,10 +35,10 @@ const navItems: NavItem[] = [
 
 function Wordmark({ locale }: { locale: Locale }) {
   return (
-    <Link href={localePath("/", locale)} className="group flex items-center gap-3" aria-label="Three Thai Textile home">
+    <Link href={localePath("/", locale)} className="group flex items-center gap-3" aria-label={clientLabels[locale].homeAriaLabel}>
       <Image
         src="/images/brand/threethai-logo.png"
-        alt="THREE THAI — PVA yarn/thread/fiber"
+        alt={clientLabels[locale].logoAlt}
         width={170}
         height={45}
         priority
@@ -122,7 +122,7 @@ export default function SiteHeader({
       <div className="container-site flex h-16 items-center justify-between gap-4">
         <Wordmark locale={locale} />
 
-        <nav aria-label="Main" className="hidden items-center gap-1 lg:flex">
+        <nav aria-label={clientLabels[locale].mainNavAriaLabel} className="hidden items-center gap-1 lg:flex">
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -224,7 +224,7 @@ export default function SiteHeader({
             <path d="M6 6l12 12M18 6L6 18" />
           </svg>
         </DialogPrimitive.Close>
-        <nav aria-label="Mobile" className="container-site flex flex-col gap-1 pb-6 pt-16">
+        <nav aria-label={clientLabels[locale].mobileNavAriaLabel} className="container-site flex flex-col gap-1 pb-6 pt-16">
           {navItems.map((item, index) => (
             <Link
               key={item.href}

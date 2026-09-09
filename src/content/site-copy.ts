@@ -308,14 +308,14 @@ export const pageMeta: Record<Locale, Record<string, PageMeta>> = {
  * server components. The keys stay in the declaration order of the first locale so
  * a reviewer can read English, Chinese, Spanish and German side by side.
  */
+
 /**
- * The strings a client component renders. They live here, imported by the
- * component that draws them, rather than in `Dictionary`: the three `"use
- * client"` components receive the whole dictionary as a prop, so a key added
- * there is serialized into the payload of every one of the 222 prerendered
- * documents. Measured: `header.tagline` alone, in the dictionary, added 342 B
- * to an English page and 366 B to a Chinese page — pages this task does not
- * translate at all. Imported instead, the same six strings cost once.
+ * The strings a `"use client"` component renders. Measured on this branch:
+ * `pageMeta` and `serverLabels` contribute nothing to `.next/static/chunks` (0
+ * occurrences of any of their texts), so sharing this module with them is free,
+ * while putting these keys in `Dictionary` is not — the three client components
+ * take the whole dictionary as a prop and it is serialized into every one of the
+ * 222 prerendered documents.
  */
 export const clientLabels: Record<Locale, Record<string, string>> = {
   en: {
@@ -325,14 +325,36 @@ export const clientLabels: Record<Locale, Record<string, string>> = {
     destinationPlaceholder: "e.g. India / Türkiye",
     specificationPlaceholder: "e.g. 40S/2 · 1.50 dtex × 38 mm",
     quantityPlaceholder: "sample / pilot / annual",
+    homeAriaLabel: "Three Thai Textile home",
+    logoAlt: "THREE THAI — PVA yarn/thread/fiber",
+    // Landmark names a screen reader announces on every page. They sat in the
+    // header as literals, so a Spanish or German reader heard English; the en and
+    // zh values are the strings the site announces today, kept byte-for-byte.
+    mainNavAriaLabel: "Main",
+    mobileNavAriaLabel: "Mobile",
+    productOptionYarn: "Water-soluble PVA yarn · PVA 水溶纱",
+    productOptionThread: "Water-soluble PVA sewing thread · PVA 水溶缝纫线",
+    productOptionStaple: "PVA staple fiber · PVA 短纤",
+    productOptionFilament: "PVA filament yarn · PVA 长丝",
   },
   zh: {
     headerTagline: "水溶性 PVA 纱线 · 缝纫线 · 短纤 · 长丝",
     formLoading: "正在加载表单…",
     productOtherOption: "其他 / 扩展形态",
+    mainNavAriaLabel: "Main",
+    mobileNavAriaLabel: "Mobile",
     destinationPlaceholder: "如：印度／土耳其",
     specificationPlaceholder: "如：40S/2 · 1.50 dtex × 38 mm",
     quantityPlaceholder: "样品／试单／年用量",
+    // Kept verbatim: these three are what `/zh` pages render today, and INTL-001
+    // adds languages without rewriting the two that already ship. The Chinese
+    // product-option labels read as bilingual because that is the live text.
+    homeAriaLabel: "Three Thai Textile home",
+    logoAlt: "THREE THAI — PVA yarn/thread/fiber",
+    productOptionYarn: "Water-soluble PVA yarn · PVA 水溶纱",
+    productOptionThread: "Water-soluble PVA sewing thread · PVA 水溶缝纫线",
+    productOptionStaple: "PVA staple fiber · PVA 短纤",
+    productOptionFilament: "PVA filament yarn · PVA 长丝",
   },
   es: {
     headerTagline: "Hilo de PVA hidrosoluble · hilo de coser · fibra cortada · filamento",
@@ -341,6 +363,14 @@ export const clientLabels: Record<Locale, Record<string, string>> = {
     destinationPlaceholder: "p. ej., India / Turquía",
     specificationPlaceholder: "p. ej., 40S/2 · 1,50 dtex × 38 mm",
     quantityPlaceholder: "muestra / prueba / consumo anual",
+    homeAriaLabel: "Inicio de Three Thai Textile",
+    logoAlt: "THREE THAI — hilo de PVA hidrosoluble, hilo de coser, fibra cortada y filamento",
+    productOptionYarn: "Hilo de PVA hidrosoluble",
+    productOptionThread: "Hilo de coser de PVA hidrosoluble",
+    productOptionStaple: "Fibra cortada de PVA",
+    productOptionFilament: "Hilo de filamento de PVA",
+    mainNavAriaLabel: "Principal",
+    mobileNavAriaLabel: "Navegación móvil",
   },
   de: {
     headerTagline: "Wasserlösliches PVA-Garn · Nähgarn · Stapelfaser · Filament",
@@ -349,9 +379,16 @@ export const clientLabels: Record<Locale, Record<string, string>> = {
     destinationPlaceholder: "z. B. Indien / Türkei",
     specificationPlaceholder: "z. B. 40S/2 · 1,50 dtex × 38 mm",
     quantityPlaceholder: "Muster / Pilotcharge / Jahresmenge",
+    homeAriaLabel: "Three Thai Textile — Startseite",
+    logoAlt: "THREE THAI — wasserlösliches PVA-Garn, Nähgarn, Stapelfaser, Filament",
+    productOptionYarn: "Wasserlösliches PVA-Garn",
+    productOptionThread: "Wasserlösliches PVA-Nähgarn",
+    productOptionStaple: "PVA-Stapelfaser",
+    productOptionFilament: "PVA-Filamentgarn",
+    mainNavAriaLabel: "Hauptnavigation",
+    mobileNavAriaLabel: "Mobile Navigation",
   },
 };
-
 export const serverLabels: Record<Locale, Record<string, string>> = {
   en: {
     temperatureColumn: "Temperature",
@@ -370,6 +407,8 @@ export const serverLabels: Record<Locale, Record<string, string>> = {
     utilityShowAll: "Show all {count} utility model patents",
     utilityPublicationColumn: "Publication",
     utilityTitleColumn: "Title",
+    breadcrumbNav: "Breadcrumb",
+    patentCertificateAlt: "{country} patent certificate {number}",
     manufacturingHeroImageAlt: "Blowing-carding line at the production base",
     spinningCapabilityHeading: "Complete spinning capability, blow room to winding",
     equipmentImageSuffix: "live production",
@@ -400,6 +439,8 @@ export const serverLabels: Record<Locale, Record<string, string>> = {
     utilityShowAll: "展开查看全部 {count} 件实用新型专利",
     utilityPublicationColumn: "授权公告号",
     utilityTitleColumn: "实用新型名称",
+    breadcrumbNav: "Breadcrumb",
+    patentCertificateAlt: "{country} patent certificate {number}",
     manufacturingHeroImageAlt: "清梳联生产现场",
     spinningCapabilityHeading: "从清梳联到自动络筒的完整纺纱能力",
     equipmentImageSuffix: "生产现场",
@@ -430,6 +471,8 @@ export const serverLabels: Record<Locale, Record<string, string>> = {
     utilityShowAll: "Ver los {count} modelos de utilidad concedidos",
     utilityPublicationColumn: "Publicación",
     utilityTitleColumn: "Denominación",
+    breadcrumbNav: "Ruta de navegación",
+    patentCertificateAlt: "Certificado de patente de {country} — {number}",
     manufacturingHeroImageAlt: "Línea de cardado en la base de producción",
     spinningCapabilityHeading: "Capacidad de hilatura completa, de la apertura de fibra al bobinado",
     equipmentImageSuffix: "producción en directo",
@@ -461,6 +504,8 @@ export const serverLabels: Record<Locale, Record<string, string>> = {
     utilityShowAll: "Alle {count} erteilten Gebrauchsmuster anzeigen",
     utilityPublicationColumn: "Bekanntmachung",
     utilityTitleColumn: "Bezeichnung",
+    breadcrumbNav: "Brotkrümelnavigation",
+    patentCertificateAlt: "Patenturkunde {country} — {number}",
     manufacturingHeroImageAlt: "Krempel-Kombination am Produktionsstandort",
     spinningCapabilityHeading: "Vollständige Spinnkapazität, vom Krempelsaal bis zum Spulen",
     equipmentImageSuffix: "laufende Produktion",

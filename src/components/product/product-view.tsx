@@ -169,7 +169,7 @@ export default function ProductView({ product, locale, dict }: { product: Produc
                   </p>
                   <ul className="mt-3 space-y-1.5">
                     {entry.specs.map((spec) => (
-                      <li key={spec} className="text-sm text-muted-foreground">{spec}</li>
+                      <li key={spec.en} className="text-sm text-muted-foreground">{spec[locale]}</li>
                     ))}
                   </ul>
                 </div>

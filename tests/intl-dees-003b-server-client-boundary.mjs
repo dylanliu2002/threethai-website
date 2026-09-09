@@ -361,11 +361,23 @@ test("build: no client chunk carries any translation-ownership string", buildOpt
 });
 
 test("build: the client bundle returns to its INTL-DEES-002B size", buildOptions, () => {
+  // What this assertion really owns is "the 1,684 B of SEO-gate code that
+  // INTL-DEES-003A put in every browser is gone", and the load-bearing proof of
+  // that is the POLICY_STRINGS scan immediately above: it names the code, this one
+  // only counts bytes. So when INTL-DEES-001 added localized strings that the
+  // header and the inquiry form must render client-side (the logo alt, the two
+  // landmark names, the four product-family options, in all four languages —
+  // measured 1,237 B), the honest move is to name that content here rather than
+  // widen TOLERANCE into something that no longer resembles a tolerance. A future
+  // gate leak is caught by the string scan, not by this ceiling.
+  const CLIENT_CONTENT_001 = 1_237; // localized labels, INTL-DEES-001
   const total = walkFiles(chunksRoot, new Set([".js"])).reduce((sum, file) => sum + statSync(file).size, 0);
-  assert.ok(total <= LEAKED_003A_TOTAL - 1_000,
-    `the bundle did not shrink: ${total} B, still within 1 KB of the ${LEAKED_003A_TOTAL} B leaked build`);
-  assert.ok(total <= BASE_002B_TOTAL + TOLERANCE,
-    `client bundle is ${total - BASE_002B_TOTAL} B above the ${BASE_002B_TOTAL} B INTL-DEES-002B baseline (tolerance ${TOLERANCE} B)`);
+  assert.ok(total <= LEAKED_003A_TOTAL - 1_000 + CLIENT_CONTENT_001,
+    `the bundle did not shrink: ${total} B, within ${LEAKED_003A_TOTAL - total} B of the `
+    + `${LEAKED_003A_TOTAL} B leaked build against a ${CLIENT_CONTENT_001} B documented allowance`);
+  assert.ok(total <= BASE_002B_TOTAL + TOLERANCE + CLIENT_CONTENT_001,
+    `client bundle is ${total - BASE_002B_TOTAL} B above the ${BASE_002B_TOTAL} B INTL-DEES-002B `
+    + `baseline (tolerance ${TOLERANCE} B + ${CLIENT_CONTENT_001} B of INTL-DEES-001 client labels)`);
   assert.ok(total > BASE_002B_TOTAL - 20_000,
     `the bundle lost far more than this task can explain: ${total} B vs ${BASE_002B_TOTAL} B baseline`);
 });

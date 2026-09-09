@@ -10,6 +10,7 @@ import {
   patentStats,
   patentIntro,
   patentDisclaimer,
+  patentTitle,
 } from "@/content/patents";
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
@@ -18,9 +19,11 @@ import { serverLabels } from "@/content/site-copy";
 
 export default function QualityView({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   // Every content record this view reads — quality.ts and patents.ts — now carries
-  // all four languages. What stays out of that are the `titleEn`/`titleZh` pairs:
-  // registered document titles, not site prose (the translated disclaimer under
-  // the patent table says exactly that to the reader).
+  // all four languages. A patent's title comes from `patentTitle`, which picks the
+  // reader's language, and the line under it stays the registered Chinese title for
+  // every locale but zh (where the English working translation is shown): the
+  // register entry is what a buyer verifies, so it is always visible beside a
+  // translation of it. The localized disclaimer under the table says exactly that.
   const ql = locale;
   const t = dict.qualityPage;
   const intro = qualityIntro[ql];
@@ -173,7 +176,7 @@ export default function QualityView({ locale, dict }: { locale: Locale; dict: Di
                     {patent.ownership === "sole" ? t.patentSoleLabel : t.patentJointLabel}
                   </span>
                 </div>
-                <p className="mt-2 text-sm font-medium leading-snug text-foreground">{locale === "zh" ? patent.titleZh : patent.titleEn}</p>
+                <p className="mt-2 text-sm font-medium leading-snug text-foreground">{patentTitle(patent, ql)}</p>
                 <p className="mt-1 text-xs leading-snug text-muted-foreground">{locale === "zh" ? patent.titleEn : patent.titleZh}</p>
                 <dl className="mt-auto grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 pt-4 text-xs text-muted-foreground">
                   <dt>{t.patentFiledLabel}</dt>
@@ -195,7 +198,9 @@ export default function QualityView({ locale, dict }: { locale: Locale; dict: Di
                 <a href={patent.pdf} target="_blank" rel="noopener" className="relative block aspect-[3/4] w-full shrink-0 bg-muted sm:aspect-auto sm:w-44" aria-label={`${patent.country[ql]} ${patent.number}`}>
                   <Image
                     src={patent.image}
-                    alt={`${patent.country[ql]} patent certificate ${patent.number}`}
+                    alt={serverLabels[locale].patentCertificateAlt
+                      .replace("{country}", patent.country[ql])
+                      .replace("{number}", patent.number)}
                     fill
                     sizes="(min-width: 640px) 176px, 100vw"
                     className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
@@ -206,7 +211,7 @@ export default function QualityView({ locale, dict }: { locale: Locale; dict: Di
                     <span aria-hidden="true" className="mr-2 inline-block rounded bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white">{patent.flag}</span>
                     {patent.country[ql]}
                   </p>
-                  <p className="mt-2 text-sm font-medium leading-snug text-foreground">{locale === "zh" ? patent.titleZh : patent.titleEn}</p>
+                  <p className="mt-2 text-sm font-medium leading-snug text-foreground">{patentTitle(patent, ql)}</p>
                   <dl className="mt-auto space-y-1 pt-4 text-xs text-muted-foreground">
                     <div className="flex gap-2">
                       <dt className="shrink-0">{t.patentNoLabel}:</dt>
@@ -254,7 +259,7 @@ export default function QualityView({ locale, dict }: { locale: Locale; dict: Di
                     <tr key={patent.number}>
                       <td className="whitespace-nowrap font-mono text-xs">{patent.number}</td>
                       <td className="whitespace-nowrap font-mono text-xs">{patent.publication}</td>
-                      <td className="text-xs leading-snug">{locale === "zh" ? patent.titleZh : patent.titleEn}</td>
+                      <td className="text-xs leading-snug">{patentTitle(patent, ql)}</td>
                       <td className="whitespace-nowrap text-xs">{patent.granted}</td>
                     </tr>
                   ))}

@@ -105,6 +105,7 @@ function InquiryFormInner({
   const [state, action, pending] = useActionState(submitInquiry, initialState);
   const search = useSearchParams();
   const f = dict.form.fields;
+  const labels = clientLabels[locale];
   const isContact = kind === "contact";
 
   const productRecord = productBySlug(search.get("product") ?? "");
@@ -190,11 +191,15 @@ function InquiryFormInner({
                 className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm text-foreground shadow-sm focus:outline-2 focus:outline-offset-0 focus:outline-primary"
               >
                 <option value="">{f.productNone}</option>
-                <option value="water-soluble-pva-yarn">Water-soluble PVA yarn · PVA 水溶纱</option>
-                <option value="water-soluble-pva-sewing-thread">Water-soluble PVA sewing thread · PVA 水溶缝纫线</option>
-                <option value="pva-staple-fiber">PVA staple fiber · PVA 短纤</option>
-                <option value="pva-filament-yarn">PVA filament yarn · PVA 长丝</option>
-                <option value="other">{clientLabels[locale].productOtherOption}</option>
+                {/* The four product families by name: literals used to live here in
+                    bilingual form, which no locale could override. They are
+                    clientLabels now — imported by this component, so they cost once
+                    in the bundle instead of riding in every document's payload. */}
+                <option value="water-soluble-pva-yarn">{labels.productOptionYarn}</option>
+                <option value="water-soluble-pva-sewing-thread">{labels.productOptionThread}</option>
+                <option value="pva-staple-fiber">{labels.productOptionStaple}</option>
+                <option value="pva-filament-yarn">{labels.productOptionFilament}</option>
+                <option value="other">{labels.productOtherOption}</option>
               </select>
             </div>
             <div>
