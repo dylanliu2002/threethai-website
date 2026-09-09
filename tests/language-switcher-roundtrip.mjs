@@ -313,6 +313,34 @@ test("REQ 6 · the notice is written in the language it offers", () => {
   assert.match(clientLabels.zh.localeNoticeLink, /[一-鿿]/);
 });
 
+test("REQ 7 · a link handler may not close the container the link lives in", () => {
+  // The reported symptom was "I click and nothing happens, then I click again".
+  // The cause is structural, not a race to be tuned: calling setOpen(false) or
+  // details.open = false inside the link's own onClick removes the <a> while its
+  // click is still being processed, so the navigation can be dropped — and it only
+  // happens after hydration, which is what made it look random. Closing is derived
+  // from `pathname` instead, so this asserts the shape of the file.
+  const header = read("src/components/layout/site-header.tsx");
+  assert.doesNotMatch(header, /onClick=\{\s*\(\)\s*=>\s*setOpen\(false\)\s*\}/,
+    "a link must not close the dialog synchronously on click");
+  assert.doesNotMatch(header, /onClick=\{[^}]*closest\("details"\)[^}]*\.open\s*=/s,
+    "a link must not close the <details> synchronously on click");
+  // Count statements, not mentions: the prose above the state also names the call.
+  const synchronousCloses = (header.match(/setOpen\(false\);/g) || []).length;
+  assert.ok(synchronousCloses <= 1,
+    `at most one synchronous close is allowed (the current-language no-op); found ${synchronousCloses}`);
+  // The no-op guard has to come first, so a real navigation returns untouched.
+  assert.equal((header.match(/if \(l !== locale\) return;/g) || []).length, 2,
+    "both switchers must return early for a real navigation, one per locale list");
+  assert.match(header, /const dialogOpen = open && openedOn === pathname;/,
+    "the panel must close because the path it was opened on is gone");
+  assert.match(header, /<DialogPrimitive\.Root\s*\n?\s*open=\{dialogOpen\}/,
+    "the dialog must render the derived state, not the raw one");
+  assert.match(header, /ref=\{detailsRef\}/, "the desktop menu must be reachable to close");
+  assert.match(header, /useEffect\(\(\) => \{\s*if \(detailsRef\.current\)[\s\S]{0,80}\}, \[pathname\]\);/,
+    "the desktop menu must close on navigation, in an effect keyed to the path");
+});
+
 /* --------------------------------------------------- proxy wiring (source) */
 test("REQ 5 · the proxy executes the decision without adding a rule of its own", () => {
   const proxy = read("src/proxy.ts");

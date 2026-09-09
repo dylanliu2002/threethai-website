@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { usePathname } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Dictionary } from "@/content/i18n";
 import { company, htmlLang, localeLabels, localePath, locales, type Locale } from "@/content/company";
 import { clientLabels } from "@/content/site-copy";
@@ -72,9 +72,24 @@ export default function SiteHeader({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  /*
+   * The panel and the desktop menu close by derivation, not from inside a link's
+   * click handler. Calling setOpen(false) or details.open = false there removes the
+   * <a> while its own click is still being processed — the dialog unmounts its
+   * content, <details> hides it — and the navigation can be dropped, which is the
+   * "I clicked and nothing happened, then I clicked again" report. `pathname`
+   * changing is the fact that a navigation happened, so that is what closes them.
+   */
+  const [openedOn, setOpenedOn] = useState(pathname);
+  const dialogOpen = open && openedOn === pathname;
+  const detailsRef = useRef<HTMLDetailsElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const firstMobileLinkRef = useRef<HTMLAnchorElement>(null);
   const { path: currentPath } = splitLocalePath(pathname);
+
+  useEffect(() => {
+    if (detailsRef.current) detailsRef.current.open = false;
+  }, [pathname]);
 
   const isActive = (href: string) =>
     href === "/"
@@ -113,7 +128,14 @@ export default function SiteHeader({
   const currentLabel = localeLabels[locale];
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={setOpen} modal>
+    <DialogPrimitive.Root
+      open={dialogOpen}
+      onOpenChange={(next) => {
+        if (next) setOpenedOn(pathname);
+        setOpen(next);
+      }}
+      modal
+    >
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
       {/* Utility strip */}
       <div className="hidden bg-primary text-primary-foreground md:block">
@@ -152,7 +174,7 @@ export default function SiteHeader({
         </nav>
 
         <div className="flex items-center gap-2">
-          <details className="group relative hidden sm:block" data-testid="lang-switcher">
+          <details ref={detailsRef} className="group relative hidden sm:block" data-testid="lang-switcher">
             <summary
               className="flex cursor-pointer list-none items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-xs font-semibold text-ink [&::-webkit-details-marker]:hidden"
               aria-label={`${dict.actions.language}: ${currentLabel}`}
@@ -173,9 +195,12 @@ export default function SiteHeader({
                     aria-current={l === locale ? "true" : undefined}
                     className={`flex items-center justify-between px-3 py-2 text-sm ${l === locale ? "bg-secondary font-semibold text-primary" : "text-foreground/80 hover:bg-secondary/60 hover:text-primary"}`}
                     onClick={(e) => {
-                      if (l === locale) e.preventDefault();
-                      const details = e.currentTarget.closest("details");
-                      if (details) details.open = false;
+                      // A real navigation is left alone: the transition changes
+                      // `pathname`, and the effect above closes the menu. Touching
+                      // `open` here would hide the link mid-click.
+                      if (l !== locale) return;
+                      e.preventDefault();
+                      if (detailsRef.current) detailsRef.current.open = false;
                     }}
                   >
                     {localeLabels[l]}
@@ -196,7 +221,7 @@ export default function SiteHeader({
               type="button"
               className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-input text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:hidden"
               aria-controls="mobile-nav"
-              aria-label={open ? dict.actions.close : dict.actions.menu}
+              aria-label={dialogOpen ? dict.actions.close : dict.actions.menu}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                 {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
@@ -248,16 +273,15 @@ export default function SiteHeader({
               className={`rounded-md px-3 py-3 text-base font-medium ${
                 isActive(item.href) ? "bg-secondary text-primary" : "text-foreground"
               }`}
-              onClick={() => setOpen(false)}
             >
               {dict.nav[item.label as keyof typeof dict.nav]}
             </Link>
           ))}
           <div className="mt-4 flex flex-col gap-3 border-t border-border pt-5">
-            <Link href={localePath("/request-quote", locale)} className="btn-gold w-full" onClick={() => setOpen(false)}>
+            <Link href={localePath("/request-quote", locale)} className="btn-gold w-full">
               {dict.actions.requestQuote}
             </Link>
-            <Link href={localePath("/request-sample", locale)} className="btn-ghost w-full" onClick={() => setOpen(false)}>
+            <Link href={localePath("/request-sample", locale)} className="btn-ghost w-full">
               {dict.actions.requestSample}
             </Link>
             <details className="mt-2" data-testid="lang-switcher-mobile">
@@ -274,7 +298,8 @@ export default function SiteHeader({
                     lang={localizedTargets.includes(l) ? htmlLang[l] : undefined}
                     className={`rounded px-2 py-1.5 text-sm ${l === locale ? "bg-primary font-semibold text-primary-foreground" : "bg-secondary/60 text-foreground/80"}`}
                     onClick={(e) => {
-                      if (l === locale) e.preventDefault();
+                      if (l !== locale) return; // the path change closes the panel
+                      e.preventDefault();
                       setOpen(false);
                     }}
                   >
