@@ -66,6 +66,46 @@ test("an unknown nested schema keyword is rejected fail-closed", () => {
   );
 });
 
+test("an invalid pattern is rejected before model-request serialization", () => {
+  const invalid = structuredClone(WorkerOutputJsonSchema);
+  invalid.properties.base_sha.pattern = "[";
+  assert.throws(
+    () => serializeWorkerOutputSchemaInternal(invalid),
+    /base_sha\.pattern must compile as a valid regular expression/i,
+  );
+});
+
+test("duplicate enum values are rejected before model-request serialization", () => {
+  const invalid = structuredClone(WorkerOutputJsonSchema);
+  invalid.properties.outcome.enum = ["COMPLETED", "COMPLETED"];
+  assert.throws(
+    () => serializeWorkerOutputSchemaInternal(invalid),
+    /outcome\.enum must not contain duplicate values/i,
+  );
+});
+
+test("non-JSON enum values are rejected before model-request serialization", () => {
+  const invalid = structuredClone(WorkerOutputJsonSchema);
+  invalid.properties.outcome.enum = [Number.NaN];
+  invalid.properties.outcome.type = "number";
+  assert.throws(
+    () => serializeWorkerOutputSchemaInternal(invalid),
+    /outcome\.enum\[0\] must be a valid JSON literal/i,
+  );
+});
+
+test("a valid pattern remains accepted", () => {
+  const valid = structuredClone(WorkerOutputJsonSchema);
+  valid.properties.summary.pattern = "^Synthetic(?: fixture)?\\.$";
+  assert.equal(assertOpenAiStructuredOutputSchema(valid), valid);
+});
+
+test("a valid enum remains accepted", () => {
+  const valid = structuredClone(WorkerOutputJsonSchema);
+  valid.properties.outcome.enum = ["COMPLETED", "FAILED"];
+  assert.equal(assertOpenAiStructuredOutputSchema(valid), valid);
+});
+
 test("successful synthetic worker output contract remains unchanged", () => {
   const output = {
     schema_version: "2.0.0",

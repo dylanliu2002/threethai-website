@@ -389,6 +389,40 @@ function matchesDeclaredJsonSchemaType(value, types) {
   return types.includes(typeof value);
 }
 
+function canonicalJsonLiteral(value, location, ancestors = new Set()) {
+  if (value === null) return "null";
+  if (typeof value === "string" || typeof value === "boolean") return JSON.stringify(value);
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error(`${location} must be a valid JSON literal.`);
+    return JSON.stringify(value);
+  }
+  if (typeof value !== "object" || ancestors.has(value)) {
+    throw new Error(`${location} must be a valid JSON literal.`);
+  }
+  const descendants = new Set(ancestors);
+  descendants.add(value);
+  if (Array.isArray(value)) {
+    const items = [];
+    for (let index = 0; index < value.length; index += 1) {
+      if (!Object.hasOwn(value, index)) {
+        throw new Error(`${location} must be a valid JSON literal.`);
+      }
+      items.push(canonicalJsonLiteral(value[index], `${location}[${index}]`, descendants));
+    }
+    return `[${items.join(",")}]`;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  const ownKeys = Reflect.ownKeys(value);
+  if ((prototype !== Object.prototype && prototype !== null)
+    || ownKeys.some((key) => typeof key !== "string"
+      || !Object.getOwnPropertyDescriptor(value, key)?.enumerable)) {
+    throw new Error(`${location} must be a valid JSON literal.`);
+  }
+  return `{${ownKeys.sort().map((key) =>
+    `${JSON.stringify(key)}:${canonicalJsonLiteral(value[key], `${location}.${key}`, descendants)}`
+  ).join(",")}}`;
+}
+
 function assertOpenAiStructuredOutputNode(schema, location, { root = false } = {}) {
   if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
     throw new Error(`${location} must be a JSON Schema object.`);
@@ -406,14 +440,32 @@ function assertOpenAiStructuredOutputNode(schema, location, { root = false } = {
     throw new Error(`${location}.const does not match its declared type.`);
   }
   if (Object.hasOwn(schema, "enum")) {
-    if (!Array.isArray(schema.enum) || schema.enum.length === 0
-      || schema.enum.some((value) => !matchesDeclaredJsonSchemaType(value, types))) {
+    if (!Array.isArray(schema.enum) || schema.enum.length === 0) {
       throw new Error(`${location}.enum must contain values matching its declared type.`);
+    }
+    const enumValues = new Set();
+    for (let index = 0; index < schema.enum.length; index += 1) {
+      const value = schema.enum[index];
+      if (!matchesDeclaredJsonSchemaType(value, types)) {
+        throw new Error(`${location}.enum must contain values matching its declared type.`);
+      }
+      const canonical = canonicalJsonLiteral(value, `${location}.enum[${index}]`);
+      if (enumValues.has(canonical)) {
+        throw new Error(`${location}.enum must not contain duplicate values.`);
+      }
+      enumValues.add(canonical);
     }
   }
   if (Object.hasOwn(schema, "pattern")
     && (!types.includes("string") || typeof schema.pattern !== "string")) {
     throw new Error(`${location}.pattern must be a string constraint on a string type.`);
+  }
+  if (Object.hasOwn(schema, "pattern")) {
+    try {
+      new RegExp(schema.pattern, "u");
+    } catch {
+      throw new Error(`${location}.pattern must compile as a valid regular expression.`);
+    }
   }
   if (Object.hasOwn(schema, "format")
     && (!types.includes("string") || !JSON_SCHEMA_STRING_FORMATS.has(schema.format))) {
