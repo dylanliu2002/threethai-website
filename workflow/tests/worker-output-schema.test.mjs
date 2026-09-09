@@ -130,6 +130,57 @@ test("a nested non-JSON const value is rejected before model-request serializati
   );
 });
 
+test("an accessor-backed object const is rejected without invoking its getter", () => {
+  const invalid = structuredClone(WorkerOutputJsonSchema);
+  let getterCalls = 0;
+  const accessorConst = {};
+  Object.defineProperty(accessorConst, "value", {
+    enumerable: true,
+    get() {
+      getterCalls += 1;
+      return getterCalls === 1 ? 7 : undefined;
+    },
+  });
+  invalid.properties.summary = {
+    type: "object",
+    const: accessorConst,
+    properties: { value: { type: "number" } },
+    required: ["value"],
+    additionalProperties: false,
+  };
+
+  assert.throws(
+    () => serializeWorkerOutputSchemaInternal(invalid),
+    /summary\.const\.value must be a valid JSON literal/i,
+  );
+  assert.equal(getterCalls, 0);
+});
+
+test("an accessor-backed array-index const is rejected without invoking its getter", () => {
+  const invalid = structuredClone(WorkerOutputJsonSchema);
+  let getterCalls = 0;
+  const accessorConst = [];
+  Object.defineProperty(accessorConst, 0, {
+    enumerable: true,
+    configurable: true,
+    get() {
+      getterCalls += 1;
+      return getterCalls === 1 ? 7 : undefined;
+    },
+  });
+  invalid.properties.summary = {
+    type: "array",
+    const: accessorConst,
+    items: { type: "number" },
+  };
+
+  assert.throws(
+    () => serializeWorkerOutputSchemaInternal(invalid),
+    /summary\.const\[0\] must be a valid JSON literal/i,
+  );
+  assert.equal(getterCalls, 0);
+});
+
 test("valid scalar and composite const values remain accepted", () => {
   const scalar = structuredClone(WorkerOutputJsonSchema);
   scalar.properties.summary = { type: "number", const: 42 };

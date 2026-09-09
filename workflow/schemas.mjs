@@ -399,27 +399,45 @@ function canonicalJsonLiteral(value, location, ancestors = new Set()) {
   if (typeof value !== "object" || ancestors.has(value)) {
     throw new Error(`${location} must be a valid JSON literal.`);
   }
+  const ownKeys = Reflect.ownKeys(value);
+  const descriptors = new Map(ownKeys.map((key) => [
+    key, Object.getOwnPropertyDescriptor(value, key),
+  ]));
+  for (const key of ownKeys) {
+    if (!Object.hasOwn(descriptors.get(key) ?? {}, "value")) {
+      const propertyLocation = typeof key !== "string"
+        ? location
+        : Array.isArray(value) && /^(?:0|[1-9]\d*)$/.test(key)
+          ? `${location}[${key}]`
+          : `${location}.${key}`;
+      throw new Error(`${propertyLocation} must be a valid JSON literal.`);
+    }
+  }
   const descendants = new Set(ancestors);
   descendants.add(value);
   if (Array.isArray(value)) {
     const items = [];
     for (let index = 0; index < value.length; index += 1) {
-      if (!Object.hasOwn(value, index)) {
+      const descriptor = descriptors.get(String(index));
+      if (!descriptor) {
         throw new Error(`${location} must be a valid JSON literal.`);
       }
-      items.push(canonicalJsonLiteral(value[index], `${location}[${index}]`, descendants));
+      items.push(canonicalJsonLiteral(
+        descriptor.value, `${location}[${index}]`, descendants,
+      ));
     }
     return `[${items.join(",")}]`;
   }
   const prototype = Object.getPrototypeOf(value);
-  const ownKeys = Reflect.ownKeys(value);
   if ((prototype !== Object.prototype && prototype !== null)
     || ownKeys.some((key) => typeof key !== "string"
-      || !Object.getOwnPropertyDescriptor(value, key)?.enumerable)) {
+      || !descriptors.get(key)?.enumerable)) {
     throw new Error(`${location} must be a valid JSON literal.`);
   }
   return `{${ownKeys.sort().map((key) =>
-    `${JSON.stringify(key)}:${canonicalJsonLiteral(value[key], `${location}.${key}`, descendants)}`
+    `${JSON.stringify(key)}:${canonicalJsonLiteral(
+      descriptors.get(key).value, `${location}.${key}`, descendants,
+    )}`
   ).join(",")}}`;
 }
 
