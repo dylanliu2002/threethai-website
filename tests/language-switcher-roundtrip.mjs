@@ -44,11 +44,11 @@ const ALL_LOCALES = [...locales];
 /**
  * Exactly what `switchHref` in src/components/layout/site-header.tsx builds.
  * Kept here as a function, and asserted against the component below, so a change
- * to the component that drops the English hint fails this suite instead of
- * silently making the two disagree.
+ * to the component that expresses English some other way fails this suite
+ * instead of silently making the two disagree.
  */
 const pickerHref = (basePath, target) =>
-  `${localePath(basePath, target)}${target === "en" ? `?${LOCALE_PARAM}=en` : ""}`;
+  target === "en" ? `/en${basePath === "/" ? "" : basePath}` : localePath(basePath, target);
 
 /** Follow the hops the way a browser does, cookie rewrite included. */
 function followClick(basePath, fromLocale, toLocale, staleCookie) {
@@ -56,19 +56,23 @@ function followClick(basePath, fromLocale, toLocale, staleCookie) {
   const [pathname, query = ""] = href.split("?");
   const hint = new URLSearchParams(query).get(LOCALE_PARAM);
   const hops = [];
+  // A loop is a path visited twice, which is what a browser actually detects.
+  // (Comparing a decision's target against the state already advanced to that
+  // target reports a loop on every ordinary redirect — which is how this line
+  // first read, and it fired on the /en hop.)
+  const visited = new Set([pathname]);
   let current = { pathname, selectedLocale: hint, savedLocale: staleCookie };
   for (let i = 0; i < 6; i++) {
     const decision = routeFor(current);
     hops.push({ input: { ...current }, decision });
     if (decision.kind === "serve") return { decision, hops };
+    if (visited.has(decision.target)) return { decision, hops, loop: true };
+    visited.add(decision.target);
     current = {
       pathname: decision.target,
       selectedLocale: decision.stripLocaleParam ? null : current.selectedLocale,
       savedLocale: decision.persist ?? current.savedLocale,
     };
-    if (decision.target === current.pathname && decision.stripLocaleParam === false) {
-      return { decision, hops, loop: true };
-    }
   }
   return { decision: hops[hops.length - 1].decision, hops, loop: true };
 }
@@ -108,8 +112,15 @@ test("REQ 1 · the click is settled in one hop, so no intermediate can re-decide
         assert.ok(hops.length <= 2,
           `${localePath(basePath, from)} -> ${pickerHref(basePath, to)} took ${hops.length} hops`);
         if (to === "en") {
-          assert.equal(first.locale, "en", `the English hint was not honoured on the first hop from ${from}`);
-          assert.equal(first.stripLocaleParam, true, "the one-time hint must not survive the hop that used it");
+          assert.equal(first.locale, "en", `the English entry was not honoured on the first hop from ${from}`);
+          // English states itself in the path now, so there is no parameter left
+          // to consume: a second hop may re-decide from a weaker signal, and this
+          // is the assertion that notices if that ever becomes the landing path.
+          assert.equal(first.stripLocaleParam, false,
+            "the English entry carries no query parameter, so nothing should be stripping one");
+          assert.equal(first.permanent, true, "the /en alias consolidation is stable and should be cacheable");
+          assert.equal(first.target, localePath(basePath, "en"),
+            `the /en alias must consolidate onto the English owner, got ${first.target}`);
         }
       }
     }
@@ -187,13 +198,31 @@ test("REQ 4 · both header switchers build their hrefs the same way", () => {
   const header = read("src/components/layout/site-header.tsx");
   const uses = (header.match(/href=\{switchHref\(l\)\}/g) || []).length;
   assert.equal(uses, 2, `desktop and mobile switchers must share one href builder, found ${uses}`);
-  assert.match(header, new RegExp(`\\?\\$\\{LOCALE_PARAM\\}|\\?_${LOCALE_PARAM}=|target === "en"`),
-    "the English option must carry the one-time hint");
-  assert.doesNotMatch(header, /href=\{localePath\(path,\s*target\)\}(?!\s*\+\s*\?)/,
-    "a switcher href built without the English hint cannot express English at all");
-  // The hint is only ever needed for the prefix-free locale.
+  // English must be expressed in the path, not in a query parameter: a parameter
+  // is consumed on arrival, so a bookmark or shared link of it carries no intent.
+  assert.match(header, /target === "en" \? `\/en\$\{/,
+    "the English option must link through the /en alias, not a one-time hint");
+  assert.doesNotMatch(header, /\?_locale=/,
+    "a leftover ?_locale= in the switcher means English is back to stating itself in a query string");
   for (const l of ALL_LOCALES.filter((x) => x !== "en")) {
     assert.ok(!/[?&]_locale=/.test(pickerHref("/products", l)), `${l} must not need a hint`);
+  }
+});
+
+test("REQ 4 · the English entry stays English whatever the cookie says", () => {
+  // The whole point of routing English through the alias. If a future change
+  // makes the alias consolidate without persisting its locale, this is the test
+  // that fails — the reported bug returns the moment that happens.
+  for (const basePath of SAMPLE_PATHS) {
+    for (const stale of [null, ...ALL_LOCALES, "pt"]) {
+      const alias = `/en${basePath === "/" ? "" : basePath}`;
+      const first = routeFor({ pathname: alias, selectedLocale: null, savedLocale: stale });
+      assert.equal(first.locale, "en", `${alias} did not resolve to English with cookie=${stale ?? "none"}`);
+      assert.equal(first.persist, "en", `${alias} did not record the preference that keeps it English`);
+      const second = routeFor({ pathname: first.target, selectedLocale: null, savedLocale: first.persist });
+      assert.equal(second.locale, "en", `${alias} landed on ${second.locale} after the hop`);
+      assert.equal(second.kind, "serve", `${alias} did not settle in two hops`);
+    }
   }
 });
 

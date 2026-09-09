@@ -81,10 +81,24 @@ export default function SiteHeader({
       ? currentPath === "/"
       : currentPath === href || currentPath.startsWith(`${href}/`);
 
+  /**
+   * Where a picker click goes.
+   *
+   * zh, es and de carry their locale in the path, so the path alone states the
+   * choice. English owns the prefix-free URL, so a bare `/products` says nothing
+   * about English and a stored preference may legitimately relocate it — that is
+   * how a visitor who last chose Deutsch ends up on `/de/products` after typing
+   * the English address. So the English entry points at the `/en` safety alias:
+   * the choice is written into the path itself, which survives a bookmark, a
+   * shared link and a back navigation, and the alias consolidates permanently
+   * onto the English owner while recording `en` as the preference. Measured
+   * against the routing policy: `/en/products` lands in English even with a
+   * stale `threethai_locale=de`, because the alias persists the served locale
+   * before the stored preference is ever consulted.
+   */
   const switchHref = (target: Locale) => {
     const { path } = splitLocalePath(pathname);
-    const href = localePath(path, target);
-    return `${href}${target === "en" ? "?_locale=en" : ""}`;
+    return target === "en" ? `/en${path === "/" ? "" : path}` : localePath(path, target);
   };
 
   // Locales that genuinely have this page. The switcher keeps linking users to
