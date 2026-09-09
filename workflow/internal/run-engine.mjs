@@ -13,6 +13,7 @@ import { assertActualChangesAllowed, deriveActualChanges } from "../git-evidence
 import { bindReportedThread } from "../identity.mjs";
 import { KILL_SWITCH_ENV, KILL_SWITCH_VALUE } from "../constants.mjs";
 import {
+  assertOpenAiStructuredOutputSchema,
   WorkerDiagnosticsSchema,
   WorkerOutputJsonSchema,
   WorkerResultSchema,
@@ -54,6 +55,11 @@ export function buildCodexExecArgsInternal({
     "--output-last-message", outputPath,
     "-",
   ];
+}
+
+export function serializeWorkerOutputSchemaInternal(schema = WorkerOutputJsonSchema) {
+  assertOpenAiStructuredOutputSchema(schema);
+  return `${JSON.stringify(schema, null, 2)}\n`;
 }
 
 export function parseJsonlWithDiagnosticsInternal(text) {
@@ -396,12 +402,13 @@ export async function runCodexExecInternal({
     policy: effectivePilotPolicy,
     sandboxInspector,
   });
+  const serializedOutputSchema = serializeWorkerOutputSchemaInternal();
   markRunStartedInternal({ engine, contract, grant, capability, now });
 
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "threethai-codex-run-"));
   const schemaPath = path.join(temporary, "worker-result.schema.json");
   const outputPath = path.join(temporary, "worker-result.json");
-  fs.writeFileSync(schemaPath, `${JSON.stringify(WorkerOutputJsonSchema, null, 2)}\n`, { mode: 0o600 });
+  fs.writeFileSync(schemaPath, serializedOutputSchema, { mode: 0o600 });
   const args = buildCodexExecArgsInternal({
     worktree: validated.grant.worktree_realpath,
     model: validated.capability.model,

@@ -1,0 +1,28 @@
+# Worklog — SYS-AUTO-007 Structured Worker Output Schema Compatibility
+
+## 2026-09-09 — Intake
+
+- Based the isolated task branch on verified `origin/main`
+  `12741462dcc3b6ffe905f6429c5d35b7e16a4ffc`.
+- Limited the change to explicit JSON Schema typing, a pre-request structural
+  guard, and disposable regression tests. No controller operation is
+  authorized by this implementation task.
+
+## 2026-09-09 — Implementation and partial validation
+
+- Added explicit string types to all six constant/enum-only worker-output
+  properties in the runtime schema and tracked JSON schema.
+- Added a strict Structured Outputs guard and placed serialization before
+  `markRunStarted`, preventing malformed schema bytes from reaching a Codex
+  child or changing run lifecycle state.
+- Focused schema tests passed `4/4`. Static validation, reconcile and tick
+  dry-runs, lint, typecheck, syntax checks, and `git diff --check` passed.
+- The full suite established `182/184` tests passing. The remaining two are
+  existing non-dry-run canonical tick tests: the sandbox identity cannot read
+  canonical authority, and elevation was denied as a possible mutation risk.
+  No bypass or pilot execution was attempted.
+- Canonical controller state remained revision `39` with SHA-256
+  `b213a3d43b439db3bcc566271df5fa83260734613571e33806a24b13d43e37e3`;
+  journal remained sequence `39` with SHA-256
+  `1d1f8d917146929fe161a23e53bd12bca0cd2b53f39e1f36dabbdc2f1bb76241`.
+  All ten authority-file hashes remained byte-identical.
