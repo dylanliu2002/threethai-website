@@ -7,6 +7,7 @@ import { resolveCanonicalControllerContext } from "../controller-context.mjs";
 import { SYNTHETIC_PILOT_TASK_KEY } from "../constants.mjs";
 import { validateGrantAgainstAnchorInternal } from "../internal/authority-engine.mjs";
 import { enableSyntheticPilotOnceInternal } from "../internal/controller-state-engine.mjs";
+import { recoverExpiredSuccessfulRunLeaseInternal } from "../internal/lease-engine.mjs";
 import {
   bootstrapAuthorityStoreInternal,
   inspectAuthorityStoreInternal,
@@ -173,6 +174,27 @@ export function retireExpiredReadySyntheticPilotActivation(options = {}) {
       human_authorization_id: options.human_authorization_id,
       task_key: options.task_key,
     },
+  });
+}
+
+export function recoverExpiredSuccessfulSyntheticPilotCloseout(options = {}) {
+  exactOptions(options, ["repoRoot", "task_key", "run_id", "lease_id"]);
+  const repoRoot = requireRepoRoot(options.repoRoot);
+  if (options.task_key !== SYNTHETIC_PILOT_TASK_KEY) {
+    throw new Error("Expired SUCCESS closeout recovery is restricted to the exact synthetic pilot task.");
+  }
+  const context = resolveCanonicalControllerContext(repoRoot);
+  requireMatchingCanonicalAuthority(context);
+  const contract = loadContracts(repoRoot)
+    .find((candidate) => candidate.task_key === SYNTHETIC_PILOT_TASK_KEY);
+  if (!contract) throw new Error("Synthetic pilot machine contract is unavailable.");
+  assertSyntheticPilotContract(contract);
+  assertExactPilotWorktree(context, contract);
+  return recoverExpiredSuccessfulRunLeaseInternal({
+    stateDirectory: context.state_directory,
+    taskKey: options.task_key,
+    runId: options.run_id,
+    leaseId: options.lease_id,
   });
 }
 

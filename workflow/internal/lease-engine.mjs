@@ -9,7 +9,14 @@ import { SCHEMA_VERSION } from "../constants.mjs";
 import { contractLockRequests, lockRequestsConflict } from "../locks.mjs";
 import { validateGrantAgainstAnchorInternal } from "./authority-engine.mjs";
 import { privilegedMutationInternal } from "./capability-engine.mjs";
-import { mutateControllerStateInternal } from "./controller-state-engine.mjs";
+import {
+  mutateControllerStateInternal,
+  mutateControllerStateUnderMutexInternal,
+  readControllerStateInternal,
+  withStateMutexInternal,
+} from "./controller-state-engine.mjs";
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function validateGrant(engine, contract, grant, { verifyCard = true, now = new Date() } = {}) {
   return validateGrantAgainstAnchorInternal(contract, engine.loadGrant ? engine.loadGrant() : grant, {
@@ -471,5 +478,133 @@ export function releaseTaskLeaseInternal({
   }, (state, validated) => {
     removeLeaseAndReservations(state, validated.capability.lease_id);
     return { released: true, released_at: now.toISOString() };
+  });
+}
+
+function expiredSuccessfulRunRecoveryState(state, {
+  taskKey,
+  runId,
+  leaseId,
+  now,
+}) {
+  const run = state.runs?.[runId];
+  if (!run
+    || run.run_id !== runId
+    || run.task_key !== taskKey
+    || run.lease_id !== leaseId) {
+    throw new Error("Expired SUCCESS closeout recovery requires exact run and lease ownership.");
+  }
+  if (run.status !== "SUCCESS") {
+    throw new Error("Expired SUCCESS closeout recovery requires a terminal SUCCESS run.");
+  }
+  const task = state.tasks?.[taskKey];
+  if (!task || task.current_run_id !== runId) {
+    throw new Error("Expired SUCCESS closeout recovery requires the authoritative current run.");
+  }
+  const reservationEntries = Object.entries(state.reservations ?? {})
+    .filter(([, reservation]) => reservation.lease_id === leaseId);
+  const competingLease = Object.values(state.leases ?? {})
+    .find((candidate) => candidate.lease_id !== leaseId
+      && (candidate.run_id === runId || candidate.task_key === taskKey));
+  const conflictingReservation = Object.values(state.reservations ?? {})
+    .find((reservation) => reservation.lease_id !== leaseId
+      && reservation.task_key === taskKey);
+  const lease = state.leases?.[leaseId] ?? null;
+  if (!lease) {
+    if (task.lease_id !== null
+      || task.fencing_token !== run.fencing_token
+      || reservationEntries.length > 0
+      || competingLease
+      || conflictingReservation) {
+      throw new Error("Expired SUCCESS closeout recovery found inconsistent partial cleanup.");
+    }
+    return { alreadyReleased: true, run, task, lease: null, reservationEntries: [] };
+  }
+  if (lease.kind !== "worker"
+    || lease.lease_id !== leaseId
+    || lease.task_key !== taskKey
+    || lease.run_id !== runId
+    || lease.fencing_token !== run.fencing_token
+    || task.lease_id !== leaseId
+    || task.fencing_token !== lease.fencing_token
+    || reservationEntries.some(([, reservation]) =>
+      reservation.task_key !== taskKey
+      || reservation.fencing_token !== lease.fencing_token)) {
+    throw new Error("Expired SUCCESS closeout recovery authority binding mismatch.");
+  }
+  if (competingLease || conflictingReservation) {
+    throw new Error("Expired SUCCESS closeout recovery found competing task resources.");
+  }
+  if (!Number.isSafeInteger(lease.expires_at_ms)
+    || lease.expires_at_ms > now.getTime()) {
+    throw new Error("Expired SUCCESS closeout recovery requires the owned lease to be expired.");
+  }
+  return { alreadyReleased: false, run, task, lease, reservationEntries };
+}
+
+export function recoverExpiredSuccessfulRunLeaseInternal({
+  stateDirectory,
+  taskKey,
+  runId,
+  leaseId,
+  now = new Date(),
+} = {}) {
+  if (typeof stateDirectory !== "string" || stateDirectory.length === 0
+    || typeof taskKey !== "string" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(taskKey)
+    || typeof runId !== "string" || !UUID_PATTERN.test(runId)
+    || typeof leaseId !== "string" || !UUID_PATTERN.test(leaseId)
+    || !(now instanceof Date) || !Number.isFinite(now.getTime())) {
+    throw new Error("Expired SUCCESS closeout recovery requires valid exact controller inputs.");
+  }
+  return withStateMutexInternal(stateDirectory, ({ ownerToken }) => {
+    const state = readControllerStateInternal(stateDirectory);
+    const checked = expiredSuccessfulRunRecoveryState(state, {
+      taskKey, runId, leaseId, now,
+    });
+    if (checked.alreadyReleased) {
+      return {
+        recovered: true,
+        already_released: true,
+        task_key: taskKey,
+        run_id: runId,
+        run_status: checked.run.status,
+        lease_id: leaseId,
+        released_reservations: 0,
+      };
+    }
+    const releasedLease = structuredClone(checked.lease);
+    const releasedReservations = checked.reservationEntries.map(([reservationId, reservation]) => ({
+      reservation_id: reservationId,
+      ...structuredClone(reservation),
+    }));
+    const recoveredAt = now.toISOString();
+    const mutation = mutateControllerStateUnderMutexInternal(stateDirectory, ownerToken, {
+      type: "run.expired-success-closeout-recovered",
+      taskKey,
+      runId,
+      payload: {
+        recovery_reason: "TERMINAL_SUCCESS_LEASE_EXPIRED_BEFORE_RELEASE",
+        recovered_at: recoveredAt,
+        lease_id: leaseId,
+        released_lease: releasedLease,
+        released_reservations: releasedReservations,
+      },
+    }, (nextState) => {
+      const current = expiredSuccessfulRunRecoveryState(nextState, {
+        taskKey, runId, leaseId, now,
+      });
+      removeLeaseAndReservations(nextState, leaseId);
+      return {
+        recovered: true,
+        already_released: false,
+        task_key: taskKey,
+        run_id: runId,
+        run_status: current.run.status,
+        lease_id: leaseId,
+        released_reservations: current.reservationEntries.length,
+        recovered_at: recoveredAt,
+      };
+    });
+    return mutation.result;
   });
 }
