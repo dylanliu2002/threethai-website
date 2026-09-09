@@ -5,13 +5,12 @@ import Reveal from "@/components/layout/reveal";
 import { factoryEquipment, factoryStats, manufacturingIntro, processFlow } from "@/content/factory";
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
-import { contentLocaleOf, localePath } from "@/content/company";
+import { localePath } from "@/content/company";
 import { serverLabels } from "@/content/site-copy";
 
 export default function ManufacturingView({ locale, dict }: { locale: Locale; dict: Dictionary }) {
-  const cl = contentLocaleOf(locale);
   const t = dict.manufacturingPage;
-  const intro = manufacturingIntro[cl];
+  const intro = manufacturingIntro[locale];
   const lp = (path: string) => localePath(path, locale);
 
   return (
@@ -65,7 +64,7 @@ export default function ManufacturingView({ locale, dict }: { locale: Locale; di
                 <Reveal key={stat.value} delay={i * 50}>
                   <div className="card-line h-full p-4 text-center">
                     <dd className="text-xl font-bold tracking-tight text-ink sm:text-2xl">{stat.value}</dd>
-                    <dt className="mt-1 text-xs leading-snug text-muted-foreground">{stat.label[cl]}</dt>
+                    <dt className="mt-1 text-xs leading-snug text-muted-foreground">{stat.label[locale]}</dt>
                   </div>
                 </Reveal>
               ))}
@@ -84,9 +83,7 @@ export default function ManufacturingView({ locale, dict }: { locale: Locale; di
               {serverLabels[locale].spinningCapabilityHeading}
             </h2>
             <p className="lede mt-3 max-w-3xl">
-              {locale === "zh"
-                ? "生产体系覆盖自动络筒、环锭纺、粗纱、清花、清梳联和并条等关键环节。以下为生产现场影像。"
-                : "The production system covers automatic winding, ring spinning, speed frames, blow room, blowing-carding and drawing. Live production imagery below."}
+              {serverLabels[locale].spinningCapabilityBody}
             </p>
           </Reveal>
           <ol className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -98,7 +95,7 @@ export default function ManufacturingView({ locale, dict }: { locale: Locale; di
                     <div className="relative aspect-[4/3] bg-muted">
                       <Image
                         src={equipment.image}
-                        alt={`${equipment.name[cl]} — ${serverLabels[locale].equipmentImageSuffix}`}
+                        alt={`${equipment.name[locale]} — ${serverLabels[locale].equipmentImageSuffix}`}
                         fill
                         sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                         className="object-cover"
@@ -106,9 +103,9 @@ export default function ManufacturingView({ locale, dict }: { locale: Locale; di
                     </div>
                     <figcaption className="p-5">
                       <p className="text-xs font-bold tracking-widest text-gold-deep">{equipment.step}</p>
-                      <h3 className="mt-1 font-semibold text-ink">{step.title[cl]}</h3>
-                      {equipment.brand ? <p className="mt-1 text-xs font-medium text-gold-deep">{equipment.brand[cl]}</p> : null}
-                      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{step.body[cl]}</p>
+                      <h3 className="mt-1 font-semibold text-ink">{step.title[locale]}</h3>
+                      {equipment.brand ? <p className="mt-1 text-xs font-medium text-gold-deep">{equipment.brand[locale]}</p> : null}
+                      <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{step.body[locale]}</p>
                     </figcaption>
                   </figure>
                 </Reveal>
@@ -125,10 +122,12 @@ export default function ManufacturingView({ locale, dict }: { locale: Locale; di
             <h2 className="display-3">{t.traceTitle}</h2>
             <p className="mt-3 text-base leading-relaxed text-muted-foreground">{t.traceBody}</p>
             <ul className="mt-5 space-y-3">
-              {(locale === "zh"
-                ? ["原料入厂与批次标识", "各工序工艺参数记录", "批次检测与放行记录", "变更控制与客户通知"]
-                : ["Incoming material identification and batch records", "Process parameters recorded at each step", "Batch testing and release records", "Change control with customer notification"]
-              ).map((item) => (
+              {[
+                serverLabels[locale].traceRecordIncoming,
+                serverLabels[locale].traceRecordParameters,
+                serverLabels[locale].traceRecordTesting,
+                serverLabels[locale].traceRecordChangeControl,
+              ].map((item) => (
                 <li key={item} className="flex items-start gap-3 text-sm leading-relaxed text-foreground/85">
                   <span aria-hidden="true" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold" />
                   {item}
@@ -140,9 +139,7 @@ export default function ManufacturingView({ locale, dict }: { locale: Locale; di
             <div className="card-line p-7">
               <h2 className="display-3">{t.capabilityTitle}</h2>
               <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                {locale === "zh"
-                  ? "公司支持从样品验证到批量交付的完整流程。规格、包装与交期安排在签约时逐项确认。"
-                  : "The company supports customers from sample validation through repeat bulk supply. Specifications, packaging and delivery terms are confirmed per order at contracting."}
+                {serverLabels[locale].supplyCapabilityBody}
               </p>
               <div className="hairline mt-5 pt-5">
                 <p className="text-sm font-semibold text-ink">{t.visitTitle}</p>

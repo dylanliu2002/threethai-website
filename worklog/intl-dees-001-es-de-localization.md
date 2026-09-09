@@ -176,3 +176,65 @@ self-canonical and `og:locale` in the target language; that build was reverted.
 
 Evidence approval remains paused: 18 records, 18 drafts, 0 promotions,
 `reviewedBy` still the pending marker and `reviewedOn` still empty.
+
+## 2026-09-09 — The owner read the pages; the rest of the English is fixed at source
+
+The owner pasted the rendered `/es` pages. The residual was not the identity strings
+I had reported: it was four content modules that only carried `en`/`zh`, so the
+routes that read them had no localized answer to exist. Attribution, not guessing —
+a script matched every English block on each page back to the file and line holding
+that exact string (`attribute.mjs`), which split the causes into three kinds.
+
+**Fixed at source (was invisible in a source diff because the strings were already
+translated-looking in the dictionary):**
+- `src/content/factory.ts` — stats labels, equipment names and machine brands, the
+  six-step process flow, and the manufacturing intro: `Record<ContentLocale,…>` →
+  `Record<Locale,…>` with Spanish and German. The manufacturing page was the worst
+  offender and is now nearly clean.
+- `src/content/quality.ts` — every certificate label, note and fact (including the
+  quality pillars and the intro). Certificate and report numbers, standard
+  designations and issuing-body names are kept verbatim on purpose: a translated
+  certificate number is not a number a buyer can check against the document.
+- `src/content/patents.ts` — the section intro, the disclaimer, the foreign
+  certificates' country, date label and date value. The 34 `titleEn` patent titles
+  are left as registered document names; the file states that English titles are
+  working translations and the Chinese titles are authoritative, and inventing a
+  second working translation of a legal title is the kind of claim this workspace
+  does not make. That disclaimer is now in the reader's language, so the reader is
+  told rather than left guessing.
+- `src/components/sections/home-quality.tsx` — the four certification marks.
+- `manufacturing-view.tsx` — three more `locale === "zh" ? … : …` literals, one of
+  them an array of four traceability bullets, now four labelled entries in
+  `server-copy.ts` because a ternary over a list cannot grow a language.
+- The products index's invisible `Product families` heading.
+- Every one of those readers now indexes by the **route** locale. Widening the
+  records alone changed nothing, because `contentLocaleOf("es")` answers `"en"`:
+  that indirection was the actual bug, and it is why the fix is in two halves.
+
+**English share of rendered prose on the Spanish pages, before → after:**
+
+| Route | Earlier today | Now |
+|---|---|---|
+| `/es/manufacturing` | 69% → 52% | **11%** |
+| `/es/about` | 67% → 21% | **12%** |
+| `/es/quality` | 90% → 78% | **52%** |
+| `/es` (home) | 57% → 40% | **34%** |
+| `/es/contact` | 45% → 20% | **20%** |
+| `/es/knowledge` | 55% → 38% | **38%** |
+| `/es/products` | 69% → 49% | **48%** |
+| `/es/request-quote` | 29% → 17% | **17%** |
+
+The remaining English is now three honest categories, not an oversight: entity body
+copy on product and application pages and their cards, which the 18 `draft` records
+already translate and which move when the owner signs them off; registered
+identifiers (patent titles, certificate and report numbers, `20S/1–80S/1`, `ISO
+9001:2015`, emails, the registered address); and the `answers`/`knowledge` article
+bodies, which this card defers behind commercial pages and which still need
+records of their own.
+
+Verification: `npm run lint` clean, `tsc --noEmit` clean, `next build` 225 pages,
+`REQUIRE_BUILD_OUTPUT=1 npm run test:seo` **203 tests / 203 pass / 0 fail / 0
+skipped**. Field-by-field against the pre-task build over all 222 documents: **EN
+57/57 unchanged and ZH 55/55 unchanged** — this pass added no text to a language it
+does not translate — ES and DE changed only in visible text, title and description,
+and **no document moved an SEO field**.

@@ -33,7 +33,7 @@ export default function HomeManufacturing({ locale, dict }: { locale: Locale; di
           <dl className="mt-8 grid grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-3">
             {factoryStats.slice(0, 3).map((stat) => (
               <div key={stat.value}>
-                <dt className="order-2 mt-1 block text-xs uppercase tracking-wider text-white/60">{stat.label[cl]}</dt>
+                <dt className="order-2 mt-1 block text-xs uppercase tracking-wider text-white/60">{stat.label[locale]}</dt>
                 <dd className="order-1 text-2xl font-bold tracking-tight text-gold sm:text-3xl">{stat.value}</dd>
               </div>
             ))}

@@ -1,4 +1,4 @@
-import type { ContentLocale } from "./company";
+import type { Locale } from "./company";
 
 /**
  * Patent portfolio — transcribed from the company's patent dossier
@@ -35,14 +35,14 @@ export type UtilityPatent = {
 };
 
 export type ForeignPatent = {
-  country: Record<ContentLocale, string>;
+  country: Record<Locale, string>;
   flag: string;
   number: string;
   titleEn: string;
   titleZh: string;
   priority: string;
-  dateLabel: Record<ContentLocale, string>;
-  dateValue: Record<ContentLocale, string>;
+  dateLabel: Record<Locale, string>;
+  dateValue: Record<Locale, string>;
   pdf: string;
   image: string;
 };
@@ -131,26 +131,26 @@ export const inventionPatents: readonly InventionPatent[] = [
 
 export const foreignPatents: readonly ForeignPatent[] = [
   {
-    country: { en: "Nigeria", zh: "尼日利亚" },
+    country: { en: "Nigeria", es: "Nigeria", de: "Nigeria",zh: "尼日利亚" },
     flag: "NG",
     number: "RP: F/PT/C/O/2026/21316",
     titleEn: "Broken-end detection and automatic feed-stopping device for spinning frames",
     titleZh: "纺纱机断头检测与自动停车喂料装置",
     priority: "CN 20251132549.7 · 2025-09-16",
-    dateLabel: { en: "Patent date", zh: "授权日" },
-    dateValue: { en: "Feb 9, 2026", zh: "2026 年 2 月 9 日" },
+    dateLabel: { en: "Patent date", es: "Fecha de la patente", de: "Patentdatum",zh: "授权日" },
+    dateValue: { en: "Feb 9, 2026", es: "9 de febrero de 2026", de: "9. Februar 2026",zh: "2026 年 2 月 9 日" },
     pdf: "/documents/patent-certificate-nigeria-2026.pdf",
     image: "/images/certificates/patent-nigeria.jpg",
   },
   {
-    country: { en: "Malta", zh: "马耳他" },
+    country: { en: "Malta", es: "Malta", de: "Malta",zh: "马耳他" },
     flag: "MT",
     number: "No. 5964",
     titleEn: "Dust purification device for water-soluble yarn processing",
     titleZh: "水溶性纱线加工除尘净化装置",
     priority: "CN 2025109190368 · 2025-07-03",
-    dateLabel: { en: "Registered", zh: "注册日" },
-    dateValue: { en: "Apr 20, 2026", zh: "2026 年 4 月 20 日" },
+    dateLabel: { en: "Registered", es: "Registrada", de: "Eingetragen",zh: "注册日" },
+    dateValue: { en: "Apr 20, 2026", es: "20 de abril de 2026", de: "20. April 2026",zh: "2026 年 4 月 20 日" },
     pdf: "/documents/patent-certificate-malta-2026.pdf",
     image: "/images/certificates/patent-malta.jpg",
   },
@@ -191,10 +191,16 @@ export const patentStats = {
   totalGranted: inventionPatents.length + utilityPatents.length, // 34 (CN)
 };
 
-export const patentIntro: Record<ContentLocale, { title: string; body: string }> = {
+export const patentIntro: Record<Locale, { title: string; body: string }> = {
   en: {
     title: "Patents behind the process",
     body: "The company holds 34 granted Chinese patents — 9 invention patents and 25 utility models — plus registered patents in Nigeria and Malta. Many cover the specific machinery and test methods used to spin, dye, test and handle water-soluble PVA yarn, which is why process details on this site can be backed by documents rather than marketing copy. Several patents are co-owned with a related company, Shandong Huimin Santai Textile Co., Ltd.; ownership is stated per certificate.",
+  },  es: {
+    title: "Las patentes detrás del proceso",
+    body: "La empresa cuenta con 34 patentes chinas concedidas —9 patentes de invención y 25 modelos de utilidad— además de patentes registradas en Nigeria y Malta. Muchas cubren maquinaria y métodos de ensayo concretos usados para hilar, teñir, ensayar y manipular hilo de PVA hidrosoluble, y por eso los detalles de proceso de este sitio pueden respaldarse con documentos y no con textos de marketing. Varias patentes son de cogpropiedad con una empresa vinculada, Shandong Huimin Santai Textile Co., Ltd.; la titularidad se indica en cada certificado.",
+  },  de: {
+    title: "Die Patente hinter dem Prozess",
+    body: "Das Unternehmen hält 34 erteilte chinesische Patente — 9 Erteilungspatente und 25 Gebrauchsmuster — sowie registrierte Patente in Nigeria und Malta. Viele betreffen konkrete Maschinen und Prüfverfahren beim Spinnen, Färben, Prüfen und Handhaben von wasserlöslichem PVA-Garn; deshalb lassen sich Prozessdetails hier durch Unterlagen belegen statt durch Werbetexte. Mehrere Patente stehen im Mitbesitz mit einem verbundenen Unternehmen, Shandong Huimin Santai Textile Co., Ltd.; die Inhaberschaft ist je Urkunde ausgewiesen.",
   },
   zh: {
     title: "工艺背后的专利",
@@ -202,7 +208,7 @@ export const patentIntro: Record<ContentLocale, { title: string; body: string }>
   },
 };
 
-export const patentDisclaimer: Record<ContentLocale, string> = {
-  en: "Titles, numbers and dates are transcribed from patent certificates and CNIPA register documents on file. English titles are working translations; the registered Chinese titles are authoritative. Patent validity is maintained by paying annual fees — request the current register extract for any specific patent before relying on it contractually.",
+export const patentDisclaimer: Record<Locale, string> = {
+  en: "Titles, numbers and dates are transcribed from patent certificates and CNIPA register documents on file. English titles are working translations; the registered Chinese titles are authoritative. Patent validity is maintained by paying annual fees — request the current register extract for any specific patent before relying on it contractually.",es: "Los títulos, números y fechas están transcritos de los certificados de patente y de los documentos del registro de la CNIPA obrantes. Los títulos en inglés son traducciones de trabajo; los títulos registrados en chino son los que prevalecen. La vigencia de una patente se mantiene pagando las tasas anuales — solicite el extracto registral vigente de una patente concreta antes de depender de ella contractualmente.",de: "Titel, Nummern und Daten sind aus Patenturkunden und Registerunterlagen der CNIPA transkribiert. Englische Titel sind Arbeitsübersetzungen; maßgeblich sind die eingetragenen chinesischen Titel. Die Rechtserhaltung eines Patents wird durch Jahresgebühren sichergestellt — fordern Sie den aktuellen Registerauszug zu einem konkreten Patent an, bevor Sie sich vertraglich darauf stützen.",
   zh: "以上名称、编号与日期均转录自现存专利证书及国家知识产权局登记簿副本。英文名称为参考译名，以中文名称为准。专利效力以缴纳年费维持——如需在合同中依赖某件专利，请向我们索取该专利的最新登记簿副本。",
 };

@@ -376,6 +376,13 @@ export const serverLabels: Record<Locale, Record<string, string>> = {
     homeManufacturingImageAlt: "Ring spinning frames at the Three Thai Textile production base",
     quoteAssuranceNote:
       "Quotations are prepared against a complete specification — count system, construction, dissolution method, quantity, packing and Incoterm.",
+    spinningCapabilityBody: "The production system covers automatic winding, ring spinning, speed frames, blow room, blowing-carding and drawing. Live production imagery below.",
+    traceRecordIncoming: "Incoming material identification and batch records",
+    traceRecordParameters: "Process parameters recorded at each step",
+    traceRecordTesting: "Batch testing and release records",
+    traceRecordChangeControl: "Change control with customer notification",
+    supplyCapabilityBody: "The company supports customers from sample validation through repeat bulk supply. Specifications, packaging and delivery terms are confirmed per order at contracting.",
+    productFamiliesHeading: "Product families",
   },
   zh: {
     temperatureColumn: "温度",
@@ -398,6 +405,13 @@ export const serverLabels: Record<Locale, Record<string, string>> = {
     equipmentImageSuffix: "生产现场",
     homeManufacturingImageAlt: "荣沣纺织生产基地的环锭纺细纱机",
     quoteAssuranceNote: "报价以完整规格为依据——支数体系、结构、溶解方法、数量、包装与贸易术语。",
+    spinningCapabilityBody: "生产体系覆盖自动络筒、环锭纺、粗纱、清花、清梳联和并条等关键环节。以下为生产现场影像。",
+    traceRecordIncoming: "原料入厂与批次标识",
+    traceRecordParameters: "各工序工艺参数记录",
+    traceRecordTesting: "批次检测与放行记录",
+    traceRecordChangeControl: "变更控制与客户通知",
+    supplyCapabilityBody: "公司支持从样品验证到批量交付的完整流程。规格、包装与交期安排在签约时逐项确认。",
+    productFamiliesHeading: "产品家族",
   },
   es: {
     temperatureColumn: "Temperatura",
@@ -422,6 +436,13 @@ export const serverLabels: Record<Locale, Record<string, string>> = {
     homeManufacturingImageAlt: "Hilanderas de anillos en la base de producción de Three Thai Textile",
     quoteAssuranceNote:
       "Las cotizaciones se preparan sobre una especificación completa: sistema de títulos, construcción, método de disolución, cantidad, embalaje e Incoterm.",
+    spinningCapabilityBody: "El sistema de producción abarca el bobinado automático, la hilatura de anillos, las baterías, la sala de apertura, la abertura con carda y el estiraje. Más abajo hay imágenes de producción en directo.",
+    traceRecordIncoming: "Identificación de materia prima entrante y registros de lote",
+    traceRecordParameters: "Parámetros de proceso registrados en cada etapa",
+    traceRecordTesting: "Registros de ensayo y liberación por lote",
+    traceRecordChangeControl: "Control de cambios con notificación al cliente",
+    supplyCapabilityBody: "La empresa acompaña al cliente desde la validación de la muestra hasta el suministro repetido en volumen. Las especificaciones, el embalaje y las condiciones de entrega se confirman pedido a pedido en el momento del contrato.",
+    productFamiliesHeading: "Familias de productos",
   },
   de: {
     temperatureColumn: "Temperatur",
@@ -446,5 +467,12 @@ export const serverLabels: Record<Locale, Record<string, string>> = {
     homeManufacturingImageAlt: "Ringsspinnmaschinen am Produktionsstandort von Three Thai Textile",
     quoteAssuranceNote:
       "Angebote werden auf Basis einer vollständigen Spezifikation erstellt — Nummernsystem, Konstruktion, Auflösungsverfahren, Menge, Verpackung und Incoterm.",
+    spinningCapabilityBody: "Das Produktionssystem umfasst automatische Umspulung, Ringenspinnen, Vorwerke, Fasersaal, Krempel-Kombination und Ausstrecke. Weiter unten folgen Aufnahmen aus der laufenden Produktion.",
+    traceRecordIncoming: "Eingangsmaterial-Identifikation und Chargenaufzeichnungen",
+    traceRecordParameters: "Prozessparameter je Schritt dokumentiert",
+    traceRecordTesting: "Chargenprüfung und Freigabeaufzeichnungen",
+    traceRecordChangeControl: "Änderungskontrolle mit Kundeninformation",
+    supplyCapabilityBody: "Das Unternehmen begleitet Kunden von der Mustervalidierung bis zur wiederholten Belieferung in Produktionsmenge. Spezifikationen, Verpackung und Lieferbedingungen werden bei jedem Auftrag beim Vertragsabschluss bestätigt.",
+    productFamiliesHeading: "Produktfamilien",
   },
 };

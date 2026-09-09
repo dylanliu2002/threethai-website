@@ -128,7 +128,7 @@ export default function AboutView({ locale, dict }: { locale: Locale; dict: Dict
               <Reveal key={stat.value} delay={i * 40}>
                 <div className="card-line h-full p-4 text-center">
                   <dd className="text-xl font-bold tracking-tight text-ink">{stat.value}</dd>
-                  <dt className="mt-1 text-xs leading-snug text-muted-foreground">{stat.label[cl]}</dt>
+                  <dt className="mt-1 text-xs leading-snug text-muted-foreground">{stat.label[locale]}</dt>
                 </div>
               </Reveal>
             ))}

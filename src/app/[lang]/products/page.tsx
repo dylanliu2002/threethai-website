@@ -60,7 +60,7 @@ export default async function LangProductsPage({ params }: Props) {
       {/* Product families */}
       <section className="py-14 sm:py-16" aria-labelledby="families">
         <div className="container-site">
-          <h2 id="families" className="sr-only">Product families</h2>
+          <h2 id="families" className="sr-only">{serverLabels[locale].productFamiliesHeading}</h2>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {products.map((product, index) => (
               <Reveal key={product.slug} delay={index * 70} className="h-full">

@@ -13,14 +13,18 @@ import {
 } from "@/content/patents";
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
-import { contentLocaleOf, localePath } from "@/content/company";
+import { localePath } from "@/content/company";
 import { serverLabels } from "@/content/site-copy";
 
 export default function QualityView({ locale, dict }: { locale: Locale; dict: Dictionary }) {
-  const cl = contentLocaleOf(locale);
+  // Every content record this view reads — quality.ts and patents.ts — now carries
+  // all four languages. What stays out of that are the `titleEn`/`titleZh` pairs:
+  // registered document titles, not site prose (the translated disclaimer under
+  // the patent table says exactly that to the reader).
+  const ql = locale;
   const t = dict.qualityPage;
-  const intro = qualityIntro[cl];
-  const pIntro = patentIntro[cl];
+  const intro = qualityIntro[ql];
+  const pIntro = patentIntro[ql];
   const lp = (path: string) => localePath(path, locale);
 
   return (
@@ -57,8 +61,8 @@ export default function QualityView({ locale, dict }: { locale: Locale; dict: Di
               <Reveal key={pillar.title.en} delay={i * 60}>
                 <article className="card-line h-full p-6">
                   <p aria-hidden="true" className="text-sm font-bold text-gold-deep">{String(i + 1).padStart(2, "0")}</p>
-                  <h3 className="mt-2 font-semibold text-ink">{pillar.title[cl]}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{pillar.body[cl]}</p>
+                  <h3 className="mt-2 font-semibold text-ink">{pillar.title[ql]}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{pillar.body[ql]}</p>
                 </article>
               </Reveal>
             ))}
@@ -84,11 +88,11 @@ export default function QualityView({ locale, dict }: { locale: Locale; dict: Di
             {certificates.map((cert, i) => (
               <Reveal as="li" key={cert.image} delay={(i % 3) * 45}>
                 <figure className="card-line group flex h-full flex-col overflow-hidden">
-                  <a href={cert.pdf ?? cert.image} target="_blank" rel="noopener" className="block" aria-label={cert.label[cl]}>
+                  <a href={cert.pdf ?? cert.image} target="_blank" rel="noopener" className="block" aria-label={cert.label[ql]}>
                     <div className="relative aspect-[3/4] bg-muted">
                       <Image
                         src={cert.image}
-                        alt={cert.label[cl]}
+                        alt={cert.label[ql]}
                         fill
                         sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                         className="object-contain p-2 transition-transform duration-300 group-hover:scale-[1.02]"
@@ -96,14 +100,14 @@ export default function QualityView({ locale, dict }: { locale: Locale; dict: Di
                     </div>
                   </a>
                   <figcaption className="flex grow flex-col border-t border-border p-4">
-                    <p className="text-sm font-semibold text-ink">{cert.label[cl]}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{cert.note[cl]}</p>
+                    <p className="text-sm font-semibold text-ink">{cert.label[ql]}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{cert.note[ql]}</p>
                     {cert.facts ? (
                       <dl className="mt-3 space-y-1.5 border-t border-dashed border-border pt-3">
                         {cert.facts.map((fact) => (
                           <div key={fact.name.en} className="grid grid-cols-[auto_1fr] gap-x-3 text-xs leading-relaxed">
-                            <dt className="shrink-0 text-muted-foreground">{fact.name[cl]}</dt>
-                            <dd className="font-medium text-ink">{fact.value[cl]}</dd>
+                            <dt className="shrink-0 text-muted-foreground">{fact.name[ql]}</dt>
+                            <dd className="font-medium text-ink">{fact.value[ql]}</dd>
                           </div>
                         ))}
                       </dl>
@@ -127,7 +131,7 @@ export default function QualityView({ locale, dict }: { locale: Locale; dict: Di
             ))}
           </ul>
           <p className="mt-6 max-w-3xl rounded-lg border border-gold/40 bg-accent/60 p-4 text-sm leading-relaxed text-accent-foreground">
-            {verificationNote[cl]}
+            {verificationNote[ql]}
           </p>
         </div>
       </section>
@@ -188,10 +192,10 @@ export default function QualityView({ locale, dict }: { locale: Locale; dict: Di
           <div className="mt-4 grid gap-5 sm:grid-cols-2">
             {foreignPatents.map((patent) => (
               <figure key={patent.number} className="card-line group flex flex-col overflow-hidden sm:flex-row">
-                <a href={patent.pdf} target="_blank" rel="noopener" className="relative block aspect-[3/4] w-full shrink-0 bg-muted sm:aspect-auto sm:w-44" aria-label={`${patent.country[cl]} ${patent.number}`}>
+                <a href={patent.pdf} target="_blank" rel="noopener" className="relative block aspect-[3/4] w-full shrink-0 bg-muted sm:aspect-auto sm:w-44" aria-label={`${patent.country[ql]} ${patent.number}`}>
                   <Image
                     src={patent.image}
-                    alt={`${patent.country[cl]} patent certificate ${patent.number}`}
+                    alt={`${patent.country[ql]} patent certificate ${patent.number}`}
                     fill
                     sizes="(min-width: 640px) 176px, 100vw"
                     className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
@@ -200,7 +204,7 @@ export default function QualityView({ locale, dict }: { locale: Locale; dict: Di
                 <figcaption className="flex grow flex-col p-5">
                   <p className="text-sm font-bold tracking-tight text-ink">
                     <span aria-hidden="true" className="mr-2 inline-block rounded bg-primary px-1.5 py-0.5 text-[10px] font-bold text-white">{patent.flag}</span>
-                    {patent.country[cl]}
+                    {patent.country[ql]}
                   </p>
                   <p className="mt-2 text-sm font-medium leading-snug text-foreground">{locale === "zh" ? patent.titleZh : patent.titleEn}</p>
                   <dl className="mt-auto space-y-1 pt-4 text-xs text-muted-foreground">
@@ -213,8 +217,8 @@ export default function QualityView({ locale, dict }: { locale: Locale; dict: Di
                       <dd className="font-mono text-foreground/80">{patent.priority}</dd>
                     </div>
                     <div className="flex gap-2">
-                      <dt className="shrink-0">{patent.dateLabel[cl]}:</dt>
-                      <dd className="text-foreground/80">{patent.dateValue[cl]}</dd>
+                      <dt className="shrink-0">{patent.dateLabel[ql]}:</dt>
+                      <dd className="text-foreground/80">{patent.dateValue[ql]}</dd>
                     </div>
                   </dl>
                   <a href={patent.pdf} target="_blank" rel="noopener" className="mt-3 inline-flex items-center gap-1.5 self-start text-xs font-semibold text-gold-deep underline-offset-4 hover:underline">
@@ -260,7 +264,7 @@ export default function QualityView({ locale, dict }: { locale: Locale; dict: Di
           </details>
 
           <p className="mt-6 max-w-3xl rounded-lg border border-gold/40 bg-accent/60 p-4 text-sm leading-relaxed text-accent-foreground">
-            {patentDisclaimer[cl]}
+            {patentDisclaimer[ql]}
           </p>
         </div>
       </section>
