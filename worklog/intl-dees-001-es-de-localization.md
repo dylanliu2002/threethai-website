@@ -114,9 +114,14 @@ technical identifiers (`20°C`, `40S/2 · 1.50 dtex × 38 mm`, `ISO 9001:2015`,
    four `zh` index routes have no translated metadata at all. Preserved rather
    than invented: those pages own their canonical and hreflang entry, so changing
    them is a Chinese-content decision outside this card.
-6. One source-copy inconsistency found and **not** translated: the legacy English
-   FAQ for 20S–100S counts is headed singular `Specification` where every sibling
-   is plural. Owned by `legacy-source.ts`; flagged, left faithful.
+6. One legacy wording left as found: `legacy-source.ts` carries a singular
+   `Specification and acceptance method` heading. The translation pass reported
+   it as inconsistent against plural siblings and **also** reported a mangled
+   `1.67mm` figure in the 90°C FAQ; the `1.67mm` claim is false — the token
+   appears nowhere in `legacy-source.ts`, in the JSON stores, or in the shipped
+   copy — so the sibling-comparison half of the observation is likewise left
+   unverified rather than repeated. Nothing was changed either way; copy is
+   translated from the source as it stands.
 
 ### Handoff for review
 
