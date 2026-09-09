@@ -313,6 +313,38 @@ function authoritativeReviewResult({ output, contract, grant, capability, run, t
   });
 }
 
+function degradedWorkerDiagnostics() {
+  return {
+    diagnostics_version: "1.0.0",
+    worker_exit_code: null,
+    close_signal: null,
+    termination_reason: "UNKNOWN",
+    thread_id: null,
+    thread_lifecycle_status: "UNKNOWN",
+    model_stage_status: "UNKNOWN",
+    sanitized_stderr: "",
+    sanitized_error: "worker diagnostics degraded due to invalid metadata",
+    structured_output_present: false,
+    validator_result: {
+      status: "UNKNOWN",
+      evidence_digest: null,
+      commands: [],
+    },
+  };
+}
+
+function durableWorkerDiagnostics(workerDiagnostics) {
+  if (workerDiagnostics === null || workerDiagnostics === undefined) return null;
+  try {
+    const parsed = WorkerDiagnosticsSchema.safeParse(sanitizeForLog(workerDiagnostics));
+    if (!parsed.success) return degradedWorkerDiagnostics();
+    assertNoSecretsDeep(parsed.data, "worker diagnostics");
+    return parsed.data;
+  } catch {
+    return degradedWorkerDiagnostics();
+  }
+}
+
 export function completeRunInternal({
   engine, contract, grant, capability, processExitCode, outputValid, output,
   actualHeadSha, scopeEvidence, validationEvidence, threadId, reportedModel,
@@ -325,12 +357,7 @@ export function completeRunInternal({
     validationPassed: validationEvidence?.passed === true,
     action: capability.action,
   });
-  const durableDiagnostics = workerDiagnostics === null
-    ? null
-    : WorkerDiagnosticsSchema.parse(sanitizeForLog(workerDiagnostics));
-  if (durableDiagnostics) {
-    assertNoSecretsDeep(durableDiagnostics, "worker diagnostics");
-  }
+  const durableDiagnostics = durableWorkerDiagnostics(workerDiagnostics);
   const completionPayload = { status, actual_head_sha: actualHeadSha };
   if (durableDiagnostics) completionPayload.worker_diagnostics = durableDiagnostics;
   return privilegedMutationInternal({

@@ -12,7 +12,11 @@ import {
 import { assertActualChangesAllowed, deriveActualChanges } from "../git-evidence.mjs";
 import { bindReportedThread } from "../identity.mjs";
 import { KILL_SWITCH_ENV, KILL_SWITCH_VALUE } from "../constants.mjs";
-import { WorkerOutputJsonSchema, WorkerResultSchema } from "../schemas.mjs";
+import {
+  WorkerDiagnosticsSchema,
+  WorkerOutputJsonSchema,
+  WorkerResultSchema,
+} from "../schemas.mjs";
 import { assertNoSecretsDeep, assertNoSecretValues, redactSecrets, sanitizeForLog } from "../secrets.mjs";
 import { deriveValidationEvidenceInternal } from "./validation-engine.mjs";
 import {
@@ -52,24 +56,86 @@ export function buildCodexExecArgsInternal({
   ];
 }
 
+export function parseJsonlWithDiagnosticsInternal(text) {
+  const events = [];
+  if (typeof text !== "string" || !text.trim()) {
+    return { events, parse_failure: null };
+  }
+  const lines = text.split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index].trim();
+    if (!line) continue;
+    try {
+      events.push(JSON.parse(line));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        events,
+        parse_failure: redactSecrets(
+          `Codex JSONL parse degradation at line ${index + 1}: ${message}`,
+        ).slice(0, 4096),
+      };
+    }
+  }
+  return { events, parse_failure: null };
+}
+
 export function parseJsonlInternal(text) {
-  if (!text.trim()) return [];
-  return text.trim().split(/\r?\n/).map((line) => JSON.parse(line));
+  return parseJsonlWithDiagnosticsInternal(text).events;
 }
 
 export function threadIdFromEventsInternal(events) {
-  const started = events.find((event) => event.type === "thread.started");
-  if (!started?.thread_id) throw new Error("Codex JSONL omitted thread.started/thread_id.");
+  const started = events.find((event) => event?.type === "thread.started");
+  if (typeof started?.thread_id !== "string"
+    || started.thread_id.length === 0
+    || started.thread_id.length > 256) {
+    throw new Error("Codex JSONL omitted a valid bounded thread.started/thread_id.");
+  }
   return started.thread_id;
 }
 
 const DIAGNOSTIC_TEXT_LIMIT = 4096;
+const DIAGNOSTIC_THREAD_ID_LIMIT = 256;
+const DIAGNOSTIC_SIGNAL_LIMIT = 64;
+const DIAGNOSTIC_COMMAND_LIMIT = 32;
+const DIAGNOSTIC_EVENT_ERROR_LIMIT = 8;
 
 function diagnosticText(value) {
   if (value === null || value === undefined || value === "") return null;
   const sanitized = sanitizeForLog(value);
   const text = typeof sanitized === "string" ? sanitized : JSON.stringify(sanitized);
   return redactSecrets(text).slice(0, DIAGNOSTIC_TEXT_LIMIT);
+}
+
+function boundedDiagnosticString(value, limit) {
+  if (typeof value !== "string" || value.length === 0) return null;
+  return diagnosticText(value)?.slice(0, limit) ?? null;
+}
+
+function diagnosticDigest(value) {
+  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value)
+    ? value
+    : null;
+}
+
+function degradedWorkerDiagnostics() {
+  return {
+    diagnostics_version: "1.0.0",
+    worker_exit_code: null,
+    close_signal: null,
+    termination_reason: "UNKNOWN",
+    thread_id: null,
+    thread_lifecycle_status: "UNKNOWN",
+    model_stage_status: "UNKNOWN",
+    sanitized_stderr: "",
+    sanitized_error: "worker diagnostics degraded due to invalid metadata",
+    structured_output_present: false,
+    validator_result: {
+      status: "UNKNOWN",
+      evidence_digest: null,
+      commands: [],
+    },
+  };
 }
 
 function lifecycleFromEvents(events, threadId) {
@@ -99,13 +165,14 @@ function lifecycleFromEvents(events, threadId) {
 
 function terminationReason({
   result,
+  closeSignal,
   structuredOutputPresent,
   outputValid,
   validationEvidence,
 }) {
   if (result.timedOut) return "TIMEOUT";
   if (result.terminationRequested) return "CANCELLED";
-  if (result.closeSignal) return "SIGNAL";
+  if (closeSignal) return "SIGNAL";
   if (result.code !== 0) return "NONZERO_EXIT";
   if (!structuredOutputPresent) return "MISSING_STRUCTURED_OUTPUT";
   if (!outputValid) return "INVALID_STRUCTURED_OUTPUT";
@@ -113,7 +180,7 @@ function terminationReason({
   return "UNKNOWN";
 }
 
-export function buildWorkerDiagnosticsInternal({
+function buildWorkerDiagnostics({
   result,
   events = [],
   threadId = null,
@@ -122,65 +189,84 @@ export function buildWorkerDiagnosticsInternal({
   outputValid = false,
   validationEvidence = null,
 }) {
-  const abnormal = result.code !== 0
-    || result.timedOut
-    || result.terminationRequested
-    || Boolean(result.closeSignal)
-    || !structuredOutputPresent
-    || !outputValid
-    || validationEvidence?.passed === false;
+  const safeResult = result && typeof result === "object" ? result : {};
+  const closeSignal = boundedDiagnosticString(
+    safeResult.closeSignal,
+    DIAGNOSTIC_SIGNAL_LIMIT,
+  );
+  const normalizedThreadId = boundedDiagnosticString(
+    threadId,
+    DIAGNOSTIC_THREAD_ID_LIMIT,
+  );
+  const safeEvents = Array.isArray(events) ? events : [];
+  const outputPresent = structuredOutputPresent === true;
+  const validOutput = outputValid === true;
+  const validationPassed = validationEvidence?.passed === true;
+  const abnormal = safeResult.code !== 0
+    || safeResult.timedOut === true
+    || safeResult.terminationRequested === true
+    || Boolean(closeSignal)
+    || !outputPresent
+    || !validOutput
+    || !validationPassed;
   if (!abnormal) return null;
-  const lifecycle = lifecycleFromEvents(events, threadId);
-  const eventErrors = events
-    .filter((event) => event?.type === "turn.failed" || event?.type === "error")
-    .map((event) => event.error ?? event.message ?? event)
-    .filter((value) => value !== null && value !== undefined);
+  const lifecycle = lifecycleFromEvents(safeEvents, normalizedThreadId);
+  const eventErrors = [];
+  for (const event of safeEvents) {
+    if (event?.type !== "turn.failed" && event?.type !== "error") continue;
+    const value = event.error ?? event.message ?? event;
+    if (value !== null && value !== undefined) eventErrors.push(value);
+    if (eventErrors.length === DIAGNOSTIC_EVENT_ERROR_LIMIT) break;
+  }
   const validatorCommands = Array.isArray(validationEvidence?.commands)
-    ? validationEvidence.commands.map((command, index) => ({
+    ? validationEvidence.commands.slice(0, DIAGNOSTIC_COMMAND_LIMIT).map((command, index) => ({
       index,
-      exit_code: Number.isInteger(command.exit_code) ? command.exit_code : null,
-      signal: typeof command.signal === "string" && command.signal.length > 0
-        ? command.signal
-        : null,
-      output_digest: typeof command.output_digest === "string"
-        ? command.output_digest
-        : null,
-      error_digest: typeof command.error_digest === "string"
-        ? command.error_digest
-        : null,
+      exit_code: Number.isInteger(command?.exit_code) ? command.exit_code : null,
+      signal: boundedDiagnosticString(command?.signal, DIAGNOSTIC_SIGNAL_LIMIT),
+      output_digest: diagnosticDigest(command?.output_digest),
+      error_digest: diagnosticDigest(command?.error_digest),
     }))
     : [];
-  return {
-    diagnostics_version: "1.0.0",
-    worker_exit_code: Number.isInteger(result.code) ? result.code : null,
-    close_signal: typeof result.closeSignal === "string" && result.closeSignal.length > 0
-      ? result.closeSignal
-      : null,
-    termination_reason: terminationReason({
-      result,
-      structuredOutputPresent,
-      outputValid,
-      validationEvidence,
-    }),
-    thread_id: threadId,
-    ...lifecycle,
-    sanitized_stderr: diagnosticText(result.stderr) ?? "",
-    sanitized_error: parseFailure || eventErrors.length > 0
-      ? diagnosticText([parseFailure, ...eventErrors].filter(Boolean))
-      : null,
-    structured_output_present: structuredOutputPresent,
-    validator_result: {
-      status: validationEvidence?.passed === true
-        ? "PASS"
-        : validationEvidence?.passed === false
-          ? "FAIL"
-          : "UNKNOWN",
-      evidence_digest: typeof validationEvidence?.evidence_digest === "string"
-        ? validationEvidence.evidence_digest
+  try {
+    return WorkerDiagnosticsSchema.parse({
+      diagnostics_version: "1.0.0",
+      worker_exit_code: Number.isInteger(safeResult.code) ? safeResult.code : null,
+      close_signal: closeSignal,
+      termination_reason: terminationReason({
+        result: safeResult,
+        closeSignal,
+        structuredOutputPresent: outputPresent,
+        outputValid: validOutput,
+        validationEvidence,
+      }),
+      thread_id: normalizedThreadId,
+      ...lifecycle,
+      sanitized_stderr: diagnosticText(safeResult.stderr) ?? "",
+      sanitized_error: parseFailure || eventErrors.length > 0
+        ? diagnosticText([parseFailure, ...eventErrors].filter(Boolean))
         : null,
-      commands: validatorCommands,
-    },
-  };
+      structured_output_present: outputPresent,
+      validator_result: {
+        status: validationEvidence?.passed === true
+          ? "PASS"
+          : validationEvidence?.passed === false
+            ? "FAIL"
+            : "UNKNOWN",
+        evidence_digest: diagnosticDigest(validationEvidence?.evidence_digest),
+        commands: validatorCommands,
+      },
+    });
+  } catch {
+    return degradedWorkerDiagnostics();
+  }
+}
+
+export function buildWorkerDiagnosticsInternal(options) {
+  try {
+    return buildWorkerDiagnostics(options);
+  } catch {
+    return degradedWorkerDiagnostics();
+  }
 }
 
 export async function superviseChildProcessInternal({
@@ -344,20 +430,28 @@ export async function runCodexExecInternal({
     try {
       assertNoSecretValues(result.stdout, "worker stdout");
       assertNoSecretValues(result.stderr, "worker stderr");
-      events = parseJsonlInternal(result.stdout);
+      const parsedJsonl = parseJsonlWithDiagnosticsInternal(result.stdout);
+      events = parsedJsonl.events;
+      parseFailure = parsedJsonl.parse_failure;
       assertNoSecretsDeep(events, "worker JSONL events");
-      threadId = threadIdFromEventsInternal(events);
-      if (!fs.existsSync(outputPath)) throw new Error("Codex final structured output is missing.");
-      output = WorkerResultSchema.parse(JSON.parse(fs.readFileSync(outputPath, "utf8")));
-      assertNoSecretsDeep(output, "worker structured result");
-      assertPilotWorkerRequestedActions(output.requested_actions);
-      const bound = bindReportedThread(validated.run, threadId);
-      if (output.task_key !== bound.task_key || output.run_id !== bound.run_id || output.role_id !== bound.role_id) {
-        throw new Error("Worker output does not match authoritative controller identity.");
+      try {
+        threadId = threadIdFromEventsInternal(events);
+      } catch (error) {
+        parseFailure ??= redactSecrets(error instanceof Error ? error.message : String(error));
       }
-      outputValid = true;
+      if (parseFailure === null) {
+        if (!fs.existsSync(outputPath)) throw new Error("Codex final structured output is missing.");
+        output = WorkerResultSchema.parse(JSON.parse(fs.readFileSync(outputPath, "utf8")));
+        assertNoSecretsDeep(output, "worker structured result");
+        assertPilotWorkerRequestedActions(output.requested_actions);
+        const bound = bindReportedThread(validated.run, threadId);
+        if (output.task_key !== bound.task_key || output.run_id !== bound.run_id || output.role_id !== bound.role_id) {
+          throw new Error("Worker output does not match authoritative controller identity.");
+        }
+        outputValid = true;
+      }
     } catch (error) {
-      parseFailure = redactSecrets(error instanceof Error ? error.message : String(error));
+      parseFailure ??= redactSecrets(error instanceof Error ? error.message : String(error));
     }
     const actualHeadSha = gitHead(engine.repoRoot);
     let scopeEvidence;

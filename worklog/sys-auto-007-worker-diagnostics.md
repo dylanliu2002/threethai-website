@@ -23,3 +23,25 @@
   reservation, permission, scheduler, dispatch, or lifecycle state was changed.
 - The implementation is ready for fresh independent `QA_PERFORMANCE` review;
   the implementer does not approve or merge it.
+
+## 2026-09-09 — Independent-review remediation
+
+- Resolved the two review blockers by bounding every variable diagnostic field
+  and validator command count, and by making the completion boundary degrade
+  malformed diagnostics to a fixed, schema-valid `UNKNOWN` record instead of
+  throwing before `run.completed`.
+- Resolved the major finding by parsing Codex JSONL line-by-line. Valid events
+  before the first malformed or truncated line are preserved for lifecycle
+  inference; later content is not parsed or invented, and the degradation is
+  stored only as bounded sanitized diagnostic evidence.
+- Added adversarial coverage for two-megabyte inputs, oversized thread/signal
+  metadata, excessive validator commands, a truthy non-string thread ID with
+  terminal cleanup, completion-boundary degradation, and truncated JSONL prefix
+  preservation.
+- Focused diagnostics tests passed `8/8`; the full workflow suite passed
+  `180/180`. Static validation, reconcile and tick dry-runs, lint, typecheck,
+  syntax checks, and `git diff --check` passed.
+- Canonical controller state and journal remained at revision/sequence `34`;
+  all nine authority-file SHA-256 hashes remained byte-identical. No scheduler,
+  dispatch, activation, Grant, retry, permission, worker, successful-event, or
+  lifecycle behavior changed.

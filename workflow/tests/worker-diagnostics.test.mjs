@@ -13,6 +13,7 @@ import { deriveActualChanges } from "../git-evidence.mjs";
 import { issueCapabilityInternal } from "../internal/capability-engine.mjs";
 import {
   enableSyntheticPilotOnceInternal,
+  readControllerStateInternal,
   setActivationForAdministrationInternal,
 } from "../internal/controller-state-engine.mjs";
 import {
@@ -21,9 +22,11 @@ import {
 } from "../internal/lease-engine.mjs";
 import {
   buildWorkerDiagnosticsInternal,
+  parseJsonlWithDiagnosticsInternal,
   runCodexExecInternal,
 } from "../internal/run-engine.mjs";
 import { issueSyntheticPilotGrantInternal } from "../internal/pilot-admin-engine.mjs";
+import { WorkerDiagnosticsSchema } from "../schemas.mjs";
 import {
   createTestEngineWithAuthority,
   testAuthorityMaterial,
@@ -157,7 +160,7 @@ function pilotFixture() {
   };
 }
 
-function fakeSpawn({ events, stderr = "", code = 0, output }) {
+function fakeSpawn({ events = [], stdout = null, stderr = "", code = 0, output }) {
   return (_command, args) => {
     const child = new EventEmitter();
     child.stdout = new PassThrough();
@@ -170,7 +173,7 @@ function fakeSpawn({ events, stderr = "", code = 0, output }) {
             const outputIndex = args.indexOf("--output-last-message");
             fs.writeFileSync(args[outputIndex + 1], JSON.stringify(output));
           }
-          child.stdout.end(`${events.map((event) => JSON.stringify(event)).join("\n")}\n`);
+          child.stdout.end(stdout ?? `${events.map((event) => JSON.stringify(event)).join("\n")}\n`);
           child.stderr.end(stderr);
           child.emit("close", code, null);
         });
@@ -374,4 +377,192 @@ test("WORKER-DIAGNOSTICS-04 diagnostic text is bounded and secret-redacted", () 
   assert.match(diagnostics.sanitized_stderr, /REDACTED:openai-key/);
   assert.ok(diagnostics.sanitized_stderr.length <= 4096);
   assert.ok(diagnostics.sanitized_error.length <= 4096);
+});
+
+test("WORKER-DIAGNOSTICS-05 adversarial metadata is predictably bounded", () => {
+  const huge = "x".repeat(2_000_000);
+  const diagnostics = buildWorkerDiagnosticsInternal({
+    result: {
+      code: 1,
+      closeSignal: huge,
+      stderr: huge,
+      timedOut: false,
+      terminationRequested: false,
+    },
+    events: [],
+    threadId: huge,
+    parseFailure: huge,
+    structuredOutputPresent: false,
+    outputValid: false,
+    validationEvidence: {
+      passed: false,
+      evidence_digest: "d".repeat(64),
+      commands: Array.from({ length: 128 }, () => ({
+        exit_code: 1,
+        signal: huge,
+        output_digest: "e".repeat(64),
+        error_digest: "f".repeat(64),
+      })),
+    },
+  });
+
+  assert.equal(diagnostics.thread_id.length, 256);
+  assert.equal(diagnostics.close_signal.length, 64);
+  assert.equal(diagnostics.validator_result.commands.length, 32);
+  assert.ok(diagnostics.validator_result.commands.every((command) => command.signal.length === 64));
+  assert.equal(diagnostics.sanitized_stderr.length, 4096);
+  assert.equal(diagnostics.sanitized_error.length, 4096);
+  assert.ok(JSON.stringify(diagnostics).length < 25_000);
+  assert.equal(WorkerDiagnosticsSchema.safeParse(diagnostics).success, true);
+
+  assert.equal(WorkerDiagnosticsSchema.safeParse({
+    ...diagnostics,
+    thread_id: "t".repeat(257),
+  }).success, false);
+  assert.equal(WorkerDiagnosticsSchema.safeParse({
+    ...diagnostics,
+    close_signal: "s".repeat(65),
+  }).success, false);
+  assert.equal(WorkerDiagnosticsSchema.safeParse({
+    ...diagnostics,
+    validator_result: {
+      ...diagnostics.validator_result,
+      commands: [...diagnostics.validator_result.commands, diagnostics.validator_result.commands[0]],
+    },
+  }).success, false);
+  assert.equal(WorkerDiagnosticsSchema.safeParse({
+    ...diagnostics,
+    sanitized_stderr: huge,
+  }).success, false);
+});
+
+test("WORKER-DIAGNOSTICS-06 malformed diagnostic metadata cannot block failure closeout", async (t) => {
+  const fixture = pilotFixture();
+  t.after(() => cleanupFixture(fixture.repoRoot, fixture.stateDirectory, fixture.codexHome));
+  const result = await runCodexExecInternal({
+    engine: fixture.engine,
+    contract: fixture.contract,
+    grant: fixture.grant,
+    capability: fixture.capability,
+    prompt: "perform bounded test work",
+    spawnImpl: fakeSpawn({
+      events: [
+        { type: "thread.started", thread_id: { malformed: true } },
+        { type: "turn.started" },
+      ],
+      stderr: "abnormal worker exit",
+      code: 1,
+    }),
+    validationRunner: validationRunner(1),
+    parentEnvironment: testEnvironment(fixture.codexHome),
+    sandboxInspector: sandboxEvidence,
+  });
+
+  const state = readControllerStateInternal(fixture.stateDirectory);
+  const completed = journalEvents(fixture.stateDirectory)
+    .findLast((event) => event.type === "run.completed");
+  assert.equal(result.authoritative_status, "FAILED");
+  assert.equal(state.runs[fixture.admitted.run.run_id].status, "FAILED");
+  assert.deepEqual(Object.keys(state.leases), []);
+  assert.deepEqual(Object.keys(state.reservations), []);
+  assert.ok(completed);
+  assert.equal(completed.payload.worker_diagnostics.thread_id, null);
+  assert.equal(completed.payload.worker_diagnostics.thread_lifecycle_status, "UNKNOWN");
+  assert.equal(completed.payload.worker_diagnostics.model_stage_status, "STARTED");
+});
+
+test("WORKER-DIAGNOSTICS-07 oversized untrusted diagnostics degrade before persistence", (t) => {
+  const fixture = makeGitFixture();
+  t.after(() => cleanupFixture(fixture.repoRoot, fixture.stateDirectory));
+  const admitted = reserveTaskDispatchInternal({
+    engine: fixture.engine,
+    contract: fixture.contract,
+    grant: fixture.grant,
+    wakeupId: crypto.randomUUID(),
+    baseSha: fixture.baseSha,
+    roleId: fixture.contract.owner_role,
+  });
+  const capability = issueCapabilityInternal({
+    engine: fixture.engine,
+    contract: fixture.contract,
+    grant: fixture.grant,
+    action: "dispatch",
+    runId: admitted.run.run_id,
+    headSha: fixture.baseSha,
+  });
+  const scope = deriveActualChanges(fixture.repoRoot, fixture.baseSha);
+  const huge = "z".repeat(2_000_000);
+  const completed = completeRunInternal({
+    engine: fixture.engine,
+    contract: fixture.contract,
+    grant: fixture.grant,
+    capability,
+    processExitCode: 1,
+    outputValid: false,
+    output: null,
+    actualHeadSha: fixture.baseSha,
+    scopeEvidence: { ...scope, passed: true },
+    validationEvidence: { passed: false, evidence_digest: "a".repeat(64) },
+    threadId: null,
+    reportedModel: fixture.grant.routing.requested_model,
+    workerDiagnostics: {
+      diagnostics_version: "1.0.0",
+      worker_exit_code: 1,
+      close_signal: huge,
+      termination_reason: "NONZERO_EXIT",
+      thread_id: { malformed: true },
+      thread_lifecycle_status: "STARTED",
+      model_stage_status: "STARTED",
+      sanitized_stderr: huge,
+      sanitized_error: huge,
+      structured_output_present: false,
+      validator_result: { status: "FAIL", evidence_digest: null, commands: [] },
+    },
+  });
+
+  const state = readControllerStateInternal(fixture.stateDirectory);
+  const event = journalEvents(fixture.stateDirectory)
+    .findLast((candidate) => candidate.type === "run.completed");
+  assert.equal(completed.status, "FAILED");
+  assert.deepEqual(Object.keys(state.leases), []);
+  assert.deepEqual(Object.keys(state.reservations), []);
+  assert.equal(event.payload.worker_diagnostics.termination_reason, "UNKNOWN");
+  assert.equal(event.payload.worker_diagnostics.thread_id, null);
+  assert.match(event.payload.worker_diagnostics.sanitized_error, /degraded/);
+  assert.ok(JSON.stringify(event.payload.worker_diagnostics).length < 1_000);
+  assert.equal(JSON.stringify(event).includes(huge), false);
+});
+
+test("WORKER-DIAGNOSTICS-08 truncated JSONL preserves its valid lifecycle prefix", async (t) => {
+  const fixture = pilotFixture();
+  t.after(() => cleanupFixture(fixture.repoRoot, fixture.stateDirectory, fixture.codexHome));
+  const threadId = crypto.randomUUID();
+  const stdout = [
+    JSON.stringify({ type: "thread.started", thread_id: threadId }),
+    JSON.stringify({ type: "turn.started" }),
+    '{"type":"turn.completed"',
+  ].join("\n");
+  const parsed = parseJsonlWithDiagnosticsInternal(stdout);
+  assert.equal(parsed.events.length, 2);
+  assert.match(parsed.parse_failure, /parse degradation at line 3/i);
+
+  const result = await runCodexExecInternal({
+    engine: fixture.engine,
+    contract: fixture.contract,
+    grant: fixture.grant,
+    capability: fixture.capability,
+    prompt: "perform bounded test work",
+    spawnImpl: fakeSpawn({ stdout, stderr: "truncated event stream", code: 1 }),
+    validationRunner: validationRunner(1),
+    parentEnvironment: testEnvironment(fixture.codexHome),
+    sandboxInspector: sandboxEvidence,
+  });
+
+  assert.equal(result.authoritative_status, "FAILED");
+  assert.deepEqual(result.events, parsed.events);
+  assert.equal(result.worker_diagnostics.thread_id, threadId);
+  assert.equal(result.worker_diagnostics.thread_lifecycle_status, "STARTED");
+  assert.equal(result.worker_diagnostics.model_stage_status, "STARTED");
+  assert.match(result.worker_diagnostics.sanitized_error, /parse degradation at line 3/i);
+  assert.doesNotMatch(result.worker_diagnostics.sanitized_error, /turn\.completed/);
 });

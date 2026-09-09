@@ -65,3 +65,14 @@ workflow/tests/worker-diagnostics.test.mjs
 - [x] Focused tests use disposable state only; the full workflow suite and the
   repository's read-only/dry-run validation pass without changing canonical
   authority bytes.
+
+## Independent-review remediation
+
+- [x] Bound thread IDs to `256` characters, close signals to `64` characters,
+  validator signal strings to `64` characters, and validator evidence to `32`
+  commands.
+- [x] Normalize builder inputs and degrade invalid completion diagnostics to a
+  fixed bounded `UNKNOWN` record so diagnostics cannot prevent terminal run
+  persistence or lease/reservation cleanup.
+- [x] Parse JSONL incrementally, retaining only the valid prefix before the
+  first malformed line and recording bounded parse-degradation evidence.
