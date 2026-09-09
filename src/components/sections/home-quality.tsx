@@ -1,19 +1,18 @@
 import Link from "next/link";
 import Reveal from "@/components/layout/reveal";
 import type { Dictionary } from "@/content/i18n";
-import type { ContentLocale, Locale } from "@/content/company";
-import { contentLocaleOf, localePath } from "@/content/company";
+import type { Locale } from "@/content/company";
+import { localePath } from "@/content/company";
 
-const marks: { title: string; body: Record<ContentLocale, string> }[] = [
-  { title: "ISO 9001:2015", body: { en: "Valid to Aug 2029 · CFC", zh: "有效期至 2029 年 8 月 · 首信认证" } },
-  { title: "OEKO-TEX Class I", body: { en: "Baby-articles grade · valid to Jan 2027", zh: "婴幼儿级 · 有效期至 2027 年 1 月" } },
-  { title: "SGS & TESTEX", body: { en: "Third-party test reports on file", zh: "第三方检测报告可查" } },
-  { title: "34 + 2 patents", body: { en: "Granted CN patents + Nigeria & Malta", zh: "中国授权专利 + 尼日利亚、马耳他" } },
+const marks: { title: Record<Locale, string>; body: Record<Locale, string> }[] = [
+  { title: { en: "ISO 9001:2015", zh: "ISO 9001:2015", es: "ISO 9001:2015", de: "ISO 9001:2015" }, body: { en: "Valid to Aug 2029 · CFC", zh: "有效期至 2029 年 8 月 · 首信认证", es: "Válido hasta ago 2029 · CFC", de: "Gültig bis Aug 2029 · CFC" } },
+  { title: { en: "OEKO-TEX Class I", zh: "OEKO-TEX Class I", es: "OEKO-TEX Class I", de: "OEKO-TEX Class I" }, body: { en: "Baby-articles grade · valid to Jan 2027", zh: "婴幼儿级 · 有效期至 2027 年 1 月", es: "Grado para artículos de bebé · válido hasta ene 2027", de: "Babyartikel-Klasse · gültig bis Jan 2027" } },
+  { title: { en: "SGS & TESTEX", zh: "SGS & TESTEX", es: "SGS & TESTEX", de: "SGS & TESTEX" }, body: { en: "Third-party test reports on file", zh: "第三方检测报告可查", es: "Informes de ensayo de terceros disponibles", de: "Prüfberichte Dritter liegen vor" } },
+  { title: { en: "34 + 2 patents", zh: "34 + 2 patents", es: "34 + 2 patentes", de: "34 + 2 Patente" }, body: { en: "Granted CN patents + Nigeria & Malta", zh: "中国授权专利 + 尼日利亚、马耳他", es: "Patentes concedidas en CN + Nigeria y Malta", de: "Erteilte CN-Patente + Nigeria und Malta" } },
 ];
 
 export default function HomeQuality({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const t = dict.home.quality;
-  const cl = contentLocaleOf(locale);
   return (
     <section className="border-b border-border py-16 sm:py-20" aria-labelledby="home-quality-title">
       <div className="container-site">
@@ -32,7 +31,7 @@ export default function HomeQuality({ locale, dict }: { locale: Locale; dict: Di
         <Reveal delay={90}>
           <ul className="mt-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
             {marks.map((mark) => (
-              <li key={mark.title} className="card-line flex items-center gap-4 p-5">
+              <li key={mark.title[locale]} className="card-line flex items-center gap-4 p-5">
                 <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-secondary text-primary">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 3l7 3v5c0 4.4-3 8.4-7 10-4-1.6-7-5.6-7-10V6l7-3z" />
@@ -40,8 +39,8 @@ export default function HomeQuality({ locale, dict }: { locale: Locale; dict: Di
                   </svg>
                 </span>
                 <div>
-                  <p className="font-bold tracking-tight text-ink">{mark.title}</p>
-                  <p className="text-xs leading-snug text-muted-foreground">{mark.body[cl]}</p>
+                  <p className="font-bold tracking-tight text-ink">{mark.title[locale]}</p>
+                  <p className="text-xs leading-snug text-muted-foreground">{mark.body[locale]}</p>
                 </div>
               </li>
             ))}

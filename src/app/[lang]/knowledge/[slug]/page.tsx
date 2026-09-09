@@ -5,8 +5,9 @@ import Breadcrumbs from "@/components/layout/breadcrumbs";
 import { articles, articleBySlug } from "@/content/articles";
 import { products } from "@/content/products";
 import { buildMetadata, articleSchema, breadcrumbSchema, jsonLd } from "@/lib/seo";
-import { localePath, contentLocaleOf } from "@/content/company";
-import { pageCopyFor } from "@/content/translation-availability";
+import { localePath } from "@/content/company";
+import { articleCard, productCard } from "@/content/card-copy";
+import { DISPLAY_PAGES, pageCopyFor } from "@/content/translation-availability";
 import { langParams, resolveLang } from "../../_lang";
 
 type Props = { params: Promise<{ lang: string; slug: string }> };
@@ -17,15 +18,17 @@ export function generateStaticParams() {
 
 /**
  * The article's own copy resolves through `pageCopyFor`, the same call the
- * availability policy reads. `cl` stays for the product and article links in the
- * footer: other entities' copy, which a promotion of this page never covers.
+ * availability policy reads. The product and article links in the footer are
+ * cards, so they come from card-copy and follow the reader's language: this
+ * page is doing the advertising, and the article behind such a link is deferred
+ * content that a record would have to reach on its own.
  */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const record = articleBySlug(slug);
   if (!record) return {};
   const { locale } = await resolveLang(params, notFound);
-  const { entity: article, contentLocale } = pageCopyFor(`/knowledge/${slug}`, locale, record);
+  const { entity: article, contentLocale } = pageCopyFor(`/knowledge/${slug}`, locale, record, DISPLAY_PAGES);
   return buildMetadata({
     title: article.title[contentLocale],
     description: article.metaDescription[contentLocale],
@@ -42,8 +45,7 @@ export default async function LangArticlePage({ params }: Props) {
   const record = articleBySlug(slug);
   if (!record) notFound();
   const { dict, locale } = await resolveLang(params, notFound);
-  const { entity: article, contentLocale } = pageCopyFor(`/knowledge/${slug}`, locale, record);
-  const cl = contentLocaleOf(locale);
+  const { entity: article, contentLocale } = pageCopyFor(`/knowledge/${slug}`, locale, record, DISPLAY_PAGES);
   const lp = (p: string) => localePath(p, locale);
   const others = articles.filter((a) => a.slug !== article.slug).slice(0, 3);
 
@@ -107,7 +109,7 @@ export default async function LangArticlePage({ params }: Props) {
           {products.map((p) => (
             <li key={p.slug}>
               <Link href={lp(`/products/${p.slug}`)} className="inline-block rounded-full border border-input px-4 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:border-primary hover:text-primary">
-                {p.name[cl]}
+                {productCard(p.slug, locale).name}
               </Link>
             </li>
           ))}
@@ -117,7 +119,7 @@ export default async function LangArticlePage({ params }: Props) {
           {others.map((a) => (
             <li key={a.slug}>
               <Link href={lp(`/knowledge/${a.slug}`)} className="text-sm font-medium text-primary hover:underline">
-                {a.title[cl]}
+                {articleCard(a.slug, locale).title}
               </Link>
             </li>
           ))}

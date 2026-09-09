@@ -7,6 +7,7 @@ import Reveal from "@/components/layout/reveal";
 import InquiryForm from "@/components/forms/inquiry-form";
 import { buildMetadata, jsonLd } from "@/lib/seo";
 import { company, localePath, siteUrl } from "@/content/company";
+import { clientLabels, pageMeta, serverLabels } from "@/content/site-copy";
 import { resolveLang } from "../_lang";
 
 type Props = { params: Promise<{ lang: string }> };
@@ -14,9 +15,8 @@ type Props = { params: Promise<{ lang: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await resolveLang(params, notFound);
   return buildMetadata({
-    title: "Request a Quote — Water-Soluble PVA Yarn, Thread & Fiber",
-    description:
-      "Request a quotation for water-soluble PVA yarn, sewing thread, staple fiber or filament. Share your count, application and target dissolution temperature for a matched specification.",
+    title: pageMeta[locale].requestQuote.title,
+    description: pageMeta[locale].requestQuote.description,
     path: "/request-quote",
     locale,
   });
@@ -56,7 +56,7 @@ export default async function LangRequestQuotePage({ params }: Props) {
         <div className="container-site grid gap-10 lg:grid-cols-[1.15fr_0.85fr]">
           <Reveal>
             <div className="card-line p-6 sm:p-8">
-              <Suspense fallback={<p className="text-sm text-muted-foreground">Loading form…</p>}>
+              <Suspense fallback={<p className="text-sm text-muted-foreground">{clientLabels[locale].formLoading}</p>}>
                 <InquiryForm locale={locale} dict={dict} kind="quote" />
               </Suspense>
             </div>
@@ -83,7 +83,7 @@ export default async function LangRequestQuotePage({ params }: Props) {
                 </dl>
               </div>
               <p className="text-xs leading-relaxed text-muted-foreground">
-                Quotations are prepared against a complete specification — count system, construction, dissolution method, quantity, packing and Incoterm.
+                {serverLabels[locale].quoteAssuranceNote}
               </p>
             </aside>
           </Reveal>

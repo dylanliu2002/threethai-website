@@ -1,4 +1,5 @@
 import { contentLocaleOf, locales, type ContentLocale, type Locale } from "./company";
+import { intlDees001Records } from "./translation-records";
 import {
   isSectionEvidencePath,
   sectionSurfaceFor,
@@ -93,10 +94,19 @@ export function isPromotionLocale(locale: string): locale is PromotionLocale {
 
 /**
  * One localized value. Nested on purpose: a product's `faqs` and `processGuide`
- * hold pairs inside lists, and a record must mirror the field's own shape so the
- * renderer consumes it unchanged.
+ * hold pairs inside lists, and an application's `problem`, `whereUsed`,
+ * `whyTemporary` and `testing` hold a `{ heading, body }` object. A record must
+ * mirror the field's own shape so the renderer consumes it unchanged — which is
+ * why the object branch is stated here instead of those four fields being
+ * flattened in the entity: flattening would move copy the model already
+ * describes, and the shape a reviewer signs off on would stop being the shape the
+ * page renders. Every leaf is still a string and `isGenuineTranslation` still
+ * walks to each one, so an object cannot hide an empty or untranslated member.
  */
-export type TranslatedValue = string | readonly TranslatedValue[];
+export type TranslatedValue =
+  | string
+  | readonly TranslatedValue[]
+  | { readonly [key: string]: TranslatedValue };
 
 /** Sections whose entity detail pages carry `Record<ContentLocale, …>` copy. */
 export const DEEP_CONTENT_SECTIONS = [
@@ -220,18 +230,40 @@ export type TranslationEvidence = {
 };
 
 /**
- * Approved evidence, by path and locale. Empty by fact, not by policy: ES and DE
- * pages still render the English record, and ES/DE core and section pages render
- * partially translated chrome over English body copy (INTL-DEES-002B measured
- * 128 of 248 UI strings per locale), so no record exists to approve yet.
+ * The evidence registry. INTL-DEES-001 put the first records into it — the nine
+ * entity detail pages this line localizes (four products, five applications), in
+ * both languages — and every one of them is a `draft`.
+ *
+ * That is the state the gate was built for: written copy is content work, and an
+ * unreviewed draft grants nothing. `TRANSLATED_PAGES` stays empty until a record
+ * is signed off by someone other than its author, so no ES or DE page owns a URL
+ * anywhere yet and every shipped SEO answer is what INTL-DEES-004B produced.
+ * Approval is now an edit to `status`, `reviewedBy` and `reviewedOn` on one
+ * record, with no code change anywhere else — which is the property
+ * INTL-DEES-003A asked this task to establish.
+ *
+ * The array is assembled by `./translation-records` from the live entity and
+ * `./translation-copy`, not typed here by hand, so `requiredFields` and `source`
+ * measure the page instead of describing it. Core and section routes are still
+ * absent: their prose is not yet gathered into a bundle they render through
+ * `pageCopyFor`, so declaring a surface for them would be a completeness claim
+ * nothing enforces (see `./page-surfaces`).
  */
-export const TRANSLATION_EVIDENCE: readonly TranslationEvidence[] = [];
+export const TRANSLATION_EVIDENCE: readonly TranslationEvidence[] = intlDees001Records();
 
 const sameText = (a: TranslatedValue, b: TranslatedValue): boolean =>
   JSON.stringify(a) === JSON.stringify(b);
 
-const textLeaves = (value: TranslatedValue): string[] =>
-  typeof value === "string" ? [value] : value.flatMap((part) => textLeaves(part));
+/**
+ * Every string inside a localized value, however it is nested. Lists and objects
+ * are both walked, so an `{ heading, body }` field cannot pass by carrying one
+ * translated member and one empty one, and `nonEmpty` sees all of them.
+ */
+const textLeaves = (value: TranslatedValue): string[] => {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap((part) => textLeaves(part));
+  return Object.values(value).flatMap((part) => textLeaves(part));
+};
 
 const nonEmpty = (value: TranslatedValue): boolean => {
   const leaves = textLeaves(value);
@@ -459,4 +491,68 @@ export function approvedPromotions(
   surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
 ): readonly TranslatedPage[] {
   return approvedEvidence(registry, surfaces).map(promotionOf);
+}
+
+/**
+ * The reasons that describe a reviewer rather than the copy.
+ *
+ * Every other rule in `evidenceDecisionFor` is a statement about the text or
+ * about the page: is the path promotable, does the record cover the fields it
+ * declares, is each value non-empty, genuinely different from its own English
+ * source, free of duplicate (path, locale) pairs, and — for a section page —
+ * exactly its declared surface. Those are all checkable without a human, and
+ * INTL-DEES-001's records are assembled from the live entity and the copy store,
+ * so a record that fails any of them is a defect, not a pending review.
+ *
+ * These three are different in kind: they say nobody signed the record yet.
+ * `self-approved` is deliberately absent — an author signing their own
+ * translation is a defect, and it is not repaired by displaying the text.
+ */
+const APPROVAL_ONLY_REASONS = new Set([
+  "status-not-approved:draft",
+  "provenance-missing:reviewedBy",
+  "provenance-missing:reviewedOn",
+]);
+
+/** Is this record's only outstanding requirement a signature? */
+export function awaitsReviewOnly(
+  evidence: TranslationEvidence,
+  registry: readonly TranslationEvidence[] = TRANSLATION_EVIDENCE,
+  surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
+): boolean {
+  const { reasons } = evidenceDecisionFor(evidence, registry, surfaces);
+  return reasons.every((reason) => APPROVAL_ONLY_REASONS.has(reason));
+}
+
+/**
+ * The copy a page may *display*, and the only thing that grants a page a URL.
+ *
+ * Two tiers, deliberately, because INTL-DEES-001 shipped real Spanish and German
+ * records and the owner holds the sign-off: a draft is complete text awaiting a
+ * review, and a buyer reading `/es/products/x` in English is not a state worth
+ * protecting while that text exists. But a page may not tell Google it owns a
+ * localized URL until somebody has actually reviewed it, because that claim is
+ * what a crawler acts on.
+ *
+ * So `displayPromotions` is `approvedPromotions` minus the signature
+ * requirement, and the four SEO surfaces — canonical, hreflang, sitemap
+ * eligibility and `inLanguage` — are derived only from `approvedPromotions`, as
+ * before. Display may run ahead of the claim; the claim may never run ahead of
+ * display, because the same field-completeness rules gate both and `pageCopyFor`
+ * still throws at prerender for a page that shows body copy its record does not
+ * cover. Approving a record changes nothing about the text — it is the same
+ * record read twice — and moves only the claim.
+ *
+ * The cost is stated plainly rather than hidden: while a page displays tier-one
+ * copy it still canonicalises to its English owner, so its visible prose and its
+ * machine-readable language disagree. That is a page that is not yet indexable in
+ * its own right, which is what a draft means. It is also strictly better than an
+ * untranslated page for a human reader, and it resolves to consistency the moment
+ * the owner signs the record.
+ */
+export function displayPromotions(
+  registry: readonly TranslationEvidence[] = TRANSLATION_EVIDENCE,
+  surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
+): readonly TranslatedPage[] {
+  return registry.filter((evidence) => awaitsReviewOnly(evidence, registry, surfaces)).map(promotionOf);
 }

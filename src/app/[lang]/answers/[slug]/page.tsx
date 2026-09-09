@@ -6,7 +6,8 @@ import AnswerArticle from "@/components/answers/answer-article";
 import { buyerAnswers, answerBySlug, expandedAnswerFor } from "@/content/answers";
 import { articleSchema, breadcrumbSchema, buildMetadata, faqSchema, jsonLd, webPageSchema } from "@/lib/seo";
 import { localePath, contentLocaleOf, type Locale } from "@/content/company";
-import { pageCopyFor } from "@/content/translation-availability";
+import { DISPLAY_PAGES, pageCopyFor } from "@/content/translation-availability";
+import { pageMeta } from "@/content/site-copy";
 import { langParams, resolveLang } from "../../_lang";
 
 type Props = { params: Promise<{ lang: string; slug: string }> };
@@ -24,7 +25,7 @@ export function generateStaticParams() {
  */
 function answerCopy(slug: string, locale: Locale) {
   const record = answerBySlug(slug)!;
-  const { entity, contentLocale } = pageCopyFor(`/answers/${slug}`, locale, record);
+  const { entity, contentLocale } = pageCopyFor(`/answers/${slug}`, locale, record, DISPLAY_PAGES);
   const modelled = contentLocaleOf(locale);
   const expanded = contentLocale === modelled ? expandedAnswerFor(slug, modelled) : undefined;
   return {
@@ -38,10 +39,10 @@ function answerCopy(slug: string, locale: Locale) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   if (!answerBySlug(slug)) return {};
-  const { locale } = await resolveLang(params, notFound);
+  const { dict, locale } = await resolveLang(params, notFound);
   const { question, shortAnswer, expanded } = answerCopy(slug, locale);
   return buildMetadata({
-    title: `${question} | Buyer Answer`,
+    title: `${question} | ${pageMeta[locale].answers.suffix}`,
     description: expanded?.metaDescription ?? shortAnswer,
     path: `/answers/${slug}`,
     locale,

@@ -355,6 +355,7 @@ const dict = {
   },
 };
 
+
 // No `as const`: string types stay widened so the zh dictionary can satisfy Dictionary.
 export type Dictionary = typeof dict;
 

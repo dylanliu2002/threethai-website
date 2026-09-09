@@ -270,4 +270,24 @@ export const extendedFormats = {
     body: "我们同样生产 PVA Cotton、PVA Top、PPVA 纤维和 Gracell 纱线，可根据具体应用匹配规格并安排样品。",
     items: ["PVA Cotton", "PVA Top", "PPVA 纤维", "Gracell 纱线"],
   },
+  /**
+   * Spanish and German carry the same four formats as the English and Chinese
+   * records — no more, no less. Concrete PVA fiber stays out of this block for
+   * the reason recorded above; a translated block that added it would put the
+   * claim back on the site through a door BUSINESS-FACT-D2 never reviewed, which
+   * is why `tests/business-fact-d2-concrete-pva-fiber.mjs` now checks the Spanish
+   * and German wording too.
+   */
+  es: {
+    kicker: "Formatos adicionales",
+    title: "Más formas de material PVA para aplicaciones especializadas",
+    body: "También fabricamos algodón de PVA, PVA top, fibra PPVA y hilo Gracell. Contacte con nuestro equipo para ajustar la especificación y la muestra a su aplicación.",
+    items: ["Algodón de PVA", "PVA top", "Fibra PPVA", "Hilo Gracell"],
+  },
+  de: {
+    kicker: "Weitere Formate",
+    title: "Weitere PVA-Materialformen für spezialisierte Anwendungen",
+    body: "Wir stellen auch PVA-Baumwolle, PVA Top, PPVA-Faser und Gracell-Garn her. Sprechen Sie mit unserem Team, um Spezifikation und Muster an Ihre Anwendung anzupassen.",
+    items: ["PVA-Baumwolle", "PVA Top", "PPVA-Faser", "Gracell-Garn"],
+  },
 } as const;

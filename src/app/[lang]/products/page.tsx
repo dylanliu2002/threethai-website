@@ -7,17 +7,17 @@ import ProductCard from "@/components/product/product-card";
 import { products, extendedFormats } from "@/content/products";
 import { temperatureCatalog, temperatureIntro } from "@/content/catalog";
 import { buildMetadata, breadcrumbSchema, jsonLd } from "@/lib/seo";
-import { contentLocaleOf, localePath } from "@/content/company";
+import { localePath } from "@/content/company";
+import { serverLabels, pageMeta } from "@/content/site-copy";
 import { resolveLang } from "../_lang";
 
 type Props = { params: Promise<{ lang: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { locale } = await resolveLang(params, notFound);
+  const { dict, locale } = await resolveLang(params, notFound);
   return buildMetadata({
-    title: "Water-Soluble PVA Yarn, Thread, Fiber & Filament | Products",
-    description:
-      "Explore water-soluble PVA yarn, sewing thread, staple fiber and filament yarn by material form and dissolution temperature from 20°C to 90°C. Batch-level QC, traceable samples.",
+    title: pageMeta[locale].products.title,
+    description: pageMeta[locale].products.description,
     path: "/products",
     locale,
     keywords: ["PVA yarn manufacturer", "water soluble PVA products", "PVA staple fiber", "PVA filament yarn"],
@@ -27,9 +27,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function LangProductsPage({ params }: Props) {
   const { dict, locale } = await resolveLang(params, notFound);
   const t = dict.productsPage;
-  const cl = contentLocaleOf(locale);
-  const temp = temperatureIntro[cl];
-  const ext = extendedFormats[cl];
+  const temp = temperatureIntro[locale];
+  const ext = extendedFormats[locale];
   const lp = (p: string) => localePath(p, locale);
   return (
     <>
@@ -61,7 +60,7 @@ export default async function LangProductsPage({ params }: Props) {
       {/* Product families */}
       <section className="py-14 sm:py-16" aria-labelledby="families">
         <div className="container-site">
-          <h2 id="families" className="sr-only">Product families</h2>
+          <h2 id="families" className="sr-only">{serverLabels[locale].productFamiliesHeading}</h2>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {products.map((product, index) => (
               <Reveal key={product.slug} delay={index * 70} className="h-full">
@@ -85,7 +84,7 @@ export default async function LangProductsPage({ params }: Props) {
               <table className="table-spec min-w-[640px]">
                 <thead>
                   <tr>
-                    <th scope="col" className="w-32">{locale === "zh" ? "温度" : "Temperature"}</th>
+                    <th scope="col" className="w-32">{serverLabels[locale].temperatureColumn}</th>
                     <th scope="col">{t.availableAt}</th>
                     <th scope="col" className="w-44"></th>
                   </tr>
@@ -97,7 +96,7 @@ export default async function LangProductsPage({ params }: Props) {
                       <td>
                         <ul className="flex flex-wrap gap-x-5 gap-y-1">
                           {entry.specs.map((spec) => (
-                            <li key={spec}>{spec}</li>
+                            <li key={spec.en}>{spec[locale]}</li>
                           ))}
                         </ul>
                       </td>
@@ -113,9 +112,7 @@ export default async function LangProductsPage({ params }: Props) {
             </div>
           </div>
           <p className="mt-4 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-            {locale === "zh"
-              ? "温度标签只是起点，不是完整规格——比较样品前请先阅读溶解温度指南。"
-              : "A temperature label is a starting point, not a complete specification — see the dissolution temperature guide before comparing samples."}
+            {serverLabels[locale].temperatureFootnote}
           </p>
         </div>
       </section>

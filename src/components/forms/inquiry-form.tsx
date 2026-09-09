@@ -7,6 +7,7 @@ import type { Dictionary } from "@/content/i18n";
 import { productBySlug } from "@/content/products";
 import { applicationBySlug } from "@/content/applications";
 import { company, contentLocaleOf, type Locale } from "@/content/company";
+import { clientLabels } from "@/content/site-copy";
 
 const initialState: InquiryState = { status: "idle" };
 
@@ -104,6 +105,7 @@ function InquiryFormInner({
   const [state, action, pending] = useActionState(submitInquiry, initialState);
   const search = useSearchParams();
   const f = dict.form.fields;
+  const labels = clientLabels[locale];
   const isContact = kind === "contact";
 
   const productRecord = productBySlug(search.get("product") ?? "");
@@ -173,7 +175,7 @@ function InquiryFormInner({
         <Field label={f.email} name="email" type="email" required autoComplete="email" error={fieldError("email")} />
         <Field label={f.phone} name="phone" type="tel" autoComplete="tel" optionalLabel={dict.form.optional} />
         {!isContact && (
-          <Field label={f.destination} name="destination" optionalLabel={dict.form.optional} placeholder={locale === "zh" ? "如：印度／土耳其" : "e.g. India / Türkiye"} />
+          <Field label={f.destination} name="destination" optionalLabel={dict.form.optional} placeholder={clientLabels[locale].destinationPlaceholder} />
         )}
       </div>
 
@@ -189,11 +191,15 @@ function InquiryFormInner({
                 className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm text-foreground shadow-sm focus:outline-2 focus:outline-offset-0 focus:outline-primary"
               >
                 <option value="">{f.productNone}</option>
-                <option value="water-soluble-pva-yarn">Water-soluble PVA yarn · PVA 水溶纱</option>
-                <option value="water-soluble-pva-sewing-thread">Water-soluble PVA sewing thread · PVA 水溶缝纫线</option>
-                <option value="pva-staple-fiber">PVA staple fiber · PVA 短纤</option>
-                <option value="pva-filament-yarn">PVA filament yarn · PVA 长丝</option>
-                <option value="other">{locale === "zh" ? "其他 / 扩展形态" : "Other / extended format"}</option>
+                {/* The four product families by name: literals used to live here in
+                    bilingual form, which no locale could override. They are
+                    clientLabels now — imported by this component, so they cost once
+                    in the bundle instead of riding in every document's payload. */}
+                <option value="water-soluble-pva-yarn">{labels.productOptionYarn}</option>
+                <option value="water-soluble-pva-sewing-thread">{labels.productOptionThread}</option>
+                <option value="pva-staple-fiber">{labels.productOptionStaple}</option>
+                <option value="pva-filament-yarn">{labels.productOptionFilament}</option>
+                <option value="other">{labels.productOtherOption}</option>
               </select>
             </div>
             <div>
@@ -213,9 +219,9 @@ function InquiryFormInner({
                 <option value="other">{dict.finder.applicationOptions.other}</option>
               </select>
             </div>
-            <Field label={f.specification} name="specification" optionalLabel={dict.form.optional} defaultValue={specificationDefaultValue} placeholder={locale === "zh" ? "如：40S/2 · 1.50 dtex × 38 mm" : "e.g. 40S/2 · 1.50 dtex × 38 mm"} />
+            <Field label={f.specification} name="specification" optionalLabel={dict.form.optional} defaultValue={specificationDefaultValue} placeholder={clientLabels[locale].specificationPlaceholder} />
             <Field label={f.temperature} name="temperature" optionalLabel={dict.form.optional} defaultValue={temperatureParam} placeholder="20°C / 40°C / 90°C…" />
-            <Field label={f.quantity} name="quantity" optionalLabel={dict.form.optional} placeholder={locale === "zh" ? "样品／试单／年用量" : "sample / pilot / annual"} />
+            <Field label={f.quantity} name="quantity" optionalLabel={dict.form.optional} placeholder={clientLabels[locale].quantityPlaceholder} />
           </div>
           {productName && (
             <p className="mt-3 rounded-md bg-secondary px-3 py-2 text-xs text-muted-foreground">

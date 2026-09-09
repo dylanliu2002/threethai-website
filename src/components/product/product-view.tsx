@@ -10,8 +10,10 @@ import { buyerAnswers } from "@/content/answers";
 import { articles } from "@/content/articles";
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
-import { contentLocaleOf, localePath } from "@/content/company";
-import { pageCopyFor } from "@/content/translation-availability";
+import { localePath } from "@/content/company";
+import { DISPLAY_PAGES, pageCopyFor } from "@/content/translation-availability";
+import { answerCard, applicationCard, articleCard, productCard } from "@/content/card-copy";
+import { serverLabels } from "@/content/site-copy";
 
 /**
  * Shared product-page template (master prompt §12). All four product pages
@@ -20,20 +22,47 @@ import { pageCopyFor } from "@/content/translation-availability";
  * The page's own body copy comes from `pageCopyFor`, the same resolution the SEO
  * policy reads: an unpromoted route gets the model record and the
  * `contentLocaleOf` key back unchanged, and a promoted one gets the entity whose
- * fields carry the registered translation. `cl` stays for copy belonging to
- * *other* entities (related apps, answers, articles, the next product) and for
- * shared notices — a promotion only ever describes this page's own record.
+ * fields carry the registered translation. `cl` stays for the deferred answer
+ * teasers and for shared notices — a promotion only ever describes this page's own
+ * record, and the cards this page advertises with go through `card-copy`.
  */
 export default function ProductView({ product, locale, dict }: { product: Product; locale: Locale; dict: Dictionary }) {
-  const { entity, contentLocale } = pageCopyFor(`/products/${product.slug}`, locale, product);
-  const cl = contentLocaleOf(locale);
+  const { entity, contentLocale } = pageCopyFor(`/products/${product.slug}`, locale, product, DISPLAY_PAGES);
   const t = dict.productsIndex;
   const lp = (path: string) => localePath(path, locale);
-  const relatedApps = applications.filter((a) => product.applicationsSlugs.includes(a.slug));
-  const relatedAnswers = buyerAnswers.filter((a) => a.relatedProduct === product.slug).slice(0, 4);
-  const relatedArticles = articles.slice(0, 2);
+  /**
+   * A related application's name and summary are a card: this page is doing the
+   * advertising, so the text is this page's prose and follows the reader's
+   * language. It is deliberately not read through `pageCopyFor` — that seam turns
+   * an approved record into URL ownership for the page it describes, and a teaser
+   * must not be able to trigger it. The store it reads is the store that page's own
+   * record will be assembled from, so promoting `/applications/x` cannot make this
+   * card disagree with that page's headline.
+   */
+  const relatedApps = applications
+    .filter((a) => product.applicationsSlugs.includes(a.slug))
+    .map((application) => ({
+      slug: application.slug,
+      ...applicationCard(application.slug, locale),
+    }));
+  // Article and answer teasers follow the same card rule: a card is this page's
+  // prose. The answer bodies and article bodies behind them are deferred content,
+  // so a label may be Spanish while the page it links to still renders English —
+  // that page is where a record would have to land, not this list.
+  const relatedArticles = articles.slice(0, 2).map((article) => ({
+    slug: article.slug,
+    title: articleCard(article.slug, locale).title,
+  }));
+  const relatedAnswers = buyerAnswers
+    .filter((a) => a.relatedProduct === product.slug)
+    .slice(0, 4)
+    .map((answer) => ({
+      slug: answer.slug,
+      question: answerCard(answer.slug, locale).question,
+    }));
   const index = allProducts.findIndex((p) => p.slug === product.slug);
   const next = allProducts[(index + 1) % allProducts.length];
+  const nextCard = productCard(next.slug, locale);
 
   return (
     <>
@@ -51,7 +80,7 @@ export default function ProductView({ product, locale, dict }: { product: Produc
                 ]}
               />
             </div>
-            <p className="eyebrow-light mt-6">{locale === "zh" ? "产品系列" : "Product family"}</p>
+            <p className="eyebrow-light mt-6">{serverLabels[locale].productFamilyEyebrow}</p>
             <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
               {entity.name[contentLocale]}
             </h1>
@@ -124,9 +153,9 @@ export default function ProductView({ product, locale, dict }: { product: Produc
           <Reveal>
             <p className="eyebrow">{t.specsTitle}</p>
             <h2 className="display-2 mt-3 !text-2xl sm:!text-3xl">
-              {locale === "zh" ? "水溶温度选择" : "Dissolution temperature options"}
+              {serverLabels[locale].temperatureOptionsTitle}
             </h2>
-            <p className="lede mt-3 max-w-3xl !text-sm">{temperatureNote[cl]}</p>
+            <p className="lede mt-3 max-w-3xl !text-sm">{temperatureNote[locale]}</p>
           </Reveal>
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {temperatureCatalog.map((entry, i) => (
@@ -135,12 +164,12 @@ export default function ProductView({ product, locale, dict }: { product: Produc
                   <p className="flex items-baseline gap-2">
                     <span className="text-2xl font-bold tracking-tight text-ink">{entry.temperature}</span>
                     <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                      {locale === "zh" ? "目标水溶温度" : "target dissolution"}
+                      {serverLabels[locale].targetDissolution}
                     </span>
                   </p>
                   <ul className="mt-3 space-y-1.5">
                     {entry.specs.map((spec) => (
-                      <li key={spec} className="text-sm text-muted-foreground">{spec}</li>
+                      <li key={spec.en} className="text-sm text-muted-foreground">{spec[locale]}</li>
                     ))}
                   </ul>
                 </div>
@@ -164,8 +193,8 @@ export default function ProductView({ product, locale, dict }: { product: Produc
                   href={lp(`/applications/${app.slug}`)}
                   className="card-line group flex h-full flex-col p-5 transition-colors hover:border-primary/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 >
-                  <h3 className="font-semibold text-ink group-hover:text-primary">{app.name[cl]}</h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{app.summary[cl]}</p>
+                  <h3 className="font-semibold text-ink group-hover:text-primary">{app.name}</h3>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{app.summary}</p>
                   <span className="mt-4 text-sm font-semibold text-primary">{dict.actions.viewApplication} →</span>
                 </Link>
               </Reveal>
@@ -180,7 +209,7 @@ export default function ProductView({ product, locale, dict }: { product: Produc
           <Reveal>
             <p className="eyebrow">{t.processTitle}</p>
             <h2 className="display-2 mt-3 !text-2xl sm:!text-3xl">
-              {locale === "zh" ? "从需求到批量供应的三步流程" : "From requirement to repeatable supply"}
+              {serverLabels[locale].requirementToSupplyHeading}
             </h2>
           </Reveal>
           <ol className="mt-8 grid gap-5 md:grid-cols-3">
@@ -214,14 +243,14 @@ export default function ProductView({ product, locale, dict }: { product: Produc
               {relatedArticles.map((article) => (
                 <li key={article.slug}>
                   <Link href={lp(`/knowledge/${article.slug}`)} className="text-sm font-medium text-primary hover:underline">
-                    {article.title[cl]}
+                    {article.title}
                   </Link>
                 </li>
               ))}
               {relatedAnswers.map((answer) => (
                 <li key={answer.slug}>
                   <Link href={lp(`/answers/${answer.slug}`)} className="text-sm text-muted-foreground hover:text-primary">
-                    {answer.question[cl]}
+                    {answer.question}
                   </Link>
                 </li>
               ))}
@@ -267,7 +296,7 @@ export default function ProductView({ product, locale, dict }: { product: Produc
           </div>
           <div className="mt-8">
             <Link href={lp(`/products/${next.slug}`)} className="group inline-flex items-center gap-2 text-sm font-semibold text-primary">
-              {t.nextPrev}: {next.name[cl]}
+              {t.nextPrev}: {nextCard.name}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="transition-transform group-hover:translate-x-0.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
             </Link>
           </div>

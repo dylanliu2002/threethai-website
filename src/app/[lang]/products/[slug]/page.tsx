@@ -4,7 +4,8 @@ import ProductView from "@/components/product/product-view";
 import { products, productBySlug } from "@/content/products";
 import { buildMetadata, breadcrumbSchema, faqSchema, jsonLd, productPageSchema } from "@/lib/seo";
 import { localePath } from "@/content/company";
-import { pageCopyFor } from "@/content/translation-availability";
+import { DISPLAY_PAGES, pageCopyFor } from "@/content/translation-availability";
+import { pageMeta, productTitlePattern } from "@/content/site-copy";
 import { langParams, resolveLang } from "../../_lang";
 
 type Props = { params: Promise<{ lang: string; slug: string }> };
@@ -25,10 +26,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const product = productBySlug(slug);
   if (!product) return {};
-  const { locale } = await resolveLang(params, notFound);
-  const { entity, contentLocale } = pageCopyFor(`/products/${slug}`, locale, product);
+  const { dict, locale } = await resolveLang(params, notFound);
+  const { entity, contentLocale } = pageCopyFor(`/products/${slug}`, locale, product, DISPLAY_PAGES);
   return buildMetadata({
-    title: `${entity.name[contentLocale]} Manufacturer & Supplier`,
+    title: productTitlePattern[locale].replace("%s", entity.name[contentLocale]),
     description: entity.metaDescription[contentLocale],
     path: `/products/${product.slug}`,
     locale,
@@ -42,7 +43,7 @@ export default async function LangProductPage({ params }: Props) {
   const product = productBySlug(slug);
   if (!product) notFound();
   const { dict, locale } = await resolveLang(params, notFound);
-  const { entity, contentLocale } = pageCopyFor(`/products/${slug}`, locale, product);
+  const { entity, contentLocale } = pageCopyFor(`/products/${slug}`, locale, product, DISPLAY_PAGES);
   return (
     <>
       {jsonLd([

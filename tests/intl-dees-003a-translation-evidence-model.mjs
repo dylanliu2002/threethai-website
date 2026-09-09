@@ -201,10 +201,19 @@ assert.deepEqual([...evidenceDecisionFor(APPROVED_ES).reasons], [], "the fixture
 // ---------------------------------------------------------------------------
 test("REQ 1/6 · one evidence registry ships, and it promotes nothing today", () => {
   assert.ok(Array.isArray(TRANSLATION_EVIDENCE), "the evidence registry must be an array");
-  assert.deepEqual([...TRANSLATION_EVIDENCE], [], "INTL-DEES-003A must ship no evidence");
-  assert.deepEqual([...approvedEvidence()], [], "no record may be approved before it exists");
-  assert.deepEqual([...draftEvidence()], [], "no draft may be recorded either");
-  assert.deepEqual([...rejectedEvidence()], [], "nothing to reject");
+  // INTL-DEES-001 wrote the copy this registry was built to receive: one record per
+  // localized entity page and language, every one of them a draft. An empty
+  // registry was 003A's shipping state, not a rule of the model — the rule is that
+  // an unreviewed record grants nothing. So these four assertions now measure that
+  // rule directly instead of measuring the absence of content.
+  assert.ok(TRANSLATION_EVIDENCE.length > 0, "INTL-DEES-001 has landed: the registry is no longer empty");
+  assert.deepEqual([...approvedEvidence()], [], "no record may be approved before a reviewer who did not write it signs it");
+  assert.equal(draftEvidence().length, TRANSLATION_EVIDENCE.length, "every shipped record must still be a draft");
+  assert.equal(rejectedEvidence().length, TRANSLATION_EVIDENCE.length, "and the gate must refuse every one of them");
+  for (const { evidence, reasons } of rejectedEvidence()) {
+    assert.ok(reasons.includes("status-not-approved:draft"),
+      `${evidence.locale} ${evidence.path} is refused for something other than being unreviewed: ${reasons.join(", ")}`);
+  }
 
   // The promotion set is derived from the registry, not restated beside it.
   assert.deepEqual([...TRANSLATED_PAGES], [...approvedPromotions(TRANSLATION_EVIDENCE)]);
@@ -227,7 +236,12 @@ test("REQ 4 · every shipped ES and DE page keeps its English owner, on all four
       assert.equal(hreflangForRoute(p, locale), undefined, `${locale} ${p} claims a language graph`);
       assert.equal(contentHtmlLangOf(p, locale), htmlLang.en, `${locale} ${p} claims translated body copy`);
       assert.equal(isTranslationAvailable(p, locale), false, `${locale} ${p} has no evidence yet`);
-      assert.equal(evidenceFor(p, locale), undefined, `${locale} ${p} has an evidence record`);
+      // A record may exist here now — INTL-DEES-001 writes them for review. What
+      // REQ 4 actually protects is that none of them is approved, so the page keeps
+      // its English owner on all four surfaces (asserted above, from the policy).
+      const record = evidenceFor(p, locale);
+      assert.ok(record === undefined || record.status === "draft",
+        `${locale} ${p} carries an approved record while this suite expects no promotion`);
     }
   }
 });

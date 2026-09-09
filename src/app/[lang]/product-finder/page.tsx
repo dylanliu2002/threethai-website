@@ -5,16 +5,16 @@ import ProductFinder from "@/components/forms/product-finder";
 import { buildMetadata } from "@/lib/seo";
 import { localePath } from "@/content/company";
 import { temperatureCatalog } from "@/content/catalog";
+import { pageMeta } from "@/content/site-copy";
 import { resolveLang } from "../_lang";
 
 type Props = { params: Promise<{ lang: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { locale } = await resolveLang(params, notFound);
+  const { dict, locale } = await resolveLang(params, notFound);
   return buildMetadata({
-    title: "PVA Product Finder — Select by Form, Application & Dissolution Temperature",
-    description:
-      "Answer four questions about your process and get a suggested water-soluble PVA product family: yarn, sewing thread, staple fiber or filament — then confirm the grade with a sample.",
+    title: pageMeta[locale].productFinder.title,
+    description: pageMeta[locale].productFinder.description,
     path: "/product-finder",
     locale,
   });
@@ -52,7 +52,7 @@ export default async function LangProductFinderPage({ params }: Props) {
               {temperatureCatalog.map((entry) => (
                 <div key={entry.temperature}>
                   <dt className="text-sm font-bold text-ink">{entry.temperature}</dt>
-                  <dd className="mt-1 text-xs leading-relaxed text-muted-foreground">{entry.specs.join(" · ")}</dd>
+                  <dd className="mt-1 text-xs leading-relaxed text-muted-foreground">{entry.specs.map((spec) => spec[locale]).join(" · ")}</dd>
                 </div>
               ))}
             </dl>

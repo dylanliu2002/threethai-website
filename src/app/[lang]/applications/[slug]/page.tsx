@@ -4,7 +4,8 @@ import ApplicationView from "@/components/application/application-view";
 import { applications, applicationBySlug } from "@/content/applications";
 import { buildMetadata, breadcrumbSchema, jsonLd } from "@/lib/seo";
 import { contentLocaleOf, localePath, type Locale } from "@/content/company";
-import { pageCopyFor } from "@/content/translation-availability";
+import { DISPLAY_PAGES, pageCopyFor } from "@/content/translation-availability";
+import { pageMeta } from "@/content/site-copy";
 import { langParams, resolveLang } from "../../_lang";
 
 type Props = { params: Promise<{ lang: string; slug: string }> };
@@ -24,7 +25,7 @@ export function generateStaticParams() {
  */
 function applicationCopy(slug: string, locale: Locale) {
   const application = applicationBySlug(slug)!;
-  const { entity, contentLocale } = pageCopyFor(`/applications/${slug}`, locale, application);
+  const { entity, contentLocale } = pageCopyFor(`/applications/${slug}`, locale, application, DISPLAY_PAGES);
   const nameKey = contentLocale === contentLocaleOf(locale) ? "en" : contentLocale;
   return { application, name: entity.name[nameKey], summary: entity.summary[nameKey] };
 }
@@ -32,10 +33,10 @@ function applicationCopy(slug: string, locale: Locale) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   if (!applicationBySlug(slug)) return {};
-  const { locale } = await resolveLang(params, notFound);
+  const { dict, locale } = await resolveLang(params, notFound);
   const { application, name, summary } = applicationCopy(slug, locale);
   return buildMetadata({
-    title: `${name} — Water-Soluble PVA Applications`,
+    title: `${name} — ${pageMeta[locale].applications.suffix}`,
     description: summary,
     path: `/applications/${application.slug}`,
     locale,

@@ -3,7 +3,7 @@ import { answerBySlug, expandedAnswerFor } from "@/content/answers";
 import { productBySlug } from "@/content/products";
 import type { Dictionary } from "@/content/i18n";
 import { contentLocaleOf, localePath, type Locale } from "@/content/company";
-import { pageCopyFor } from "@/content/translation-availability";
+import { DISPLAY_PAGES, pageCopyFor } from "@/content/translation-availability";
 
 /**
  * Full buyer-answer article for the /[lang] routes. Deep content is
@@ -17,7 +17,7 @@ import { pageCopyFor } from "@/content/translation-availability";
  */
 export default function AnswerArticle({ slug, locale, dict }: { slug: string; locale: Locale; dict: Dictionary }) {
   const answerRecord = answerBySlug(slug)!;
-  const { entity: answer, contentLocale } = pageCopyFor(`/answers/${slug}`, locale, answerRecord);
+  const { entity: answer, contentLocale } = pageCopyFor(`/answers/${slug}`, locale, answerRecord, DISPLAY_PAGES);
   const cl = contentLocaleOf(locale);
   // The expansion pack exists for the modelled locales only; a promoted page
   // must not have English blocks folded back into it.

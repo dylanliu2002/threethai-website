@@ -1,9 +1,34 @@
 import type { PartialDictionary } from "./index";
 
 /**
- * Español — core UI translations. Deep content (products, articles, answers)
- * falls back to English; these strings localize navigation, homepage, forms
- * and page chrome.
+ * Español — diccionario completo de la interfaz y de los textos de página
+ * gestionados por diccionario (nav, footer, formularios, CTA, encabezados de
+ * sección, metadatos y la prosa de `home` / `about` / `contact` / `quality`).
+ *
+ * Deep content that belongs to an entity record — product and application body
+ * copy — is NOT here: it reaches the renderer through the INTL-DEES-003A/004B
+ * evidence registry (`src/content/translation-evidence.ts`), so that the text a
+ * localized URL shows and the evidence that earned it ownership are the same
+ * reviewed record. This file covers every leaf of `en.ts`; a leaf defined here
+ * also stops the page from falling back to English chrome.
+ *
+ * Terminology follows the industrial B2B glossary agreed for this line:
+ * hilo de PVA hidrosoluble · hilo de coser · fibra cortada · filamento ·
+ * disolución/eliminación · tejeduría · punto · acabado.
+ *
+ * Two rules this file must not lose again:
+ *
+ * - `count` is two concepts, never one term. A yarn or thread count is a
+ *   textile numbering, so `título`; the number of filaments in a filament
+ *   yarn is a physical quantity, so `número de filamentos`. German matches:
+ *   `Feinnummer` and `Filamentenzahl`.
+ * - Where the English word is broader than the process the Chinese reference
+ *   names, translate the process. The sewing-thread commercial-specification
+ *   list says `finish` in English and 上油 in Chinese, so it is `lubricación`
+ *   here — not `acabado` — and `Ölung` in German. A translation must not
+ *   widen what the company says it does.
+ * Company and certificate identities stay verbatim: they are proper nouns and
+ * registered names, not translatable prose. Numeric claims are never altered.
  */
 export const partial: PartialDictionary = {
   meta: {
@@ -66,11 +91,37 @@ export const partial: PartialDictionary = {
       eyebrow: "Por qué Three Thai",
       title: "Fabricante especializado en PVA, no un catálogo de trading",
       body: "Evidencia detrás de cada afirmación — pídanos verificar cualquier dato antes de comprometerse.",
+      points: [
+        {
+          title: "Especializados desde 2006",
+          body: "Una base de hilatura de PVA hidrosoluble en Shandong, dedicada y con línea integrada desde la sala de apertura hasta el bobinado automático.",
+        },
+        {
+          title: "Grados de disolución controlada",
+          body: "Desarrollo en torno a objetivos de proceso de 20 °C, 40 °C, 55 °C, 60 °C, 70 °C, 80 °C y 90 °C — ajustado a su ciclo de eliminación, no a una etiqueta genérica.",
+        },
+        {
+          title: "Más de 50 especificaciones documentadas",
+          body: "Títulos de hilo, construcciones de hilo de coser, dimensiones de fibra cortada y formatos de filamento, con registros de control de calidad por lote.",
+        },
+        {
+          title: "Validación primero con muestra",
+          body: "Muestras trazables ensayadas en su proceso real antes de cualquier compromiso de producción — el mismo método con el que juzgamos nuestros propios lotes.",
+        },
+        {
+          title: "Desarrollo personalizado",
+          body: "Títulos, construcciones, longitudes de corte y formatos de envase adaptados a sus equipos, con la especificación acordada por escrito.",
+        },
+        {
+          title: "Documentación lista para exportación",
+          body: "Documentación ISO 9001, OEKO-TEX y SGS disponible, con más de 15 mercados de exportación atendidos por la marca internacional Three Thai Textile.",
+        },
+      ],
     },
     manufacturing: {
       eyebrow: "Fabricación",
-      title: "De la apertura de fibra al devanado automático: una línea trazable",
-      body: "Una base de producción de 30.000 m² con 120.000 husillos respalda una fabricación consistente y trazable.",
+      title: "De la apertura de fibra al bobinado automático: una línea trazable",
+      body: "Una base de producción de 30.000 m² con 120.000 husos respalda una fabricación consistente y trazable en todos los títulos y grados de disolución.",
       cta: "Conocer la planta de producción",
     },
     quality: {
@@ -98,6 +149,8 @@ export const partial: PartialDictionary = {
     evidence: "Evidencia de calidad",
     lc: "Área LC (personal)",
     rights: "Todos los derechos reservados.",
+    entityNote: "Opera internacionalmente como Shandong Three Thai Textile Co., Ltd. — el nombre en inglés registrado en nuestros certificados ISO 9001 y OEKO-TEX (山东荣沣纺织有限公司).",
+    updatedNote: "Contenido técnico revisado periódicamente; las cifras se reproducen de los registros de la empresa.",
   },
   breadcrumbs: {
     home: "Inicio",
@@ -156,10 +209,116 @@ export const partial: PartialDictionary = {
   finder: {
     title: "Buscador de productos PVA",
     intro: "Responda cuatro preguntas sobre su proceso. Sugeriremos una familia de productos para discutir; la idoneidad final siempre se confirma con una muestra.",
+    step: "Paso",
+    of: "de",
+    back: "Atrás",
+    restart: "Empezar de nuevo",
+    resultTitle: "Familia de productos sugerida",
+    resultNote: "Según sus respuestas, comente esta familia con nuestro equipo y confirme la especificación exacta con una muestra trazable.",
+    resultCta: "Continuar a una consulta técnica",
+    question: {
+      form: "¿Qué forma de material necesita su proceso?",
+      application: "¿Dónde se utilizará?",
+      temperature: "¿De qué temperatura de agua dispone para la eliminación?",
+      spec: "¿Tiene una especificación objetivo?",
+    },
+    form: {
+      yarn: "Hilo (soporte de tejido de punto o calada)",
+      thread: "Hilo de coser (costuras temporales)",
+      staple: "Fibra cortada (mezcla, no tejidos, papel)",
+      filament: "Hilo de filamento (uso técnico continuo)",
+      unsure: "No lo sé — asesórenme",
+    },
+    temperatureOptions: {
+      cold: "Agua fría (≈20 °C)",
+      low: "Baja temperatura (40–55 °C)",
+      mid: "Media (60–70 °C)",
+      high: "Alta (80–90 °C)",
+      unsure: "No lo sé — asesórenme",
+    },
+    specOptions: {
+      known: "Sí — puedo indicar título / dtex",
+      partial: "Parcialmente — conozco la aplicación",
+      none: "No — recomienden según mi proceso",
+    },
+    applicationOptions: {
+      towel: "Tejeduría de toallas / sin torsión",
+      embroidery: "Bordado / confección",
+      knitting: "Punto de calada / género de punto",
+      paper: "Fabricación de papel",
+      technical: "Textiles técnicos / composites",
+      other: "Otros usos textiles",
+    },
+  },
+  answersIndex: {
+    title: "Respuestas a compradores",
+    eyebrow: "Respuesta a comprador · Materiales de PVA hidrosoluble",
+    directLabel: "Respuesta directa",
+    lead: "Respuestas basadas en evidencia a preguntas habituales de abastecimiento sobre hilo de PVA hidrosoluble, hilo de coser, fibra cortada y filamento. Los rankings, precios y certificaciones se tratan como afirmaciones que hay que verificar, no como hechos de marketing que repetir.",
+    askHeading: "Información que conviene incluir en su consulta",
+    aboutHeading: "Sobre esta respuesta",
+    aboutBody: "Preparada por el equipo de contenido técnico de Shandong Three Thai Textile Co., Ltd. (山东荣沣纺织有限公司). Esta página ofrece orientación de abastecimiento, no un ranking ni una decisión de certificación independiente. La idoneidad del producto debe confirmarse con una muestra trazable y con el proceso real del comprador.",
+    count: "respuestas prácticas",
+    englishNote: "Mantenido por nuestro equipo de contenido técnico — las clasificaciones y afirmaciones se verifican, no se repiten.",
+  },
+  knowledgeIndex: {
+    title: "Artículos técnicos",
+    lead: "Guías de selección, métodos de ensayo y listas de verificación de especificaciones de nuestro equipo de contenido de ingeniería PVA.",
+    published: "Publicado",
+    updated: "Actualizado",
+  },
+  about: {
+    title: "Sobre Three Thai Textile",
+    lead: "山东荣沣纺织有限公司 (Shandong Three Thai Textile Co., Ltd.) desarrolla y fabrica hilo de PVA hidrosoluble, hilo de coser, fibra cortada y filamento, adaptando las especificaciones al proceso, título y temperatura objetivo de cada cliente.",
+    philosophyTitle: "Filosofía de fabricación",
+    philosophyBody: "Desarrollo de producto liderado por la aplicación, control de calidad por lote y títulos y temperaturas de disolución flexibles. Preferimos confirmar un grado con una muestra trazable y un método escrito antes que vender partiendo solo de una etiqueta de temperatura.",
+    positioningTitle: "Posicionamiento comercial",
+    positioningBody: "Fabricante especializado en materiales de PVA hidrosoluble al servicio de clientes de tejeduría, punto, confección y bordado, no tejidos, fabricación de papel y textiles técnicos. La empresa opera internacionalmente como Shandong Three Thai Textile Co., Ltd., con la marca de producto threethai™.",
+    coverageTitle: "Cobertura de mercado y de servicio",
+    coverageBody: "La empresa atiende a compradores internacionales bajo el nombre Three Thai con experiencia en más de 15 mercados de exportación — con envíos regulares a India, Pakistán, Vietnam, Turquía, Bangladés, Ucrania y Perú — aportando apoyo documental, logística de muestras y suministro repetible controlado por especificación.",
+    timelineTitle: "Trayectoria de la empresa",
+    timeline: [
+      { year: "2006", body: "Fundación de la empresa en el condado de Huimin, provincia de Shandong, con foco en materiales de PVA hidrosoluble." },
+      { year: "Desde 2006", body: "Construcción progresiva de la ruta de hilatura integrada: apertura de fibra, carda, estiraje, baterías, hilatura de anillos y bobinado automático." },
+      { year: "Actualidad", body: "Base de producción de 30.000 m² con 120.000 husos, más de 50 especificaciones y desarrollo de disolución de 20 °C a 90 °C." },
+    ],
+    identityTitle: "Identidad de la empresa",
+    identityBody: "山东荣沣纺织有限公司 es la persona jurídica; Shandong Three Thai Textile Co., Ltd. es la marca internacional que la empresa utiliza para su negocio en el exterior. El titular de los certificados y la entidad contratante deben confirmarse documento a documento.",
+    recognitionTitle: "Certificaciones y reconocimientos",
+    recognitionIntro: "Reconocimientos de 山东荣沣纺织有限公司 según lo recogido en la documentación oficial de la empresa; los certificados justificativos están disponibles a solicitud.",
+    recognition: [
+      "Empresa Nacional de Alta Tecnología (国家高新技术企业)",
+      "Pyme de Shandong «especializada, refinada, distintiva e innovadora» (专精特新中小企业)",
+      "Fábrica Estrella del Amanecer de la economía digital de Shandong (晨星工厂)",
+      "Taller digital de nivel provincial en Shandong (省级数字化车间)",
+      "Empresa «Gacela» del municipio de Binzhou (瞪羚企业)",
+      "Centro tecnológico empresarial, centro de investigación en ingeniería y centro de diseño industrial de Binzhou",
+      "Centro de I+D «una empresa, una tecnología» de Binzhou",
+      "Colectivo avanzado de la industria textil de Binzhou",
+    ],
+    researchTitle: "I+D y colaboraciones industriales",
+    researchIntro: "El desarrollo de producto se apoya en una cooperación estable entre industria y universidad y en un equipo propio de I+D, que convierte resultados de investigación en tecnología de PVA hidrosoluble lista para producción.",
+    research: [
+      "Cátedra mixta de máster para I+D en PVA hidrosoluble establecida con la Universidad Textil de Wuhan (武汉纺织大学).",
+      "Colaboración estable en investigación con el equipo del profesor Ma Pibo en la Universidad de Jiangnan (江南大学), con varias patentes en cogpropiedad fruto de esa cooperación.",
+      "Un equipo de I+D de 27 personas centrado en la tecnología de hilatura de PVA hidrosoluble y su escala industrial.",
+      "Entidad participante en la redacción de la norma nacional Textiles — Smart textiles — Terminology and classification (proyecto 20213126-T-608, en desarrollo por SAC/TC 209).",
+    ],
+  },
+  contact: {
+    title: "Contacto",
+    lead: "Hable con el equipo sobre productos, especificaciones, muestras, documentos y auditorías.",
+    directTitle: "Contacto directo",
+    hoursTitle: "Tiempo de respuesta",
+    hoursBody: "Las consultas por correo se responden habitualmente en un día laboral. Para logística de muestras urgente, indique su puerto y las fechas necesarias.",
+    auditTitle: "Visitas a fábrica y auditorías",
+    auditBody: "Las visitas de clientes y las auditorías de terceros son bienvenidas en nuestra base de producción en Shandong. Escríbanos para acordar una fecha y las zonas de producción que desea revisar.",
   },
   productsPage: {
     title: "Productos PVA",
     lead: "Cuatro familias de materiales cubren soporte temporal, sujeción removible y disolución controlada en su proceso.",
+    availableAt: "Productos y especificaciones disponibles",
+    sampleCta: "Consulte por esta temperatura",
   },
   applicationsPage: {
     title: "Aplicaciones",
@@ -167,22 +326,66 @@ export const partial: PartialDictionary = {
   },
   manufacturingPage: {
     title: "Fabricación",
-    lead: "Una ruta de hilado integrada, desde la apertura de fibra hasta el devanado automático.",
-  },
-  about: {
-    title: "Sobre Three Thai Textile",
-    lead: "山东荣沣纺织有限公司 (Shandong Three Thai Textile Co., Ltd.) desarrolla y fabrica hilo de PVA hidrosoluble, hilo de coser, fibra cortada y filamento, adaptando las especificaciones al proceso, título y temperatura objetivo de cada cliente.",
-  },
-  contact: {
-    title: "Contacto",
-    lead: "Hable con el equipo sobre productos, especificaciones, muestras, documentos y auditorías.",
+    lead: "Una ruta de hilado integrada, desde la apertura de fibra hasta el bobinado automático.",
+    capabilityTitle: "Capacidad de suministro",
+    traceTitle: "Trazabilidad",
+    traceBody: "Las muestras aprobadas se vinculan a especificaciones escritas; los registros de lote y los resultados de control documentan cada corrida de producción. Los cambios de materia prima, construcción, acabado o ruta se controlan y se comunican, nunca se sustituyen en silencio.",
+    statsTitle: "La base de producción en cifras",
+    statsNote: "Cifras reproducidas de los registros de la empresa tal como se publicaron en el sitio anterior; los valores vigentes se confirman en el momento del contrato.",
+    visitTitle: "Visite o audite la fábrica",
+    visitBody: "Las visitas de clientes y las auditorías de terceros son bienvenidas. Contáctenos para acordar una fecha y las zonas que desea revisar.",
   },
   qualityPage: {
     title: "Calidad y certificación",
     lead: "Sistema de gestión, ensayos de producto y patentes: documentos verificables con alcance y validez confirmados uno a uno.",
+    processTitle: "Cómo se controla la calidad",
+    certsTitle: "Certificados e informes",
+    certsNote: "Pulse cualquier documento para ver la imagen completa; los originales en PDF se facilitan cuando están disponibles.",
+    patentsTitle: "Patentes y propiedad intelectual",
+    patentsStatsInvention: "Patentes de invención concedidas (CN)",
+    patentsStatsUtility: "Modelos de utilidad (CN)",
+    patentsStatsForeign: "Patentes concedidas en el extranjero",
+    patentNoLabel: "N.º de patente",
+    patentGrantedLabel: "Concedida",
+    patentFiledLabel: "Solicitada",
+    patentSoleLabel: "Titular único",
+    patentJointLabel: "Cogpropiedad con una empresa vinculada",
+    utilityTableTitle: "Modelos de utilidad concedidos (lista completa)",
+    utilityTableNote: "Los 25 modelos de utilidad están registrados a nombre de 山东荣沣纺织有限公司 (Shandong Three Thai Textile Co., Ltd.).",
+    downloadPdf: "Descargar PDF",
+    verifyTitle: "Cómo verificar nuestros documentos",
+    verifySteps: [
+      "Compare el titular del certificado con la entidad contratante: la persona jurídica es 山东荣沣纺织有限公司 y opera internacionalmente como Shandong Three Thai Textile Co., Ltd.",
+      "Compruebe el alcance del producto: el grado, el color y el uso ofertados deben quedar dentro del alcance del certificado o del informe de ensayo.",
+      "Verifique las fechas de validez y confirme el número a través del canal oficial del organismo emisor.",
+      "Solicite registros de liberación específicos de lote cuando su evaluación de riesgos lo exija.",
+    ],
+  },
+  productsIndex: {
+    specsTitle: "Especificaciones y selección",
+    processTitle: "Guía de proceso",
+    applicationsTitle: "Aplicaciones habituales",
+    selectionTitle: "Confirmar antes de muestrear",
+    overviewTitle: "Visión técnica",
+    faqTitle: "Preguntas frecuentes del producto",
+    evidenceTitle: "Evidencia de fabricación y control",
+    evidenceBody: "Producido en una línea de hilatura integrada (desde la sala de apertura hasta el bobinado automático) con control de calidad por lote. Consulte las páginas de fabricación y calidad para la base de producción, los equipos y los documentos de certificación.",
+    resourcesTitle: "Recursos técnicos relacionados",
+    ctaTitle: "¿Necesita una muestra de este grado?",
+    ctaBody: "Envíe su título, construcción y condiciones de eliminación: confirmaremos una especificación de muestra trazable.",
+    nextPrev: "Producto siguiente",
+  },
+  applicationPage: {
+    productsTitle: "Formas de producto relevantes",
+    selectionTitle: "Variables de selección",
+    nextStepTitle: "Siguiente paso recomendado",
+    nextStepBody: "Envíe su construcción, condiciones de eliminación y criterios de aceptación mediante la solicitud de muestra: confirmaremos una muestra trazable y un método de ensayo escrito antes de cualquier conversación sobre producción.",
   },
   notFound: {
     title: "Página no encontrada",
     body: "La página solicitada no existe. Pruebe el índice de productos o escríbanos directamente.",
   },
+  // INTL-DEES-001: page metadata and the labels that were literals in the
+  // route files and components. See the note in `en.ts`.
+
 };

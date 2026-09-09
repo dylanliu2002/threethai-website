@@ -6,16 +6,16 @@ import Reveal from "@/components/layout/reveal";
 import InquiryForm from "@/components/forms/inquiry-form";
 import { buildMetadata, jsonLd } from "@/lib/seo";
 import { company, localePath, siteUrl } from "@/content/company";
+import { pageMeta } from "@/content/site-copy";
 import { resolveLang } from "../_lang";
 
 type Props = { params: Promise<{ lang: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { locale } = await resolveLang(params, notFound);
+  const { dict, locale } = await resolveLang(params, notFound);
   return buildMetadata({
-    title: "Request a Sample — Water-Soluble PVA Materials",
-    description:
-      "Request a traceable PVA sample: yarn, sewing thread, staple fiber or filament. We confirm specification and test method with you before shipping.",
+    title: pageMeta[locale].requestSample.title,
+    description: pageMeta[locale].requestSample.description,
     path: "/request-sample",
     locale,
   });

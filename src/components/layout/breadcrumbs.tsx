@@ -1,11 +1,12 @@
 import Link from "next/link";
 import type { Locale } from "@/content/company";
+import { serverLabels } from "@/content/site-copy";
 
 export type Crumb = { name: string; path: string };
 
 export default function Breadcrumbs({ trail, locale }: { trail: Crumb[]; locale?: Locale }) {
   return (
-    <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
+    <nav aria-label={serverLabels[locale ?? "en"].breadcrumbNav} className="text-sm text-muted-foreground">
       <ol className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {trail.map((crumb, index) => {
           const last = index === trail.length - 1;

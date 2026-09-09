@@ -6,6 +6,7 @@ import { factoryStats } from "@/content/factory";
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
 import { company, contentLocaleOf, localePath } from "@/content/company";
+import { serverLabels } from "@/content/site-copy";
 
 export default function AboutView({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const cl = contentLocaleOf(locale);
@@ -38,7 +39,7 @@ export default function AboutView({ locale, dict }: { locale: Locale; dict: Dict
             <figure className="relative aspect-[4/5] overflow-hidden rounded-lg border border-border">
               <Image
                 src="/images/about-yarn.jpg"
-                alt={locale === "zh" ? "threethai™ PVA 纱线" : "PVA yarn manufactured by Three Thai Textile"}
+                alt={serverLabels[locale].aboutHeroImageAlt}
                 fill
                 sizes="(min-width: 1024px) 45vw, 100vw"
                 className="object-cover"
@@ -127,7 +128,7 @@ export default function AboutView({ locale, dict }: { locale: Locale; dict: Dict
               <Reveal key={stat.value} delay={i * 40}>
                 <div className="card-line h-full p-4 text-center">
                   <dd className="text-xl font-bold tracking-tight text-ink">{stat.value}</dd>
-                  <dt className="mt-1 text-xs leading-snug text-muted-foreground">{stat.label[cl]}</dt>
+                  <dt className="mt-1 text-xs leading-snug text-muted-foreground">{stat.label[locale]}</dt>
                 </div>
               </Reveal>
             ))}

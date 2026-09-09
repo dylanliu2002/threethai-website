@@ -9,6 +9,7 @@ import {
   approvedPromotions,
   DEEP_CONTENT_SECTIONS,
   deepContentSectionOf,
+  displayPromotions,
   isDeepContentDetail,
   isGenuineTranslation,
   promotableClassFor,
@@ -78,6 +79,24 @@ export type {
  * translated copy yet (INTL-DEES-001 owns that content work).
  */
 export const TRANSLATED_PAGES: readonly TranslatedPage[] = approvedPromotions();
+
+/**
+ * The registry a route reads to decide what text to *show*.
+ *
+ * `TRANSLATED_PAGES` above is the registry that decides what a page may *claim*,
+ * and `./availability` — canonical, hreflang, sitemap, `inLanguage` — reads only
+ * that one. This second list is the same evidence with the signature requirement
+ * dropped: a record whose copy is complete, genuine and non-duplicated, but which
+ * nobody has reviewed yet.
+ *
+ * Pages pass it to `pageCopyFor` explicitly, at the call site, so a reader of any
+ * route can see which tier that string belongs to. Passing it cannot promote
+ * anything: no policy function takes this list, and an unapproved record still
+ * has no entry in `TRANSLATED_PAGES` for the policy to find. The completeness net
+ * is identical on both tiers, so a page cannot display half a translation either
+ * — `pageCopyFor` throws, and these pages are prerendered, so the build stops.
+ */
+export const DISPLAY_PAGES: readonly TranslatedPage[] = displayPromotions();
 
 function honouredPages(
   registry: readonly TranslatedPage[],

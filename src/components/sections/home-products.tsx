@@ -5,12 +5,13 @@ import { products, extendedFormats } from "@/content/products";
 import { temperatureCatalog } from "@/content/catalog";
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
-import { contentLocaleOf, localePath } from "@/content/company";
+import { localePath } from "@/content/company";
 
 export default function HomeProducts({ locale, dict }: { locale: Locale; dict: Dictionary }) {
-  const cl = contentLocaleOf(locale);
   const t = dict.home.products;
-  const ext = extendedFormats[cl];
+  // Keyed by the route locale, like every other shared site record: the block is
+  // the same one /products shows, and it must not answer in English here.
+  const ext = extendedFormats[locale];
   return (
     <section className="py-16 sm:py-20" aria-labelledby="home-products-title">
       <div className="container-site">

@@ -5,6 +5,7 @@ import InquiryForm from "@/components/forms/inquiry-form";
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
 import { company, localePath } from "@/content/company";
+import { serverLabels } from "@/content/site-copy";
 
 export default function ContactView({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const t = dict.contact;
@@ -52,11 +53,11 @@ export default function ContactView({ locale, dict }: { locale: Locale; dict: Di
                     </dd>
                   </div>
                   <div>
-                    <dt className="font-semibold text-ink">{locale === "zh" ? "地址" : "Address"}</dt>
+                    <dt className="font-semibold text-ink">{serverLabels[locale].addressLabel}</dt>
                     <dd className="text-muted-foreground">{locale === "zh" ? company.locationZh : company.locationEn}</dd>
                   </div>
                   <div>
-                    <dt className="font-semibold text-ink">{locale === "zh" ? "法定主体" : "Legal entity"}</dt>
+                    <dt className="font-semibold text-ink">{serverLabels[locale].legalEntityLabel}</dt>
                     <dd className="text-muted-foreground">{company.nameLegalZh}</dd>
                   </div>
                 </dl>

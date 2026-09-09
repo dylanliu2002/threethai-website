@@ -7,6 +7,7 @@ import { products, extendedFormats } from "@/content/products";
 import { temperatureCatalog, temperatureIntro } from "@/content/catalog";
 import { en } from "@/content/i18n";
 import { buildMetadata, breadcrumbSchema, jsonLd } from "@/lib/seo";
+import { serverLabels } from "@/content/site-copy";
 
 export const metadata: Metadata = buildMetadata({
   title: "Water-Soluble PVA Yarn, Thread, Fiber & Filament | Products",
@@ -51,7 +52,7 @@ export default function ProductsPage() {
       {/* Product families */}
       <section className="py-14 sm:py-16" aria-labelledby="families">
         <div className="container-site">
-          <h2 id="families" className="sr-only">Product families</h2>
+          <h2 id="families" className="sr-only">{serverLabels.en.productFamiliesHeading}</h2>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {products.map((product, index) => (
               <Reveal key={product.slug} delay={index * 70} className="h-full">
@@ -87,7 +88,7 @@ export default function ProductsPage() {
                       <td>
                         <ul className="flex flex-wrap gap-x-5 gap-y-1">
                           {entry.specs.map((spec) => (
-                            <li key={spec}>{spec}</li>
+                            <li key={spec.en}>{spec.en}</li>
                           ))}
                         </ul>
                       </td>

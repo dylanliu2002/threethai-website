@@ -6,16 +6,17 @@ import Reveal from "@/components/layout/reveal";
 import { buyerAnswers } from "@/content/answers";
 import { buildMetadata, breadcrumbSchema, jsonLd } from "@/lib/seo";
 import { localePath, siteUrl, contentLocaleOf } from "@/content/company";
+import { pageMeta } from "@/content/site-copy";
+import { answerCard } from "@/content/card-copy";
 import { resolveLang } from "../_lang";
 
 type Props = { params: Promise<{ lang: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { locale } = await resolveLang(params, notFound);
+  const { dict, locale } = await resolveLang(params, notFound);
   return buildMetadata({
-    title: "PVA Yarn Buyer Questions & Technical Answers",
-    description:
-      "Evidence-led answers to 30 common sourcing questions about water-soluble PVA yarn, sewing thread, staple fiber and filament yarn — supplier selection, testing, MOQ, documents and audits.",
+    title: pageMeta[locale].answers.title,
+    description: pageMeta[locale].answers.description,
     path: "/answers",
     locale,
   });
@@ -23,8 +24,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function LangAnswersPage({ params }: Props) {
   const { dict, locale } = await resolveLang(params, notFound);
-  const cl = contentLocaleOf(locale);
   const t = dict.answersIndex;
+  // A question title on a listing is this page's own label for the entry, so it
+  // follows the reader. The answer behind it is deferred content and still renders
+  // the model's copy — see src/content/card-copy.ts.
+  const teaser = (slug: string) => answerCard(slug, locale);
+  // The short answer below stays in the model's language on purpose: a question
+  // title is this page's label for an entry, while an answer is the substance of
+  // a deferred section. Localising the preview and not the page behind it would
+  // put two languages in one reader's decision path for no gain.
+  const cl = contentLocaleOf(locale);
   const lp = (p: string) => localePath(p, locale);
   return (
     <>
@@ -40,7 +49,7 @@ export default async function LangAnswersPage({ params }: Props) {
           description: t.lead,
           hasPart: buyerAnswers.map((answer) => ({
             "@type": "Article",
-            headline: answer.question[cl],
+            headline: teaser(answer.slug).question,
             url: `${siteUrl}${lp(`/answers/${answer.slug}`)}`,
           })),
         },
@@ -77,7 +86,7 @@ export default async function LangAnswersPage({ params }: Props) {
                   <div className="flex items-start gap-4">
                     <span aria-hidden="true" className="text-sm font-bold text-gold-deep">{String(index + 1).padStart(2, "0")}</span>
                     <div>
-                      <h2 className="font-semibold leading-snug text-ink group-hover:text-primary">{answer.question[cl]}</h2>
+                      <h2 className="font-semibold leading-snug text-ink group-hover:text-primary">{teaser(answer.slug).question}</h2>
                       <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{answer.shortAnswer[cl]}</p>
                     </div>
                   </div>

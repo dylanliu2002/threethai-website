@@ -39,6 +39,7 @@ const { canonicalUrlFor, contentHtmlLangOf, isEnglishFallbackCopy, TRANSLATED_CO
   await importSource("src/content/availability.ts");
 const { siteUrl, locales } = await importSource("src/content/company.ts");
 const { products } = await importSource("src/content/products.ts");
+const { DISPLAY_PAGES, pageCopyFor } = await importSource("src/content/translation-availability.ts");
 
 /**
  * Derived from the locale model rather than listed. GSC-SCHEMA-001 checked all
@@ -348,10 +349,19 @@ test("rendered product pages keep valid schema and match their canonical", build
       assert.ok(collectTypes(nodes).includes("Organization"), `${href} lost Organization markup`);
       assert.ok(collectTypes(nodes).includes("WebSite"), `${href} lost WebSite markup`);
       const product = products.find((p) => p.slug === slug);
-      const contentLocale = locale === "zh" ? "zh" : "en";
-      assert.ok(visible.includes(product.name[contentLocale]), `${href} lost the product name`);
+      // Which text this page shows, in which language, is asked of the same
+      // resolver the route uses. GSC-SCHEMA-001 wrote `locale === "zh" ? "zh"
+      // : "en"` while an ES product page could only render English; INTL-DEES-001
+      // added a display tier (a complete `draft` record supplies the text, while
+      // canonical, hreflang, sitemap and `inLanguage` stay behind approval), and
+      // the store's Spanish/German values are not entity keys — asking the entity
+      // for `name.es` would read a field the model deliberately does not hold.
+      // The invariant this test owns is unchanged: schema must match the page.
+      const { entity: rendered, contentLocale } = pageCopyFor(sitePath, locale, product, DISPLAY_PAGES);
+      assert.ok(visible.includes(rendered.name[contentLocale]), `${href} lost the product name`);
       // The schema describes the copy that is actually on the page.
-      assert.equal(pages[0].description, product.metaDescription[contentLocale], `${href} schema drifts from content`);
+      assert.equal(pages[0].description, rendered.metaDescription[contentLocale],
+        `${href} schema drifts from content`);
       // Inquiry routes remain the conversion path.
       assert.ok(html.includes("/request-quote"), `${href} lost the quote CTA`);
       assert.ok(html.includes("/request-sample"), `${href} lost the sample CTA`);
