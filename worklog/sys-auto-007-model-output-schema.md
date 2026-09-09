@@ -39,3 +39,17 @@
   tests, and both non-dry-run inactive tick tests passed with no worker launch.
 - Removed the disposable clone after validation. Canonical authority, state,
   and journal remained byte-identical to the recorded baseline.
+
+## 2026-09-09 — Fresh-review schema guard remediation
+
+- Resolved the remaining fail-open guard finding by allowlisting only the JSON
+  Schema keywords used by the supported worker output schema. Unsupported or
+  unknown keywords now fail at any traversed schema node before serialization.
+- Added regressions for root-level `allOf` and an unknown nested keyword while
+  retaining the existing supported-schema and successful-contract coverage.
+- Focused schema tests passed `6/6`; the complete disposable-context workflow
+  suite passed `186/186`. `validate --all`, reconcile and tick dry-runs, lint,
+  typecheck, syntax, and diff checks passed.
+- No scheduler, dispatch, activation, Grant, retry, worker, diagnostic, or
+  successful-output behavior changed. The disposable authority path remained
+  absent before and after full-suite execution.

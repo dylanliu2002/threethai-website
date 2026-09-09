@@ -81,6 +81,18 @@ unprovisioned authority path. Both tests passed, and the disposable authority
 root remained absent before and after execution. Canonical authority was never
 used by the test process.
 
+## Fresh-review Schema Guard Remediation
+
+- [x] Reject `allOf` before schema serialization.
+- [x] Reject any schema keyword outside the guard's explicit supported subset,
+  including at nested property and item nodes.
+- [x] Preserve acceptance of the tracked worker output schema.
+- [x] Preserve the successful synthetic worker-result contract.
+- [x] Focused tests pass `6/6`; full workflow tests pass `186/186` in the
+  isolated disposable context.
+- [x] Static validation, reconcile/tick dry-runs, lint, typecheck, and diff
+  checks pass with canonical state unchanged.
+
 ## Validation
 
 ```text
