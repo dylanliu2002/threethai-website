@@ -62,6 +62,30 @@ export function serializeWorkerOutputSchemaInternal(schema = WorkerOutputJsonSch
   return `${JSON.stringify(schema, null, 2)}\n`;
 }
 
+export function buildAuthoritativeWorkerPromptInternal(prompt, validated) {
+  const runtimeContext = {
+    task_key: validated.contract.task_key,
+    run_id: validated.run.run_id,
+    activation_id: validated.run.one_time_pilot_activation_id ?? null,
+    grant_authorization_id: validated.grant.authorization_id,
+    capability_id: validated.capability.capability_id,
+    capability_action: validated.capability.action,
+    lease_id: validated.lease.lease_id,
+    fencing_token: validated.lease.fencing_token,
+    role_id: validated.run.role_id,
+  };
+  return [
+    prompt,
+    "",
+    "Controller admission and capability validation have already succeeded for this worker process.",
+    "The following JSON is the authoritative runtime context for this already-dispatched run:",
+    "<controller_runtime_context>",
+    JSON.stringify(runtimeContext, null, 2),
+    "</controller_runtime_context>",
+    "Use these exact identities. Do not invent another run identity, request another dispatch, or demand a second human authorization.",
+  ].join("\n");
+}
+
 export function parseJsonlWithDiagnosticsInternal(text) {
   const events = [];
   if (typeof text !== "string" || !text.trim()) {
@@ -389,6 +413,8 @@ export async function runCodexExecInternal({
   assertNoSecretsDeep(contract, "Task Contract");
   assertNoSecretsDeep(grant, "authorization Grant");
   assertNoSecretValues(prompt, "worker prompt");
+  const authoritativePrompt = buildAuthoritativeWorkerPromptInternal(prompt, validated);
+  assertNoSecretValues(authoritativePrompt, "authoritative worker prompt");
   const effectivePilotPolicy = oneTimePilotAuthorized
     ? oneTimePilotPolicy(state.pilot_activation)
     : pilotPolicy;
@@ -429,7 +455,7 @@ export async function runCodexExecInternal({
       args,
       cwd: validated.grant.worktree_realpath,
       env: launch.process_environment,
-      input: prompt,
+      input: authoritativePrompt,
       signal,
       spawnImpl,
       timeoutMs: validated.grant.limits.timeout_seconds * 1000,
@@ -451,7 +477,11 @@ export async function runCodexExecInternal({
         output = WorkerResultSchema.parse(JSON.parse(fs.readFileSync(outputPath, "utf8")));
         assertNoSecretsDeep(output, "worker structured result");
         assertPilotWorkerRequestedActions(output.requested_actions);
-        const bound = bindReportedThread(validated.run, threadId);
+        const {
+          one_time_pilot_activation_id: _pilotActivationId,
+          ...baseRunIdentity
+        } = validated.run;
+        const bound = bindReportedThread(baseRunIdentity, threadId);
         if (output.task_key !== bound.task_key || output.run_id !== bound.run_id || output.role_id !== bound.role_id) {
           throw new Error("Worker output does not match authoritative controller identity.");
         }
