@@ -277,6 +277,66 @@ test("REQ 5 · adding a slot invalidates the approvals that predate it", () => {
     "a widened surface must not inherit a promotion granted against the old one");
 });
 
+test("REQ 2 · a malformed surface declaration is refused by both classes", () => {
+  // Key presence is what claims the `section` class; the slot list is what makes
+  // that claim checkable. A registry entry that is not an array must therefore
+  // refuse the record outright. Reading it as "no surface here" instead would
+  // hand a core page to the entity obligation — the looser rule, and the one
+  // direction a registry mistake is supposed to fail away from.
+  const malformed = [
+    ["null", null],
+    ["undefined", undefined],
+    ["a bare string", "heading"],
+    ["an object of slots", { heading: "x", lede: "y", cta: "z" }],
+    ["a number", 3],
+  ];
+  for (const [label, value] of malformed) {
+    const surfaces = { [CORE_PATH]: value };
+    assert.equal(isSectionEvidencePath(CORE_PATH, surfaces), true, `${label} is still a registered path`);
+    assert.equal(sectionSurfaceFor(CORE_PATH, surfaces), null, `${label} must yield no slot list`);
+    assert.equal(promotableClassFor(CORE_PATH, surfaces), null, `${label} must class as neither`);
+    const reasons = reasonsOf(sectionRecord(), surfaces);
+    assert.ok(reasons.includes("path-not-entity-detail"), `${label} must be refused, got ${JSON.stringify(reasons)}`);
+    assert.equal(promotionFor(sectionRecord(), surfaces).length, 0, `${label} must grant no promotion`);
+    // Naming a slot no surface declares is refused too, not accepted by default
+    // once the declaration has become unreadable.
+    const padded = sectionRecord({
+      requiredFields: [...CORE_SLOTS, "hero"],
+      source: { ...CORE_SOURCE, hero: "Water-soluble PVA yarn" },
+      content: { ...CORE_CONTENT, hero: "Hilo de PVA soluble en agua" },
+    });
+    assert.equal(promotionFor(padded, surfaces).length, 0, `${label} must not accept an undeclared slot`);
+    // And nothing downstream moves: the path stays a fallback copy.
+    const promotions = promotionFor(sectionRecord(), surfaces);
+    const bundle = coreBundle();
+    assert.equal(resolvedContentLocaleOf(CORE_PATH, "es", promotions, surfaces), "en", `${label} moved ownership`);
+    const rendered = pageCopyFor(CORE_PATH, "es", bundle, promotions, surfaces);
+    assert.equal(rendered.entity, bundle, `${label} must leave the bundle untouched`);
+    assert.equal(rendered.contentLocale, "en", `${label} must not advertise a content locale`);
+  }
+  // `undefined` used to reach `for (const slot of surface)` and throw at module
+  // scope through `TRANSLATED_PAGES = approvedPromotions()`, which takes down
+  // every importer of the availability layer rather than refusing one record.
+  assert.doesNotThrow(() => evidenceDecisionFor(sectionRecord(), [sectionRecord()], { [CORE_PATH]: undefined }));
+  assert.doesNotThrow(() => approvedPromotions([sectionRecord()], { [CORE_PATH]: undefined }));
+  // A malformed entry against an entity detail path is refused as well, rather
+  // than quietly left to whichever rule the mistake happened not to contradict.
+  const detail = "/products/water-soluble-pva-yarn";
+  assert.equal(promotableClassFor(detail, { [detail]: null }), null,
+    "a malformed entry may not fall through to the entity rule");
+  assert.equal(promotionFor(entityRecord(), { [detail]: null }).length, 0,
+    "and the damage there is a granted promotion, not just a label: the entity record must promote nothing");
+  assert.equal(resolvedContentLocaleOf(detail, "es", promotionFor(entityRecord(), { [detail]: null }), { [detail]: null }), "en",
+    "the entity path must keep its English owner under a malformed entry");
+  assert.equal(promotableClassFor(detail, { [detail]: ["name", "summary"] }), null,
+    "a path claiming both classes is still refused by both");
+  assert.equal(promotableClassFor(detail), "entity", "and an unregistered entity path keeps 003A's treatment");
+  // None of the above is a shipped answer: the registry still ships empty.
+  assert.deepEqual(Object.keys(SECTION_SURFACES), []);
+  assert.equal(resolvedContentLocaleOf(CORE_PATH, "es"), "en");
+  assert.equal(approvedPromotions().length, 0);
+});
+
 // ---------------------------------------------------------------------------
 // 3 · The render net: the page must agree with the declaration.
 // ---------------------------------------------------------------------------
@@ -305,6 +365,57 @@ test("REQ 4 · pageCopyFor refuses a bundle that drifts from its surface", () =>
   assert.equal(pageCopyFor(CORE_PATH, "en", bundle, [], surfaces).contentLocale, "en");
   const passthrough = { slug: "water-soluble-pva-yarn", name: { en: "A b c", zh: "甲乙丙" } };
   assert.equal(pageCopyFor("/quality", "en", passthrough).entity, passthrough);
+});
+
+test("REQ 4 · pageCopyFor refuses a declared slot the renderer cannot widen", () => {
+  const surfaces = withSurface(CORE_PATH);
+  const bundle = coreBundle();
+  const promotions = promotionFor(sectionRecord(), surfaces);
+  assert.equal(promotions.length, 1, "the record itself is complete and honestly provenanced");
+  // Each shape below passes the *name* test: the key is declared, the bundle
+  // carries it, nothing is missing and nothing is extra. Only the value shape
+  // tells the renderer it can write reviewed copy into the slot, and that is the
+  // case a name-only check cannot see — without it the page keeps its English
+  // text while the canonical, hreflang, sitemap and `inLanguage` all move to es.
+  const unrenderable = [
+    ["a plain string", { ...bundle, cta: CORE_SOURCE.cta }],
+    ["a list of locale pairs", { ...bundle, cta: [{ en: "Request a quote", zh: "申请报价" }] }],
+    ["a nested bundle", { ...bundle, cta: { title: { en: "a b", zh: "甲乙" }, body: { en: "c d", zh: "丙丁" } } }],
+    ["a pre-resolved locale", { ...bundle, cta: { en: "x y", zh: "甲乙", es: "z" } }],
+  ];
+  for (const [label, shaped] of unrenderable) {
+    assert.throws(
+      () => pageCopyFor(CORE_PATH, "es", shaped, promotions, surfaces),
+      /not-widenable \[cta\]/,
+      `${label} must fail at prerender instead of rendering English under a promoted canonical`,
+    );
+    assert.throws(
+      () => pageCopyFor(CORE_PATH, "en", shaped, promotions, surfaces),
+      /does not match what it renders/,
+      `${label} must fail on every locale, not only the promoted one`,
+    );
+    assert.throws(
+      () => pageCopyFor(CORE_PATH, "zh", shaped, promotions, surfaces),
+      /does not match what it renders/,
+      `${label} must fail on the modelled locale too`,
+    );
+  }
+  // The legitimate shapes still pass: this is a shape test, not a leaf-type test.
+  const widened = pageCopyFor(CORE_PATH, "es", bundle, promotions, surfaces);
+  assert.equal(widened.contentLocale, "es");
+  assert.equal(widened.entity.cta.es, CORE_CONTENT.cta, "the reviewed copy must reach the render");
+  const listCopy = sectionRecord({ content: { ...CORE_CONTENT, cta: ["Solicitar cotización", "Respuesta en 24 h"] } });
+  const listPromotions = promotionFor(listCopy, surfaces);
+  assert.equal(listPromotions.length, 1, "a list-valued field is a legal TranslatedValue");
+  assert.deepEqual(
+    pageCopyFor(CORE_PATH, "es", bundle, listPromotions, surfaces).entity.cta.es,
+    ["Solicitar cotización", "Respuesta en 24 h"],
+    "reviewed copy may itself be a list, so the guard must not reject it",
+  );
+  // An entity bundle is untouched by the new clause: its non-copy fields are
+  // deliberately not slots, and INTL-DEES-003A's behaviour must not move.
+  const entityBundle = { slug: "water-soluble-pva-yarn", name: { en: "A b c", zh: "甲乙丙" } };
+  assert.equal(pageCopyFor("/products/water-soluble-pva-yarn", "en", entityBundle).entity, entityBundle);
 });
 
 test("REQ 4 · a promoted bundle renders the reviewed copy under the reviewed key", () => {
@@ -415,6 +526,7 @@ const POLICY_STRINGS = [
   "undeclared-content-field", "duplicate-evidence", "copy-not-translated",
   "locale-not-promotable", "path-not-entity-detail", "has no translated",
   "surface-slot-undeclared", "surface-slot-extra", "does not match what it renders",
+  "not-widenable",
 ];
 
 test("build: no client chunk carries any ownership string, new ones included", buildOptions, () => {

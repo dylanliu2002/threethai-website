@@ -200,11 +200,11 @@ function isContentField(value: unknown): value is Record<ContentLocale, unknown>
  * detection is structural, not class-based — a bundle slot looks exactly like an
  * entity's body field, a `{ en, zh }` pair — so one function, and one net, covers
  * both page kinds. For a path that declares a surface, the bundle handed to this
- * function must carry **exactly** the declared slots, and it is checked on every
- * locale rather than only on a promoted one: a page whose rendered copy drifts
- * from what its surface claims is a page whose evidence no longer describes, and
- * discovering that at approval time instead of prerender time is how a partial
- * localization would get through.
+ * function must carry **exactly** the declared slots, each one as a `{ en, zh }`
+ * pair this loop can widen, and it is checked on every locale rather than only on
+ * a promoted one: a page whose rendered copy drifts from what its surface claims
+ * is a page whose evidence no longer describes, and discovering that at approval
+ * time instead of prerender time is how a partial localization would get through.
  */
 export function pageCopyFor<T extends object>(
   path: string,
@@ -215,15 +215,28 @@ export function pageCopyFor<T extends object>(
 ): { entity: RenderedContent<T>; contentLocale: Locale } {
   const surface = sectionSurfaceFor(path, surfaces);
   if (surface !== null) {
+    const bundle = entity as Record<string, unknown>;
     const bundleKeys = Object.keys(entity);
     const missing = surface.filter((slot) => !bundleKeys.includes(slot));
     const extra = bundleKeys.filter((key) => !surface.includes(key));
-    if (missing.length > 0 || extra.length > 0) {
+    // A declared slot that the widening loop below cannot read as a `{ en, zh }`
+    // pair would keep its English text while the promotion still moved the
+    // canonical, hreflang, sitemap and `inLanguage` — so a surface may only name
+    // slots the renderer can actually output reviewed copy into. The test is on
+    // the slot's shape, never on its leaf type: `TranslatedValue` allows a list,
+    // so `{ en: [...], zh: [...] }` is legitimate reviewed copy and must pass.
+    const notWidenable = surface.filter(
+      (slot) => bundleKeys.includes(slot) && !isContentField(bundle[slot]),
+    );
+    if (missing.length > 0 || extra.length > 0 || notWidenable.length > 0) {
       throw new Error(
         `translation-evidence: ${path} declares a copy surface that does not match what it ` +
-          `renders — missing [${missing.join(", ")}], not-in-surface [${extra.join(", ")}]. ` +
-          `Either render those slots through the surface, or narrow the surface to the copy the ` +
-          `page actually shows. A promotion may only be reviewed against the page's real copy.`,
+          `renders — missing [${missing.join(", ")}], not-in-surface [${extra.join(", ")}], ` +
+          `not-widenable [${notWidenable.join(", ")}]. Each slot must be a { en, zh } pair the ` +
+          `page renders, like an entity body field: a slot the renderer skips is English copy ` +
+          `under a localized canonical. Either render those slots through the surface, or ` +
+          `narrow the surface to the copy the page actually shows. A promotion may only be ` +
+          `reviewed against the page's real copy.`,
       );
     }
   }

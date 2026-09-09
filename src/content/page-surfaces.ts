@@ -68,7 +68,10 @@
  *
  * Keys are slot names of the page's own bundle, and each must be a key the page
  * actually renders through — `pageCopyFor` throws on a bundle that carries a
- * slot the surface does not declare, or misses one it does. Values are never
+ * slot the surface does not declare, misses one it does, or carries a declared
+ * slot as anything other than a `{ en, zh }` pair, which is the shape the
+ * renderer widens. A slot it cannot read is refused at prerender rather than
+ * quietly keeping its English text under a promoted canonical. Values are never
  * copy: the copy lives in the page bundle and in the evidence record, which is
  * the whole point of keeping this list structural.
  */
@@ -85,7 +88,14 @@ export type SectionSurface = readonly string[];
  */
 export const SECTION_SURFACES: Readonly<Record<string, SectionSurface>> = {};
 
-/** Is this path registered as a core/section page with an enumerable surface? */
+/**
+ * Is this path registered as a core/section page at all?
+ *
+ * Key presence only, and deliberately: this answers "did somebody declare this
+ * path", never "is the declaration usable". Everything that consumes slots calls
+ * `sectionSurfaceFor`, and `promotableClassFor` refuses a path that is registered
+ * with an unusable value, so the two can never disagree.
+ */
 export function isSectionEvidencePath(
   path: string,
   surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
@@ -93,10 +103,26 @@ export function isSectionEvidencePath(
   return Object.prototype.hasOwnProperty.call(surfaces, path);
 }
 
-/** The declared slots for a registered path, or `null` when unregistered. */
+/**
+ * The declared slots for a registered path, or `null` when there is no usable
+ * declaration: the path is unregistered, or it is registered with something that
+ * is not an array of slot names (`null`, `undefined`, a string, an object).
+ *
+ * The runtime check is not decoration. `SECTION_SURFACES` is typed, but every
+ * function in this layer also accepts a registry as an argument, and
+ * `tsconfig.json` sets `strict` without `noUncheckedIndexedAccess` — so a map
+ * assembled by index lookup (`{ ...base, [path]: base[path] }`, or
+ * `withSurface(path, SLOTS[path])` for a page that has not been migrated)
+ * compiles clean while handing a non-array here. Reading the value instead of
+ * answering `null` would either crash at module scope through
+ * `TRANSLATED_PAGES = approvedPromotions()` or, for `null`, silently skip every
+ * section rule and judge a core page by the looser entity obligation.
+ */
 export function sectionSurfaceFor(
   path: string,
   surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
 ): SectionSurface | null {
-  return isSectionEvidencePath(path, surfaces) ? surfaces[path] : null;
+  if (!Object.prototype.hasOwnProperty.call(surfaces, path)) return null;
+  const declared = surfaces[path];
+  return Array.isArray(declared) ? declared : null;
 }

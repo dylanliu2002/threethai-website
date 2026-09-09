@@ -140,13 +140,21 @@ export function isDeepContentDetail(path: string): boolean {
  * core surface can never quietly re-decide how an entity detail page is judged —
  * and a mistake in the registry fails closed into "refuse this record" instead of
  * into "apply the looser rule".
+ *
+ * A path registered with a value that is not a slot list is the same kind of
+ * mistake, and gets the same answer. Presence is what makes a path claim the
+ * `section` class; the slots are what makes that claim checkable. Treating a
+ * malformed entry as "not a section path" would hand a core route to the entity
+ * obligation, which is the looser rule and the exact opposite of fail-closed.
  */
 export function promotableClassFor(
   path: string,
   surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
 ): "entity" | "section" | null {
   const entity = isDeepContentDetail(path);
-  const section = isSectionEvidencePath(path, surfaces);
+  const registered = isSectionEvidencePath(path, surfaces);
+  const section = registered && sectionSurfaceFor(path, surfaces) !== null;
+  if (registered && !section) return null;
   if (entity === section) return null;
   return entity ? "entity" : "section";
 }

@@ -627,18 +627,82 @@ Validation: `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` reports 187 tests, 0 fail,
 
 ## Review Status
 
-- Independent review: **not started**. The implementer is not a reviewer
-  (`AGENTS.md` §13). Highest-value review targets, in order: (1) **A3b's corrected
-  measurement** — re-derive it independently, because the first pass of the same
-  tool was wrong in a way this implementer did not catch until a delegated report
-  disagreed with it, and a second bad table here would misdirect the whole content
-  line; (2) R1's resolution — whether proving section promotion through
-  `resolvedContentLocaleOf` plus a derivation-equality test is sufficient, given
-  the alternative was editing 002B's suite; (3) whether an empty registry with four
-  synthetic-fixture nets counts as "support implemented", now that A3b shows no
-  core page is near enough to translation to be promoted anyway; (4) whether A6's
-  two verified defects should gate this merge at all, given nothing is activated by
-  it and the registry ships empty.
+- Independent review: **performed 2026-09-08/09 on a different worker, verdict
+  REQUEST_CHANGES, one blocker (B-1), now fixed** — see *Review correction (B-1)*
+  below. The four review targets this section listed were all worked:
+  (1) A3b was re-derived independently and **holds** — a reviewer wrote their own
+  block classifier (different prose test, different splitting, identity against
+  the English owner) and ran it on a fresh build of `f27bfca`: 12 of the 13 rows
+  reproduce the card's ES percentage exactly, `/quality` measures 118/132 = 89 pct
+  against the recorded 121/135 = 90 pct, and the aggregates come out ES 70.4 /
+  DE 72.2 / ZH control 20.9 against the claimed 71 / 72 / 21. Nothing here is
+  inherited from the tool that produced the table. (2) R1's resolution was
+  accepted: the shipped policy answers identically to
+  `resolvedContentLocaleOf(path, locale) === locale` on 1,760 measured
+  (path, locale, function) comparisons, and `availability.ts` is byte-untouched.
+  (3) The empty registry was judged the right scope, but **not** sufficient as
+  evidence, which is what B-1 is. (4) A6's two defects do not gate the merge; the
+  review confirmed both and corrected A6.2's inventory, which under-counted the
+  duplicated renderers (see Coordination Items).
+- Reviewer-flagged minors that are **not** fixed here, because this task's
+  correction was bounded to B-1 by instruction: M1-M9 in the review record. The
+  two that matter most for the next card are the ES/DE home-document blind spot in
+  both build probes (`app/es.html` / `app/de.html`, not `app/es/.html`), and the
+  absence of any pin tying a declared surface to a renderer that calls
+  `pageCopyFor`.
+
+## Review correction (B-1) — 2026-09-09
+
+B-1 was a fail-open in the new `section` class, measured at `fab334a` and closed by
+`INTL-DEES-004B CORRECTION`. It had two entrances, both instances of one root: the
+declared surface was consumed as a list of **names** and never validated as a list
+the renderer can honour.
+
+- (a) `pageCopyFor` compared bundle keys against the declared slots, while the
+  substitution loop that applies the reviewed copy skips any value that is not a
+  non-array object with exactly the keys `en` and `zh`. A complete, honestly
+  provenanced record over a declared surface whose slot was a plain string, a list
+  of `{en, zh}` pairs, or a nested object granted `contentLocale = "es"` — moving
+  canonical, hreflang, sitemap and `inLanguage` — and left that slot in English.
+- (b) Class membership was decided by key presence and the section rules by value
+  non-nullity, so `{"/quality": null}` classed the path `section` while skipping
+  every section rule and promoted a 2-of-3-slot record; `{"/quality": undefined}`
+  threw `TypeError: surface is not iterable` at module scope through
+  `TRANSLATED_PAGES = approvedPromotions()`.
+
+Fixed in three places, one per responsibility: `sectionSurfaceFor` now returns
+`null` unless the registered value is an array; `promotableClassFor` refuses a path
+registered with no usable slot list, so a malformed entry is claimed by neither
+class rather than falling through to the looser entity obligation; and the existing
+`surface !== null` branch in `pageCopyFor` gained a `notWidenable` check, so a slot
+the renderer cannot write reviewed copy into fails the build instead of shipping
+English under a localized URL. Both B-1's shipped claims are now true as written.
+
+- Validation at this head: lint PASS (no findings) · typecheck PASS · `next build`
+  PASS 225/225 · `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` **189 / 189 pass, 0
+  fail, 0 skipped** (187 before, +2 here) · `npm run test:first-wave` 5/5 ·
+  `git diff --check` clean.
+- The two new tests are red without the fix, and each fix piece is independently
+  required: reverting all three fails exactly those 2 of 20; removing the
+  `Array.isArray` validation alone fails 1; the class-decision refusal alone fails
+  1; dropping `notWidenable` from the throw fails 1; a `notWidenable` that is
+  present but never fires fails 1; weakening the guard to a `typeof === "object"`
+  test fails 1. The 18 pre-existing tests were not rewritten to fit.
+- Not over-broad: the guard reuses the same `isContentField` predicate the widening
+  loop applies three lines later, so the reject set is exactly the set the renderer
+  provably cannot write into. List-valued reviewed copy still passes
+  (`{en: [...], zh: [...]}`), and entity bundles are untouched because the clause
+  sits inside `surface !== null`. Sibling suites are identical before and after:
+  002B 7/7, 003A 24/24, 003B 13/13, GSC-INDEX-002 18/18.
+- Still inert, as shipped: `SECTION_SURFACES = {}`, `TRANSLATION_EVIDENCE = []`,
+  `TRANSLATED_PAGES = []`, no ES/DE promotion, and no rendered SEO answer moved —
+  220 paired documents fingerprinted with **0** differences against a build of
+  `fab334a` **and** against a build of `f27bfca`, `sitemap.xml.body` (30,366 B) and
+  `robots.txt.body` (290 B) byte-identical to both, sitemap 55 `<loc>` with 0 ES/DE
+  locs and hreflang universe `{en, x-default, zh-CN}`, and 0 of 18 client chunks
+  carrying any ownership literal (the new `not-widenable` string included). Chunk
+  totals drift by 1-20 bytes between builds on this host, so the fingerprint and the
+  zero-hit marker scan are cited, not byte equality.
 
 ## Completion Record
 

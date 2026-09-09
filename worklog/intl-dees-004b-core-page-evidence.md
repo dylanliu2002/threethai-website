@@ -328,16 +328,101 @@ verified upstream defects, the migration contract, and an explicit instruction n
 to merge on the description alone. Requested and not yet done: an independent
 reviewer on a different role/worker/thread (§13).
 
+## 2026-09-09 · Independent review returned REQUEST_CHANGES, and B-1 is corrected
+
+The review ran on a different worker against `fab334a` and reported one blocker. It
+is fixed here; the minors it raised are recorded, not fixed, because the correction
+was bounded to B-1.
+
+What the blocker was, stated as the mechanism rather than the label: the new
+`section` class consumed its declared surface as a list of **names**. Two entrances
+followed, both measured before being argued. (a) `pageCopyFor` compared bundle keys
+to the declared slots while the loop that actually applies the reviewed copy skips
+any value that is not a non-array object with exactly the keys `en` and `zh`, so a
+slot authored as a plain string, a list of pairs, or a nested object granted
+`contentLocale = "es"` — moving canonical, hreflang, sitemap and `inLanguage` — and
+left that slot rendering English. (b) Presence decided the class and value
+non-nullity decided the rules, so a registry entry holding `null` classed a core
+path as `section` and skipped every section rule, promoting a record that covered
+2 of 3 slots; the same entry holding `undefined` threw at module scope through
+`TRANSLATED_PAGES = approvedPromotions()` and took down every importer.
+
+What is true now, at this head: `sectionSurfaceFor` yields `null` for any
+registered value that is not an array, `promotableClassFor` refuses a path
+registered with no usable slot list so a malformed entry is claimed by neither
+class, and `pageCopyFor` fails the build on a declared slot it cannot widen. The
+guard is exactly as broad as the renderer's inability, because it reuses the same
+`isContentField` predicate the widening loop applies three lines later — list-valued
+reviewed copy over a `{en, zh}` slot still passes, and entity bundles are untouched
+since the clause sits inside `surface !== null`.
+
+Cost of the miss, stated plainly: this is the second time in one task that a claim
+about this gate outran what the code enforces, and the review caught it by running
+the input rather than reading the guard. The card's own residual-risk row (R2) said
+the registry is the only completeness statement for a core page. It was right, and
+nothing checked that the statement was well-formed.
+
+Gates re-run at this state, not reused: lint PASS with no findings · typecheck PASS ·
+`next build` PASS 225/225 · `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` **189/189, 0
+fail, 0 skipped** (187 plus 2 new) · `npm run test:first-wave` 5/5 · `git diff
+--check` clean. Red-first proof and a single-mutant battery in a scratch tree outside
+the repository (the reviewed tree stayed byte-clean): all three fix pieces reverted →
+exactly the 2 new tests fail out of 20; `Array.isArray` validation removed alone →
+1; class-decision refusal removed alone → 1; `notWidenable` dropped from the throw →
+1; `notWidenable` present but never firing → 1; the guard weakened to a
+`typeof === "object"` test → 1. Neighbouring suites identical before and after: 002B
+7/7, 003A 24/24, 003B 13/13, GSC-INDEX-002 18/18.
+
+Inertness re-measured against both of the reviewer's own builds: 220 paired documents
+with **0** differences in `lang`/`dir`, canonical, every hreflang alternate pair,
+title, description, robots, `og:locale`, `og:url`, JSON-LD `@type`, every
+`inLanguage` and the visible text, versus `fab334a` **and** versus `f27bfca`;
+`sitemap.xml.body` 30,366 B and `robots.txt.body` 290 B identical to both; sitemap
+55 `<loc>`, 0 ES/DE locs, hreflang universe `{en, x-default, zh-CN}`; 0 of 18 client
+chunks carrying any ownership literal including the new string. Client-chunk totals
+drift by 1-20 bytes between builds of *different* trees on this host, so the
+fingerprint and the marker scan are the evidence here and byte-identity is not
+claimed.
+
+The review also reproduced A3b independently, which was its first listed target: a
+reviewer's own classifier over a fresh build of `f27bfca` matches 12 of the 13 rows
+exactly and the aggregates to within 0.6 pct (ES 70.4 vs 71, DE 72.2 vs 72, ZH
+control 20.9 vs 21). The corrected table is not an artifact of the tool that broke.
+
+Recorded from the review and deliberately **not** fixed in this correction:
+- `tests/intl-dees-004b-…mjs:486-489` resolves the ES homepage to `app/es/.html`,
+  which no build emits (`app/es.html` is the real path), then `continue`s on a
+  missing document; the same file's zero-promotion sweep at `:437-439` derives the
+  locale from `relative.split("/")[0]` and so never opens `es.html`/`de.html` —
+  108 of 110 ES/DE documents. Both skipped documents were checked by hand and are
+  correct today, so these are test blind spots, not shipped defects.
+- Nothing pins that a declared surface is rendered through `pageCopyFor`: all 9 call
+  sites are entity detail. A migration that registers a path without routing its
+  bundle leaves the render net with no consumer.
+- `POLICY_STRINGS` carries 12 markers against 16 codes the gate pushes; 6 are
+  absent, and the list is a second copy of 003B's.
+- A6.2's inventory is short: the shared-view pairs are `about`, `contact`,
+  `quality`, `manufacturing`, `products/[slug]`, `applications/[slug]` only, so
+  `/`, `/products`, `/answers/[slug]` and `/knowledge/[slug]` are duplicated trees
+  and two of them are entity detail paths promotable today.
+- §9 lists `tests/intl-dees-003b-…mjs:272-273` as a pin that will fail on the first
+  core promotion; it builds its policy from an explicit synthetic registry and
+  cannot.
+- `approvedEvidenceFor` never gained the `surfaces` parameter its four siblings did.
+- The rollback note's single `git revert` of `4eae62f` conflicts, because `a9b7a51`
+  later modified `page-surfaces.ts`, this card and this worklog.
+- Two `zh` claims and one `128 of 248` denominator remain as coordination items.
+
 ## Open at hand-off
 
-- Independent review not started (§13). Points worth attacking first are on the
-  card's Review Status: whether R1's resolution is sufficient, whether an empty
-  registry plus four synthetic nets counts as implemented support, and whether any
-  row of A3 was mis-read.
-- R2 is the honest residual: nothing in the architecture can prove a declared
-  surface is *complete*; the per-page review at migration time carries that, with
-  the built-document retention check as the backstop.
-- A PR has not been opened; the branch is pushed for review.
+- Independent review **done** (§13): REQUEST_CHANGES with one blocker; B-1 is fixed
+  by this correction and needs re-verification at the correction's own head before
+  merge. The minors are listed above and none of them is fixed here.
+- R2 is the honest residual: nothing in the architecture can prove a declared surface
+  is *complete*; the per-page review at migration time carries that. The built-document
+  retention backstop is weaker than recorded (it cannot see `/`, `de` or entity
+  promotions), so the per-page review carries more than the card says.
+- PR #32 is open against `main`; this correction is a commit on its branch.
 - INTL-DEES-004A still has no repository artifact. If it exists in another
   worker's chat, publishing it would let someone diff its assumptions against
   A1-A5 instead of trusting this re-derivation.
