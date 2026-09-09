@@ -255,10 +255,26 @@ Three findings, all fixed:
   mark titles are per-locale, with the three standard names identical across
   languages because those are the names of the documents.
 
-Residual after this pass (`/es/applications` 16 → 11 distinct English blocks;
-`/es/quality` 40, of which 36 are registered patent titles/numbers; `/es/products`
-27, of which 16 are technical spec chips): what is left is entity copy that the 18
-draft records already translate, and identifiers that must not be translated.
+A number in the commit message for this pass was wrong and is corrected here rather
+than rewritten in history: it claimed `/es/applications` went 16 → 11 English blocks.
+Those two figures came from two different measurements — the attributed count of
+*distinct* blocks, and the shared-with-the-English-owner count of *occurrences* that
+every table in this worklog uses. Re-run on the same build, the index page is still
+16 blocks / 33%, unchanged.
+
+The fix to the application cards was real but it is not a percentage win yet, and for
+an exact reason worth stating: the old line rendered `slug.replaceAll("-", " ")`, and
+the English owner renders the same mangled slug, so the two pages agreed and the
+residual metric never counted it. Replacing it with the product's real name keeps the
+count identical because that name is still English until a record is approved — what
+changed is that the page no longer shows a URL fragment as a label, and that the cards
+now follow the approval instead of being stuck in English forever.
+
+Measured on the shared-with-owner basis used throughout: `/es/quality` 52% (132/252,
+36 of them registered patent titles and numbers), `/es/products` 48% (38/80, 16 of
+them technical spec chips), `/es/applications` 33% (16/48), `/es` 33% (39/117).
+What is left is entity copy the 18 draft records already translate, plus identifiers
+that must not be translated.
 
 EN 57/57 and ZH 55/55 documents still byte-unchanged; no SEO field moved; 203/203
 SEO tests pass; records still drafts.
