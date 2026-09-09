@@ -14,8 +14,20 @@ import type { PartialDictionary } from "./index";
  * also stops the page from falling back to English chrome.
  *
  * Terminology follows the industrial B2B glossary agreed for this line:
- * wasserlösliches PVA-Garn · Nähgarn · Stapelfaser · Filament · Feinnummer
- * (count) · Auflösung/Entfernung · Weberei · Strickerei · Ausrüstung.
+ * wasserlösliches PVA-Garn · Nähgarn · Stapelfaser · Filament ·
+ * Auflösung/Entfernung · Weberei · Strickerei · Ausrüstung.
+ *
+ * Two rules this file must not lose again:
+ *
+ * - `count` is two concepts, never one term. A yarn or thread count is a
+ *   textile numbering, so `Feinnummer`; the number of filaments in a
+ *   filament yarn is a physical quantity, so `Filamentenzahl`. Spanish
+ *   matches: `título` and `número de filamentos`.
+ * - Where the English word is broader than the process the Chinese reference
+ *   names, translate the process. The sewing-thread commercial-specification
+ *   list says `finish` in English and 上油 in Chinese, so it is `Ölung` here —
+ *   not `Ausrüstung` — and `lubricación` in Spanish. A translation must not
+ *   widen what the company says it does.
  * Company and certificate identities stay verbatim: they are proper nouns and
  * registered names, not translatable prose. Numeric claims are never altered.
  */

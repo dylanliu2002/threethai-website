@@ -139,3 +139,40 @@ branch ships.
 one `tasks/` card and one worklog only — no overlap with any file here, and
 `git merge-tree --write-tree origin/main HEAD` is clean, so the branch stayed on
 its assigned base rather than rebasing mid-review.
+
+## 2026-09-09 — Owner terminology decisions, applied and re-verified
+
+The owner paused evidence approval, kept every record `draft`, and settled the
+two translation decisions raised by this card.
+
+**`count` — the split is kept and now written down.** A textile numbering and a
+filament quantity are different concepts and must not be normalised to one term:
+`título` / `Feinnummer` for a yarn or thread count, `número de filamentos` /
+`Filamentenzahl` for the number of filaments. Recorded in the glossary header of
+both `src/content/i18n/es.ts` and `de.ts`, which is where the next translation
+pass looks, rather than only in a code comment.
+
+**`finish` — narrowed to what the source actually claims.** In the sewing-thread
+commercial-specification list the English reads `finish` and the Chinese reads
+上油, so the generic `el acabado` / `Ausrüstung` widened the statement. Now
+`la lubricación` / `Ölung`. The same note records the general rule: where the
+English word is broader than the process the Chinese names, translate the
+process; do not widen a claim about what the company does.
+
+Applied to `src/content/translation-copy.ts` and to the `products-copy.json` it is
+generated from, so the parity between the reviewed store and the shipped store
+still holds (376 leaves cross-checked, no drift).
+
+Re-verification at this state: `npm run lint` clean, `npx tsc --noEmit` clean,
+`npm run build` 225 pages, `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` → **203 tests,
+203 pass, 0 fail, 0 skipped**. Prerender comparison against the pre-task build:
+EN 57/57 unchanged, ZH 55/55 unchanged, ES/DE 55 each changed in visible text
+with title on 50 and description on 11, and **0 documents with an SEO field
+moved**. The two edited routes carry neither the old nor the new term today,
+because the record is a draft — verified, then checked again on a throwaway
+approved build where `/es/products/water-soluble-pva-sewing-thread` renders
+`la lubricación` and `/de/…` renders `Ölung`, with no trace of the broad terms,
+self-canonical and `og:locale` in the target language; that build was reverted.
+
+Evidence approval remains paused: 18 records, 18 drafts, 0 promotions,
+`reviewedBy` still the pending marker and `reviewedOn` still empty.

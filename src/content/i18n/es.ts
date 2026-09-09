@@ -14,7 +14,19 @@ import type { PartialDictionary } from "./index";
  *
  * Terminology follows the industrial B2B glossary agreed for this line:
  * hilo de PVA hidrosoluble · hilo de coser · fibra cortada · filamento ·
- * título (count) · disolución/eliminación · tejeduría · punto · acabado.
+ * disolución/eliminación · tejeduría · punto · acabado.
+ *
+ * Two rules this file must not lose again:
+ *
+ * - `count` is two concepts, never one term. A yarn or thread count is a
+ *   textile numbering, so `título`; the number of filaments in a filament
+ *   yarn is a physical quantity, so `número de filamentos`. German matches:
+ *   `Feinnummer` and `Filamentenzahl`.
+ * - Where the English word is broader than the process the Chinese reference
+ *   names, translate the process. The sewing-thread commercial-specification
+ *   list says `finish` in English and 上油 in Chinese, so it is `lubricación`
+ *   here — not `acabado` — and `Ölung` in German. A translation must not
+ *   widen what the company says it does.
  * Company and certificate identities stay verbatim: they are proper nouns and
  * registered names, not translatable prose. Numeric claims are never altered.
  */

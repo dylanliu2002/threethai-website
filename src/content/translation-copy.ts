@@ -215,7 +215,7 @@ export const productCopy = {
         ],
         [
           "Fijar la especificación comercial",
-          "Tras un ensayo satisfactorio, registre el título, el número de cabos, el acabado, el tamaño del embobado, el etiquetado, el método de ensayo y los criterios de aceptación, de modo que el pedido de producción siga la muestra aprobada.",
+          "Tras un ensayo satisfactorio, registre el título, el número de cabos, la lubricación, el tamaño del embobado, el etiquetado, el método de ensayo y los criterios de aceptación, de modo que el pedido de producción siga la muestra aprobada.",
         ],
       ],
       de: [
@@ -229,7 +229,7 @@ export const productCopy = {
         ],
         [
           "Die kommerzielle Spezifikation fixieren",
-          "Nach einem erfolgreichen Versuch sind Feinnummer, Zahl der Einzelfäden, Ausrüstung, Paketgröße, Etikettierung, Prüfverfahren und Abnahmekriterien festzuhalten, damit der Produktionsauftrag dem freigegebenen Muster folgt.",
+          "Nach einem erfolgreichen Versuch sind Feinnummer, Zahl der Einzelfäden, Ölung, Paketgröße, Etikettierung, Prüfverfahren und Abnahmekriterien festzuhalten, damit der Produktionsauftrag dem freigegebenen Muster folgt.",
         ],
       ],
     },
