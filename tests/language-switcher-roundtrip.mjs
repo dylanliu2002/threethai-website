@@ -34,6 +34,8 @@ const read = (relativePath) => readFileSync(path.join(repoRoot, relativePath), "
 const importSource = (relativePath) => import(pathToFileURL(path.join(repoRoot, relativePath)).href);
 
 const { locales, localePath, localeLabels, htmlLang } = await importSource("src/content/company.ts");
+const { suggestedLocaleFor, pathWithoutLocale } = await importSource("src/content/locale-suggestion.ts");
+const { clientLabels } = await importSource("src/content/site-copy.ts");
 const routing = await importSource("src/content/locale-routing.ts");
 const { routeFor, LOCALE_COOKIE, LOCALE_PARAM, PERMANENT_REDIRECT_STATUS } = routing;
 
@@ -224,6 +226,91 @@ test("REQ 4 · the English entry stays English whatever the cookie says", () => 
       assert.equal(second.kind, "serve", `${alias} did not settle in two hops`);
     }
   }
+});
+
+/* ------------------------------------------------------- language notice */
+test("REQ 6 · the browser's own preferences map onto a site language, or nothing", () => {
+  const cases = [
+    [["de-AT", "en"], "en", "de"],
+    [["es-MX", "es"], "en", "es"],
+    [["zh-CN", "en"], "de", "zh"],
+    [["en-GB"], "en", null],
+    [["fr-FR", "de"], "en", "de"],
+    [["de"], "de", null],
+    [["pt-BR"], "en", null],
+    [[], "en", null],
+    [["  ", "de-DE"], "en", "de"],
+  ];
+  for (const [preferred, current, expected] of cases) {
+    assert.deepEqual(suggestedLocaleFor(preferred, current), expected,
+      `${JSON.stringify(preferred)} on a ${current} page`);
+  }
+  // A retired code must never be suggested: there is no page to suggest.
+  for (const retired of ["pt", "ru", "ar", "tr", "vi", "id"]) {
+    assert.equal(suggestedLocaleFor([retired], "en"), null, `${retired} is retired and cannot be suggested`);
+  }
+  // The path strip must agree with the picker about what a locale prefix is.
+  assert.equal(pathWithoutLocale("/de/products"), "/products");
+  assert.equal(pathWithoutLocale("/products"), "/products");
+  assert.equal(pathWithoutLocale("/"), "/");
+  assert.equal(pathWithoutLocale("/pt/products"), "/pt/products", "a retired prefix is not a locale to strip");
+});
+
+test("REQ 6 · the notice can only ever be a link, never a navigation", () => {
+  // "Non-blocking" is what GSC-LOCALE-003A's own documentation asks of any
+  // browser-signal affordance. It is only real if the component holds no way to
+  // move the browser, so that is asserted rather than commented.
+  const notice = read("src/components/layout/locale-suggestion.tsx");
+  // Reading the address is how the notice builds its own link; writing it is a
+  // redirect. An assertion that forbids both forbids the component's purpose.
+  assert.doesNotMatch(notice, /location\.href\s*=|location\.assign\(|location\.replace\(|location\.reload|document\.location\s*=/,
+    "the notice must not navigate; a suggestion that redirects is the removed geo rule in disguise");
+  assert.doesNotMatch(notice, /useRouter|router\.push|router\.replace/, "the notice must not navigate");
+  assert.doesNotMatch(notice, /fetch\(|XMLHttpRequest|axios/, "the notice must not call anything");
+  assert.match(notice, /"use client"/, "the notice must be client-side, or it decides the served document");
+  // A server snapshot of null is what keeps the prerendered HTML identical for
+  // every visitor; a setState-in-effect would re-render instead and is rejected by
+  // the repo's own lint rule.
+  assert.match(notice, /useSyncExternalStore\(\s*subscribe,\s*getSnapshot,\s*\(\)\s*=>\s*null\s*\)/,
+    "the notice must render nothing on the server, via a store snapshot rather than an effect");
+  assert.doesNotMatch(notice, /useState|useEffect/,
+    "the notice must not carry render-time state; it subscribes to the browser instead");
+  assert.doesNotMatch(notice, /document\.cookie\s*=/,
+    "dismissal belongs in localStorage; a cookie the server would then read is a request-time signal again");
+  // Its module graph must stop short of the gate: this is browser code, and
+  // INTL-DEES-003B measured what it costs when the gate is reachable from here.
+  for (const rel of ["src/components/layout/locale-suggestion.tsx", "src/content/locale-suggestion.ts"]) {
+    assert.doesNotMatch(
+      read(rel),
+      /from ["'](@\/content|\.\.)\/(locale-routing|translation-availability|translation-evidence)["']/,
+      `${rel} reaches the routing or gate modules, which would ship the SEO gate to browsers`,
+    );
+  }
+});
+
+test("REQ 6 · no server render may read a browser header", () => {
+  // If a layout consulted Accept-Language, every English page would become
+  // per-requester and stop being prerendered — 57 documents answered differently
+  // to Google than to the visitor who bookmarked them.
+  for (const rel of [
+    "src/app/(site)/layout.tsx", "src/app/[lang]/layout.tsx", "src/app/zh/layout.tsx",
+    "src/components/layout/root-document.tsx", "src/content/locale-routing.ts", "src/proxy.ts",
+  ]) {
+    assert.doesNotMatch(read(rel), /headers\(\)|Accept-Language|acceptLanguage/i,
+      `${rel} must not let a browser header decide what is rendered`);
+  }
+});
+
+test("REQ 6 · the notice is written in the language it offers", () => {
+  for (const l of ALL_LOCALES) {
+    for (const key of ["localeNotice", "localeNoticeLink", "localeNoticeDismiss"]) {
+      const value = clientLabels[l]?.[key];
+      assert.ok(typeof value === "string" && value.trim().length > 1, `${l}.${key} is missing`);
+    }
+  }
+  assert.match(clientLabels.de.localeNoticeLink, /Deutsch/);
+  assert.match(clientLabels.es.localeNoticeLink, /español/);
+  assert.match(clientLabels.zh.localeNoticeLink, /[一-鿿]/);
 });
 
 /* --------------------------------------------------- proxy wiring (source) */
