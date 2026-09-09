@@ -4,21 +4,18 @@ import Reveal from "@/components/layout/reveal";
 import { applications } from "@/content/applications";
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
-import { pageCopyFor } from "@/content/translation-availability";
+import { applicationCard } from "@/content/card-copy";
 
 export default function HomeApplications({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const t = dict.home.applications;
-  // Same rule as the applications index: an application's name, summary and image
-  // description belong to that page, so they arrive through its copy resolution.
-  const cards = applications.map((application) => {
-    const copy = pageCopyFor(`/applications/${application.slug}`, locale, application);
-    return {
-      application,
-      name: copy.entity.name[copy.contentLocale],
-      summary: copy.entity.summary[copy.contentLocale],
-      imageAlt: copy.entity.imageAlt[copy.contentLocale],
-    };
-  });
+  // A card quotes another page's headline text, but the card belongs to this page.
+  // That is why it can read Spanish before the detail page is promoted; the
+  // promotion seam is pageCopyFor, used by the page's own body, and nothing here
+  // reaches through it. See src/content/card-copy.ts.
+  const cards = applications.map((application) => ({
+    application,
+    ...applicationCard(application.slug, locale),
+  }));
   return (
     <section className="border-y border-border bg-paper py-16 sm:py-20" aria-labelledby="home-applications-title">
       <div className="container-site">

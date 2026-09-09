@@ -278,3 +278,76 @@ that must not be translated.
 
 EN 57/57 and ZH 55/55 documents still byte-unchanged; no SEO field moved; 203/203
 SEO tests pass; records still drafts.
+
+## 2026-09-09 — Cards, not only pages: the third read of the same URLs
+
+The owner's third paste asked for the home product cards, the application cards and the
+article summaries to change with the language as well. They did not, and the cause is the
+same distinction this task keeps having to draw: all of those surfaces read the *entity*
+through `contentLocaleOf` / `pageCopyFor`, which is the promotion seam.
+
+This partly reverses the decision recorded in the section above. That pass routed the
+application and product cards through the gate because a card quotes another page's text,
+and it reasoned that the card should therefore follow that page's approval. The consequence
+was the bug the owner just reported: `/es` has no evidence record and can never have one
+under the current card set, so a card that waits on approval waits forever, and the listing
+pages stayed English no matter what was translated. The two duties are different, so they
+now have two seams: a card is prose owned by the page it sits on; a page body is the claim
+that earns URL ownership.
+
+New module `src/content/card-copy.ts` (`productCard`, `applicationCard`, `articleCard`):
+
+- English and Chinese come out of the entity, so a card cannot drift from the page it
+  points at.
+- Spanish and German come from `translation-copy.ts` — the same store the 18 draft records
+  were assembled from — so approving a page cannot leave its own cards saying something
+  different. Asserted field by field.
+- It imports neither `translation-availability` nor `translation-evidence` and never calls
+  `pageCopyFor`. Structurally a card has no route to a canonical, an hreflang entry, a
+  sitemap slot or `inLanguage`.
+- Article teasers are the honest exception. Only the three fields a card shows
+  (`category`, `title`, `intro`) were translated, in a table that re-reads its own en/zh
+  against `articles.ts` and throws on a mismatch. The article *bodies* are still
+  untranslated, so `/es/knowledge/<slug>` stays an English-owner fallback while its
+  listing card is Spanish.
+
+Wired: `product-card.tsx` (one path now serves `/`, `/es`, `/es/products` and `/zh`),
+`home-applications.tsx`, `home-knowledge.tsx`, `app/[lang]/applications/page.tsx`,
+`app/[lang]/knowledge/page.tsx` — including the `CollectionPage.hasPart` headlines, which
+now describe the entries a reader actually sees.
+
+English leaves per document, on the shared-with-the-English-owner basis used above:
+
+| Route | Locale | Before | After |
+| --- | --- | --- | --- |
+| `/es` | es | 39/117 · 33% | 12/117 · **10%** |
+| `/de` | de | not recorded | 11/117 · 9% |
+| `/es/products` | es | 38/80 · 48% | 30/80 · **38%** |
+| `/de/products` | de | not recorded | 29/80 · 36% |
+| `/es/applications` | es | 16/48 · 33% | 6/48 · **13%** |
+| `/de/applications` | de | not recorded | 6/48 · 13% |
+| `/es/knowledge` | es | not recorded | 6/48 · 13% |
+| `/de/knowledge` | de | not recorded | 6/48 · 13% |
+
+Two things looked like failures during verification and are not, recorded because both
+would mislead a later reader:
+
+- `productCard("water-soluble-pva-yarn", "es").name` is present in *every* Spanish
+  document. It is a substring of the header strip and the footer tagline — localised
+  chrome repeating a short product label, not a promoted page. This is why the build
+  assertions use a tagline; the earlier REQ 4 test already refused to assert on a name.
+- The German card name appeared to be *missing* from `/de/applications.html` to
+  `String.includes`. It is there, as `Handtuchweberei &amp; Zero-Twist`. The new build
+  test therefore compares **visible text** (tags and the flight payload removed, entities
+  decoded) instead of raw HTML — otherwise it measures escaping, not localisation.
+
+Suite went from 13 to 18 tests in this file (203 → 208 overall): every card surface
+imports the module and none prints a slug as a label; card text equals store text for
+es/de and entity text for en/zh; the teaser guard is exercised by making `articles.ts`
+disagree with the table and expecting the throw, since a guard nobody pokes is
+indistinguishable from one that is absent; `card-copy` reaches no promotion machinery; and
+in the built output a card's localised tagline is present on `/es/products.html` and
+absent from `/es/products/<slug>.html`, with canonical, sitemap and hreflang unmoved.
+
+EN 57/57 and ZH 55/55 documents still byte-unchanged; no SEO field moved; 208/208 SEO
+tests pass; all 18 records are still `draft` with `reviewedOn` unset.

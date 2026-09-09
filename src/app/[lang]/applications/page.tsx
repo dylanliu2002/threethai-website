@@ -7,7 +7,7 @@ import { applications } from "@/content/applications";
 import { buildMetadata, breadcrumbSchema, jsonLd } from "@/lib/seo";
 import { localePath } from "@/content/company";
 import { pageMeta } from "@/content/site-copy";
-import { pageCopyFor } from "@/content/translation-availability";
+import { applicationCard, productCard } from "@/content/card-copy";
 import { productBySlug } from "@/content/products";
 import { resolveLang } from "../_lang";
 
@@ -26,17 +26,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function LangApplicationsPage({ params }: Props) {
   const { dict, locale } = await resolveLang(params, notFound);
   const t = dict.applicationsPage;
-  // Each card shows an application page's own headline text, so it reads it
-  // through the same gate that page uses: a promotion of /applications/x is
-  // what makes this card Spanish, not a locale guess here.
-  const cards = applications.map((application) => {
-    const copy = pageCopyFor(`/applications/${application.slug}`, locale, application);
-    return {
-      application,
-      name: copy.entity.name[copy.contentLocale],
-      summary: copy.entity.summary[copy.contentLocale],
-    };
-  });
+  // A card quotes another page's headline text, but the card belongs to this page.
+  // That is why it can read Spanish before the detail page is promoted; the
+  // promotion seam is pageCopyFor, used by the page's own body, and nothing here
+  // reaches through it. See src/content/card-copy.ts.
+  const cards = applications.map((application) => ({
+    application,
+    ...applicationCard(application.slug, locale),
+  }));
   const lp = (p: string) => localePath(p, locale);
   return (
     <>
@@ -86,12 +83,10 @@ export default async function LangApplicationsPage({ params }: Props) {
                     // hyphens taken out: "water soluble pva yarn" is not a product
                     // name in any language, and this line was wrong in English too.
                     const product = productBySlug(slug);
-                    const copy = product
-                      ? pageCopyFor(`/products/${slug}`, locale, product)
-                      : null;
+                    const card = product ? productCard(slug, locale) : null;
                     return (
                       <li key={slug} className="text-xs text-muted-foreground">
-                        → {dict.nav.products}: {copy ? copy.entity.name[copy.contentLocale] : slug}
+                        → {dict.nav.products}: {card ? card.name : slug}
                       </li>
                     );
                   })}

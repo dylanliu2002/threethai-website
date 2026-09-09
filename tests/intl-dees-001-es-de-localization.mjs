@@ -19,6 +19,11 @@
  *   5. Approval is the only remaining step — signing the same records flips
  *      precisely those nine pages and nothing else, and the text that reaches the
  *      renderer is the text the record carries.
+ *   6. A card is not the page it links to — listing and home cards show Spanish and
+ *      German today, because that text is the listing page's own prose, while the
+ *      page behind each card still resolves its body through the promotion seam and
+ *      is still refused. If the second half of that ever stops being true, the card
+ *      pass has become an unapproved promotion.
  *
  * Run with the rest: `REQUIRE_BUILD_OUTPUT=1 npm run test:seo`.
  */
@@ -38,6 +43,8 @@ const { en } = await importSource("src/content/i18n/en.ts");
 const { products } = await importSource("src/content/products.ts");
 const { applications } = await importSource("src/content/applications.ts");
 const { productCopy, applicationCopy } = await importSource("src/content/translation-copy.ts");
+const { articles } = await importSource("src/content/articles.ts");
+const { productCard, applicationCard, articleCard } = await importSource("src/content/card-copy.ts");
 const { pageCopyFor, TRANSLATED_PAGES, resolvedContentLocaleOf } = await importSource(
   "src/content/translation-availability.ts",
 );
@@ -386,6 +393,138 @@ test("REQ 6 · self-approval stays refused after the flip", () => {
   }
 });
 
+/* ------------------------------------------------------------------ 6 */
+/**
+ * A card quotes another page's headline text, but the card belongs to the page it
+ * sits on, so it is allowed to be Spanish before the page behind it is promoted.
+ * Both halves of that sentence have to stay true at once: the card localizes, and
+ * the promoted seam is untouched. Only the second half makes this a content pass
+ * rather than a promotion nobody signed off.
+ */
+const CARD_RENDERERS = [
+  "src/components/product/product-card.tsx",
+  "src/components/sections/home-applications.tsx",
+  "src/components/sections/home-knowledge.tsx",
+  "src/app/[lang]/applications/page.tsx",
+  "src/app/[lang]/knowledge/page.tsx",
+];
+
+test("REQ 2 · every card surface reads its copy from the card module", () => {
+  for (const rel of CARD_RENDERERS) {
+    assert.match(read(rel), /from ["']@\/content\/card-copy["']/, `${rel} no longer imports the card module`);
+  }
+  // The remaining product cards go through the shared component rather than
+  // repeating the lookup.
+  assert.match(read("src/components/sections/home-products.tsx"), /<ProductCard/);
+  assert.match(read("src/app/[lang]/products/page.tsx"), /<ProductCard/);
+  assert.equal(
+    /[A-Za-z]+\.name\[cl\]|\.title\[cl\]|\.intro\[cl\]|slug\.replaceAll/.test(
+      [
+        "src/components/sections/home-applications.tsx",
+        "src/components/sections/home-knowledge.tsx",
+        "src/app/[lang]/applications/page.tsx",
+        "src/app/[lang]/knowledge/page.tsx",
+      ].map(read).join("\n"),
+    ),
+    false,
+    "a card went back to reading the entity in its content language (or printing a slug)",
+  );
+});
+
+test("REQ 2 · a card shows the store's text, so approving a page cannot contradict it", () => {
+  for (const product of products) {
+    const stored = productCopy[product.slug];
+    assert.deepEqual(productCard(product.slug, "en"), {
+      name: product.name.en, tagline: product.tagline.en, imageAlt: product.imageAlt.en,
+    }, `${product.slug}: the English card drifted from the entity it points at`);
+    assert.deepEqual(productCard(product.slug, "zh"), {
+      name: product.name.zh, tagline: product.tagline.zh, imageAlt: product.imageAlt.zh,
+    }, `${product.slug}: the Chinese card drifted from the entity it points at`);
+    for (const locale of ["es", "de"]) {
+      assert.deepEqual(productCard(product.slug, locale), {
+        name: stored.name[locale], tagline: stored.tagline[locale], imageAlt: stored.imageAlt[locale],
+      }, `${product.slug}: the ${locale} card is not the text a record would carry`);
+    }
+  }
+
+  for (const application of applications) {
+    const stored = applicationCopy[application.slug];
+    assert.deepEqual(applicationCard(application.slug, "en"), {
+      name: application.name.en, summary: application.summary.en, imageAlt: application.imageAlt.en,
+    }, `${application.slug}: the English card drifted from the entity it points at`);
+    assert.deepEqual(applicationCard(application.slug, "zh"), {
+      name: application.name.zh, summary: application.summary.zh, imageAlt: application.imageAlt.zh,
+    }, `${application.slug}: the Chinese card drifted from the entity it points at`);
+    for (const locale of ["es", "de"]) {
+      assert.deepEqual(applicationCard(application.slug, locale), {
+        name: stored.name[locale], summary: stored.summary[locale], imageAlt: stored.imageAlt[locale],
+      }, `${application.slug}: the ${locale} card is not the text a record would carry`);
+    }
+  }
+
+  // Article teasers carry only the three fields a card shows; their bodies stay
+  // untranslated, so there is no store and no record for them to contradict.
+  for (const article of articles) {
+    assert.deepEqual(articleCard(article.slug, "en"), {
+      category: article.category.en, title: article.title.en, intro: article.intro.en,
+    }, `${article.slug}: the English teaser drifted from articles.ts`);
+    assert.deepEqual(articleCard(article.slug, "zh"), {
+      category: article.category.zh, title: article.title.zh, intro: article.intro.zh,
+    }, `${article.slug}: the Chinese teaser drifted from articles.ts`);
+    for (const locale of ["es", "de"]) {
+      const teaser = articleCard(article.slug, locale);
+      assert.notEqual(teaser.title, article.title.en, `${article.slug}: ${locale} teaser title is English pasted back`);
+      assert.notEqual(teaser.intro, article.intro.en, `${article.slug}: ${locale} teaser intro is English pasted back`);
+      assert.ok(teaser.intro.length > 80, `${article.slug}: ${locale} teaser intro is too short to be a summary`);
+      const digits = (s) => (s.match(/\d+/g) ?? []).join(",");
+      assert.equal(digits(teaser.title), digits(article.title.en), `${article.slug}: ${locale} teaser moved a figure`);
+    }
+  }
+});
+
+test("REQ 2 · the teaser guard reads the entity rather than trusting its own table", () => {
+  // Without this control the guard above is indistinguishable from absent: the
+  // table asserts its own en/zh against articles.ts on every call, and the only
+  // way to see that it bites is to make the two disagree.
+  const article = articles[0];
+  const before = article.title.en;
+  try {
+    article.title.en = "Retitled after the teaser table was written";
+    assert.throws(() => articleCard(article.slug, "es"), /no longer matches articles\.ts/,
+      "a stale teaser table passed silently");
+  } finally {
+    article.title.en = before;
+  }
+  assert.equal(articleCard(article.slug, "en").title, before, "the guard stayed angry after the fix");
+});
+
+test("REQ 5 · localizing a card grants the page behind it nothing", async () => {
+  const cardSource = read("src/content/card-copy.ts");
+  const specifiers = [...cardSource.matchAll(/from\s+["']([^"']+)["']/g)].map((match) => match[1]);
+  assert.deepEqual(
+    specifiers.filter((spec) => /translation-availability|translation-evidence|availability/.test(spec)),
+    [],
+    `card copy imports the promotion machinery: ${specifiers.join(", ")}`,
+  );
+  assert.equal(
+    /pageCopyFor/.test(cardSource.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")),
+    false,
+    "card copy calls the promotion seam",
+  );
+
+  for (const { path: pagePath, entity } of LOCALIZED_PAGES) {
+    for (const locale of ["es", "de"]) {
+      const unpromoted = pageCopyFor(pagePath, locale, entity);
+      assert.equal(unpromoted.contentLocale, "en", `${locale} ${pagePath} body resolved to itself`);
+      assert.equal(unpromoted.entity, entity, `${locale} ${pagePath} was handed a copied entity`);
+      assert.equal(resolvedContentLocaleOf(pagePath, locale), "en", `${locale} ${pagePath} claimed a content language`);
+    }
+  }
+  assert.equal(TRANSLATION_EVIDENCE.length, LOCALIZED_PAGES.length * 2, "the card pass added evidence records");
+  assert.equal(TRANSLATION_EVIDENCE.every((record) => record.status === "draft"), true);
+  assert.deepEqual([...TRANSLATED_PAGES], [], "a localized card promoted a page");
+});
+
 /* -------------------------------------------------------------- build */
 const PRERENDER_ROOT = path.join(repoRoot, ".next", "server", "app");
 const buildOptions = { skip: !existsSync(PRERENDER_ROOT) };
@@ -410,5 +549,79 @@ test("REQ 4 · the shipped HTML still serves English deep copy on ES and DE", bu
       `${locale} page no longer canonicalises to its English owner`);
     assert.equal(/rel="alternate" hreflang="es"/.test(html), false, `${locale} declares an es alternate`);
     assert.equal(/rel="alternate" hreflang="de"/.test(html), false, `${locale} declares a de alternate`);
+  }
+});
+
+/**
+ * The text a visitor actually reads: scripts (Next's flight payload, which carries
+ * the whole serialized dictionary) and tags (which carry attribute text, including
+ * `alt`) both go, and entities come back. A card assertion on the raw document
+ * would be a test about escaping — the German application name renders as
+ * `Handtuchweberei &amp; Zero-Twist`, which is exactly the string a reader sees and
+ * not the string `includes` looks for.
+ */
+function visibleText(html) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/g, " ")
+    .replace(/<style[\s\S]*?<\/style>/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+test("REQ 4 · the shipped HTML shows localized cards over unpromoted pages", buildOptions, () => {
+  const page = (rel) => visibleText(readFileSync(path.join(PRERENDER_ROOT, rel), "utf8"));
+  const product = products[0];
+  const application = applications[0];
+  const article = articles[0];
+
+  for (const locale of ["es", "de"]) {
+    const card = productCard(product.slug, locale);
+    const appCard = applicationCard(application.slug, locale);
+    const teaser = articleCard(article.slug, locale);
+
+    // What a card contributes: the listing page and the home page carry it.
+    const listings = [page(`${locale}.html`), page(`${locale}/products.html`)];
+    for (const text of listings) assert.ok(text.includes(card.tagline),
+      `${locale} card did not ship the localized tagline`);
+    assert.ok(page(`${locale}.html`).includes(appCard.summary), `${locale} home application card stayed English`);
+    assert.ok(page(`${locale}/applications.html`).includes(appCard.summary), `${locale} application card stayed English`);
+    assert.ok(page(`${locale}/knowledge.html`).includes(teaser.title), `${locale} knowledge teaser stayed English`);
+    assert.ok(page(`${locale}/knowledge.html`).includes(teaser.intro), `${locale} teaser intro stayed English`);
+
+    // What a page claims: the same strings must be absent from the document the
+    // record would promote, which still answers in the owner's language.
+    const productPage = page(`${locale}/products/${product.slug}.html`);
+    assert.ok(productPage.includes(product.tagline.en), `${locale} product page lost the body it still owns`);
+    assert.equal(productPage.includes(card.tagline), false,
+      `draft-record copy reached ${locale} ${product.slug} before anyone approved it`);
+    const applicationPage = page(`${locale}/applications/${application.slug}.html`);
+    assert.ok(applicationPage.includes(application.summary.en), `${locale} application page lost the body it still owns`);
+    assert.equal(applicationPage.includes(appCard.summary), false,
+      `draft-record copy reached ${locale} ${application.slug} before anyone approved it`);
+    const articlePage = page(`${locale}/knowledge/${article.slug}.html`);
+    assert.ok(articlePage.includes(article.title.en), `${locale} article page lost the headline it still owns`);
+    assert.equal(articlePage.includes(teaser.title), false,
+      `the localized teaser leaked into ${locale} ${article.slug}`);
+
+    // And the four SEO surfaces still describe the pre-card world.
+    const policy = createAvailabilityPolicy();
+    for (const pagePath of LOCALIZED_PAGES.map((entry) => entry.path)) {
+      assert.equal(policy.canonicalLocaleFor(pagePath, locale), "en", `${locale} ${pagePath} owns its URL`);
+      assert.equal(policy.isSitemapEligible(pagePath, locale), false, `${locale} ${pagePath} entered the sitemap`);
+    }
+    for (const rel of [
+      `${locale}/products/${product.slug}.html`,
+      `${locale}/applications/${application.slug}.html`,
+    ]) {
+      const raw = readFileSync(path.join(PRERENDER_ROOT, rel), "utf8");
+      assert.equal(/rel="alternate" hreflang="(es|de)"/.test(raw), false, `${rel} declares a localized alternate`);
+    }
   }
 });
