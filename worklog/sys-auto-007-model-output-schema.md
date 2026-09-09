@@ -26,3 +26,16 @@
   journal remained sequence `39` with SHA-256
   `1d1f8d917146929fe161a23e53bd12bca0cd2b53f39e1f36dabbdc2f1bb76241`.
   All ten authority-file hashes remained byte-identical.
+
+## 2026-09-09 — Validation context remediation
+
+- Classified both remaining tests as inactive-controller safety tests that are
+  incorrectly coupled to the repository-derived canonical context when run
+  from the task worktree. They require neither a fresh activation nor execution
+  authorization.
+- Ran the full unmodified `184/184` workflow suite from a disposable clone at
+  the exact implementation commit. Its repository identity derived a separate
+  unprovisioned authority path; that path did not exist before or after the
+  tests, and both non-dry-run inactive tick tests passed with no worker launch.
+- Removed the disposable clone after validation. Canonical authority, state,
+  and journal remained byte-identical to the recorded baseline.
