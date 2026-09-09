@@ -1,10 +1,17 @@
 import { contentLocaleOf, type ContentLocale, type Locale } from "./company";
 import {
+  SECTION_SURFACES,
+  isSectionEvidencePath,
+  sectionSurfaceFor,
+  type SectionSurface,
+} from "./page-surfaces";
+import {
   approvedPromotions,
   DEEP_CONTENT_SECTIONS,
   deepContentSectionOf,
   isDeepContentDetail,
   isGenuineTranslation,
+  promotableClassFor,
   type DeepContentSection,
   type PromotionLocale,
   type TranslatedPage,
@@ -42,9 +49,26 @@ import {
 
 /* The evidence layer owns these; they stay reachable here so the INTL-DEES-002B
    surface and its suite keep resolving without a rename. New callers should
-   import them from `./translation-evidence`. */
-export { DEEP_CONTENT_SECTIONS, deepContentSectionOf, isDeepContentDetail, isGenuineTranslation };
-export type { DeepContentSection, PromotionLocale, TranslatedPage, TranslatedValue };
+   import them from `./translation-evidence`. The INTL-DEES-004B names are
+   re-exported for the same reason: they belong to the gate and the registry, and
+   this module is only their consumer. */
+export {
+  DEEP_CONTENT_SECTIONS,
+  deepContentSectionOf,
+  isDeepContentDetail,
+  isGenuineTranslation,
+  promotableClassFor,
+  isSectionEvidencePath,
+  sectionSurfaceFor,
+  SECTION_SURFACES,
+};
+export type {
+  DeepContentSection,
+  PromotionLocale,
+  TranslatedPage,
+  TranslatedValue,
+  SectionSurface,
+};
 
 /**
  * Promoted pages: every promotion the shipped evidence grants, and nothing else.
@@ -55,15 +79,22 @@ export type { DeepContentSection, PromotionLocale, TranslatedPage, TranslatedVal
  */
 export const TRANSLATED_PAGES: readonly TranslatedPage[] = approvedPromotions();
 
-function honouredPages(registry: readonly TranslatedPage[]): readonly TranslatedPage[] {
-  return registry.filter(isGenuineTranslation);
+function honouredPages(
+  registry: readonly TranslatedPage[],
+  surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
+): readonly TranslatedPage[] {
+  // Explicit arrow, not `registry.filter(isGenuineTranslation)`: `filter` passes
+  // (page, index, array), and since INTL-DEES-004B the second parameter is the
+  // surface registry — a number there would read as "no surface registered".
+  return registry.filter((page) => isGenuineTranslation(page, surfaces));
 }
 
 /** Registered pages that claim a translation without carrying one. */
 export function rejectedTranslations(
   registry: readonly TranslatedPage[] = TRANSLATED_PAGES,
+  surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
 ): readonly TranslatedPage[] {
-  return registry.filter((page) => !isGenuineTranslation(page));
+  return registry.filter((page) => !isGenuineTranslation(page, surfaces));
 }
 
 /**
@@ -75,16 +106,18 @@ export function translatedPageFor(
   path: string,
   locale: Locale,
   registry: readonly TranslatedPage[] = TRANSLATED_PAGES,
+  surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
 ): TranslatedPage | undefined {
-  return honouredPages(registry).find((page) => page.path === path && page.locale === locale);
+  return honouredPages(registry, surfaces).find((page) => page.path === path && page.locale === locale);
 }
 
 /** Which promotion locales have genuine copy for this exact path. */
 export function translatedLocalesFor(
   path: string,
   registry: readonly TranslatedPage[] = TRANSLATED_PAGES,
+  surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
 ): readonly PromotionLocale[] {
-  return honouredPages(registry)
+  return honouredPages(registry, surfaces)
     .filter((page) => page.path === path)
     .map((page) => page.locale);
 }
@@ -94,8 +127,9 @@ export function isTranslationAvailable(
   path: string,
   locale: Locale,
   registry: readonly TranslatedPage[] = TRANSLATED_PAGES,
+  surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
 ): boolean {
-  return translatedPageFor(path, locale, registry) !== undefined;
+  return translatedPageFor(path, locale, registry, surfaces) !== undefined;
 }
 
 /**
@@ -107,15 +141,21 @@ export function isTranslationAvailable(
  * model already guarantees; ES and DE return English unless this exact page is
  * promoted, in which case they return themselves *because* the promoted copy
  * exists to render.
+ *
+ * INTL-DEES-004B did not touch this function's logic. It resolves for any path
+ * whose promotion survives the evidence gate, which now includes a registered
+ * core/section path as well as an entity detail path — and with `SECTION_SURFACES`
+ * empty and `TRANSLATION_EVIDENCE` empty, nothing new can reach it.
  */
 export function resolvedContentLocaleOf(
   path: string,
   locale: Locale,
   registry: readonly TranslatedPage[] = TRANSLATED_PAGES,
+  surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
 ): Locale {
   const modelled = contentLocaleOf(locale);
   if (modelled === locale) return locale;
-  return translatedPageFor(path, locale, registry) ? locale : modelled;
+  return translatedPageFor(path, locale, registry, surfaces) ? locale : modelled;
 }
 
 /**
@@ -154,19 +194,59 @@ function isContentField(value: unknown): value is Record<ContentLocale, unknown>
  * Fields belonging to *other* entities (related-product teasers, cross-linked
  * articles) keep resolving through `contentLocaleOf`: they are not this page's
  * copy, and a promotion never claims to have translated them.
+ *
+ * INTL-DEES-004B: `pageCopyFor` is also the render entry point for a core or
+ * section page, which passes its own copy bundle instead of an entity. The
+ * detection is structural, not class-based — a bundle slot looks exactly like an
+ * entity's body field, a `{ en, zh }` pair — so one function, and one net, covers
+ * both page kinds. For a path that declares a surface, the bundle handed to this
+ * function must carry **exactly** the declared slots, each one as a `{ en, zh }`
+ * pair this loop can widen, and it is checked on every locale rather than only on
+ * a promoted one: a page whose rendered copy drifts from what its surface claims
+ * is a page whose evidence no longer describes, and discovering that at approval
+ * time instead of prerender time is how a partial localization would get through.
  */
 export function pageCopyFor<T extends object>(
   path: string,
   locale: Locale,
   entity: T,
   registry: readonly TranslatedPage[] = TRANSLATED_PAGES,
+  surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
 ): { entity: RenderedContent<T>; contentLocale: Locale } {
+  const surface = sectionSurfaceFor(path, surfaces);
+  if (surface !== null) {
+    const bundle = entity as Record<string, unknown>;
+    const bundleKeys = Object.keys(entity);
+    const missing = surface.filter((slot) => !bundleKeys.includes(slot));
+    const extra = bundleKeys.filter((key) => !surface.includes(key));
+    // A declared slot that the widening loop below cannot read as a `{ en, zh }`
+    // pair would keep its English text while the promotion still moved the
+    // canonical, hreflang, sitemap and `inLanguage` — so a surface may only name
+    // slots the renderer can actually output reviewed copy into. The test is on
+    // the slot's shape, never on its leaf type: `TranslatedValue` allows a list,
+    // so `{ en: [...], zh: [...] }` is legitimate reviewed copy and must pass.
+    const notWidenable = surface.filter(
+      (slot) => bundleKeys.includes(slot) && !isContentField(bundle[slot]),
+    );
+    if (missing.length > 0 || extra.length > 0 || notWidenable.length > 0) {
+      throw new Error(
+        `translation-evidence: ${path} declares a copy surface that does not match what it ` +
+          `renders — missing [${missing.join(", ")}], not-in-surface [${extra.join(", ")}], ` +
+          `not-widenable [${notWidenable.join(", ")}]. Each slot must be a { en, zh } pair the ` +
+          `page renders, like an entity body field: a slot the renderer skips is English copy ` +
+          `under a localized canonical. Either render those slots through the surface, or ` +
+          `narrow the surface to the copy the page actually shows. A promotion may only be ` +
+          `reviewed against the page's real copy.`,
+      );
+    }
+  }
+
   const modelled = contentLocaleOf(locale);
-  const contentLocale = resolvedContentLocaleOf(path, locale, registry);
+  const contentLocale = resolvedContentLocaleOf(path, locale, registry, surfaces);
   const untranslated = { entity: entity as unknown as RenderedContent<T>, contentLocale };
   if (contentLocale === modelled) return untranslated;
 
-  const page = translatedPageFor(path, locale, registry)!;
+  const page = translatedPageFor(path, locale, registry, surfaces)!;
   const rendered: Record<string, unknown> = { ...(entity as Record<string, unknown>) };
   for (const [field, value] of Object.entries(entity)) {
     if (!isContentField(value)) continue;
