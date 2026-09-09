@@ -12,7 +12,11 @@ import {
 import { assertActualChangesAllowed, deriveActualChanges } from "../git-evidence.mjs";
 import { bindReportedThread } from "../identity.mjs";
 import { KILL_SWITCH_ENV, KILL_SWITCH_VALUE } from "../constants.mjs";
-import { WorkerOutputJsonSchema, WorkerResultSchema } from "../schemas.mjs";
+import {
+  WorkerDiagnosticsSchema,
+  WorkerOutputJsonSchema,
+  WorkerResultSchema,
+} from "../schemas.mjs";
 import { assertNoSecretsDeep, assertNoSecretValues, redactSecrets, sanitizeForLog } from "../secrets.mjs";
 import { deriveValidationEvidenceInternal } from "./validation-engine.mjs";
 import {
@@ -52,15 +56,217 @@ export function buildCodexExecArgsInternal({
   ];
 }
 
+export function parseJsonlWithDiagnosticsInternal(text) {
+  const events = [];
+  if (typeof text !== "string" || !text.trim()) {
+    return { events, parse_failure: null };
+  }
+  const lines = text.split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index].trim();
+    if (!line) continue;
+    try {
+      events.push(JSON.parse(line));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        events,
+        parse_failure: redactSecrets(
+          `Codex JSONL parse degradation at line ${index + 1}: ${message}`,
+        ).slice(0, 4096),
+      };
+    }
+  }
+  return { events, parse_failure: null };
+}
+
 export function parseJsonlInternal(text) {
-  if (!text.trim()) return [];
-  return text.trim().split(/\r?\n/).map((line) => JSON.parse(line));
+  return parseJsonlWithDiagnosticsInternal(text).events;
 }
 
 export function threadIdFromEventsInternal(events) {
-  const started = events.find((event) => event.type === "thread.started");
-  if (!started?.thread_id) throw new Error("Codex JSONL omitted thread.started/thread_id.");
+  const started = events.find((event) => event?.type === "thread.started");
+  if (typeof started?.thread_id !== "string"
+    || started.thread_id.length === 0
+    || started.thread_id.length > 256) {
+    throw new Error("Codex JSONL omitted a valid bounded thread.started/thread_id.");
+  }
   return started.thread_id;
+}
+
+const DIAGNOSTIC_TEXT_LIMIT = 4096;
+const DIAGNOSTIC_THREAD_ID_LIMIT = 256;
+const DIAGNOSTIC_SIGNAL_LIMIT = 64;
+const DIAGNOSTIC_COMMAND_LIMIT = 32;
+const DIAGNOSTIC_EVENT_ERROR_LIMIT = 8;
+
+function diagnosticText(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const sanitized = sanitizeForLog(value);
+  const text = typeof sanitized === "string" ? sanitized : JSON.stringify(sanitized);
+  return redactSecrets(text).slice(0, DIAGNOSTIC_TEXT_LIMIT);
+}
+
+function boundedDiagnosticString(value, limit) {
+  if (typeof value !== "string" || value.length === 0) return null;
+  return diagnosticText(value)?.slice(0, limit) ?? null;
+}
+
+function diagnosticDigest(value) {
+  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value)
+    ? value
+    : null;
+}
+
+function degradedWorkerDiagnostics() {
+  return {
+    diagnostics_version: "1.0.0",
+    worker_exit_code: null,
+    close_signal: null,
+    termination_reason: "UNKNOWN",
+    thread_id: null,
+    thread_lifecycle_status: "UNKNOWN",
+    model_stage_status: "UNKNOWN",
+    sanitized_stderr: "",
+    sanitized_error: "worker diagnostics degraded due to invalid metadata",
+    structured_output_present: false,
+    validator_result: {
+      status: "UNKNOWN",
+      evidence_digest: null,
+      commands: [],
+    },
+  };
+}
+
+function lifecycleFromEvents(events, threadId) {
+  const eventTypes = new Set(events.map((event) => event?.type).filter(Boolean));
+  const failed = eventTypes.has("turn.failed") || eventTypes.has("error");
+  const completed = eventTypes.has("turn.completed");
+  const started = eventTypes.has("turn.started")
+    || eventTypes.has("item.started")
+    || eventTypes.has("item.completed");
+  return {
+    thread_lifecycle_status: failed
+      ? "FAILED"
+      : completed
+        ? "COMPLETED"
+        : threadId
+          ? "STARTED"
+          : "UNKNOWN",
+    model_stage_status: failed
+      ? "FAILED"
+      : completed
+        ? "COMPLETED"
+        : started
+          ? "STARTED"
+          : "UNKNOWN",
+  };
+}
+
+function terminationReason({
+  result,
+  closeSignal,
+  structuredOutputPresent,
+  outputValid,
+  validationEvidence,
+}) {
+  if (result.timedOut) return "TIMEOUT";
+  if (result.terminationRequested) return "CANCELLED";
+  if (closeSignal) return "SIGNAL";
+  if (result.code !== 0) return "NONZERO_EXIT";
+  if (!structuredOutputPresent) return "MISSING_STRUCTURED_OUTPUT";
+  if (!outputValid) return "INVALID_STRUCTURED_OUTPUT";
+  if (validationEvidence?.passed === false) return "VALIDATION_FAILED";
+  return "UNKNOWN";
+}
+
+function buildWorkerDiagnostics({
+  result,
+  events = [],
+  threadId = null,
+  parseFailure = null,
+  structuredOutputPresent = false,
+  outputValid = false,
+  validationEvidence = null,
+}) {
+  const safeResult = result && typeof result === "object" ? result : {};
+  const closeSignal = boundedDiagnosticString(
+    safeResult.closeSignal,
+    DIAGNOSTIC_SIGNAL_LIMIT,
+  );
+  const normalizedThreadId = boundedDiagnosticString(
+    threadId,
+    DIAGNOSTIC_THREAD_ID_LIMIT,
+  );
+  const safeEvents = Array.isArray(events) ? events : [];
+  const outputPresent = structuredOutputPresent === true;
+  const validOutput = outputValid === true;
+  const validationPassed = validationEvidence?.passed === true;
+  const abnormal = safeResult.code !== 0
+    || safeResult.timedOut === true
+    || safeResult.terminationRequested === true
+    || Boolean(closeSignal)
+    || !outputPresent
+    || !validOutput
+    || !validationPassed;
+  if (!abnormal) return null;
+  const lifecycle = lifecycleFromEvents(safeEvents, normalizedThreadId);
+  const eventErrors = [];
+  for (const event of safeEvents) {
+    if (event?.type !== "turn.failed" && event?.type !== "error") continue;
+    const value = event.error ?? event.message ?? event;
+    if (value !== null && value !== undefined) eventErrors.push(value);
+    if (eventErrors.length === DIAGNOSTIC_EVENT_ERROR_LIMIT) break;
+  }
+  const validatorCommands = Array.isArray(validationEvidence?.commands)
+    ? validationEvidence.commands.slice(0, DIAGNOSTIC_COMMAND_LIMIT).map((command, index) => ({
+      index,
+      exit_code: Number.isInteger(command?.exit_code) ? command.exit_code : null,
+      signal: boundedDiagnosticString(command?.signal, DIAGNOSTIC_SIGNAL_LIMIT),
+      output_digest: diagnosticDigest(command?.output_digest),
+      error_digest: diagnosticDigest(command?.error_digest),
+    }))
+    : [];
+  try {
+    return WorkerDiagnosticsSchema.parse({
+      diagnostics_version: "1.0.0",
+      worker_exit_code: Number.isInteger(safeResult.code) ? safeResult.code : null,
+      close_signal: closeSignal,
+      termination_reason: terminationReason({
+        result: safeResult,
+        closeSignal,
+        structuredOutputPresent: outputPresent,
+        outputValid: validOutput,
+        validationEvidence,
+      }),
+      thread_id: normalizedThreadId,
+      ...lifecycle,
+      sanitized_stderr: diagnosticText(safeResult.stderr) ?? "",
+      sanitized_error: parseFailure || eventErrors.length > 0
+        ? diagnosticText([parseFailure, ...eventErrors].filter(Boolean))
+        : null,
+      structured_output_present: outputPresent,
+      validator_result: {
+        status: validationEvidence?.passed === true
+          ? "PASS"
+          : validationEvidence?.passed === false
+            ? "FAIL"
+            : "UNKNOWN",
+        evidence_digest: diagnosticDigest(validationEvidence?.evidence_digest),
+        commands: validatorCommands,
+      },
+    });
+  } catch {
+    return degradedWorkerDiagnostics();
+  }
+}
+
+export function buildWorkerDiagnosticsInternal(options) {
+  try {
+    return buildWorkerDiagnostics(options);
+  } catch {
+    return degradedWorkerDiagnostics();
+  }
 }
 
 export async function superviseChildProcessInternal({
@@ -224,20 +430,28 @@ export async function runCodexExecInternal({
     try {
       assertNoSecretValues(result.stdout, "worker stdout");
       assertNoSecretValues(result.stderr, "worker stderr");
-      events = parseJsonlInternal(result.stdout);
+      const parsedJsonl = parseJsonlWithDiagnosticsInternal(result.stdout);
+      events = parsedJsonl.events;
+      parseFailure = parsedJsonl.parse_failure;
       assertNoSecretsDeep(events, "worker JSONL events");
-      threadId = threadIdFromEventsInternal(events);
-      if (!fs.existsSync(outputPath)) throw new Error("Codex final structured output is missing.");
-      output = WorkerResultSchema.parse(JSON.parse(fs.readFileSync(outputPath, "utf8")));
-      assertNoSecretsDeep(output, "worker structured result");
-      assertPilotWorkerRequestedActions(output.requested_actions);
-      const bound = bindReportedThread(validated.run, threadId);
-      if (output.task_key !== bound.task_key || output.run_id !== bound.run_id || output.role_id !== bound.role_id) {
-        throw new Error("Worker output does not match authoritative controller identity.");
+      try {
+        threadId = threadIdFromEventsInternal(events);
+      } catch (error) {
+        parseFailure ??= redactSecrets(error instanceof Error ? error.message : String(error));
       }
-      outputValid = true;
+      if (parseFailure === null) {
+        if (!fs.existsSync(outputPath)) throw new Error("Codex final structured output is missing.");
+        output = WorkerResultSchema.parse(JSON.parse(fs.readFileSync(outputPath, "utf8")));
+        assertNoSecretsDeep(output, "worker structured result");
+        assertPilotWorkerRequestedActions(output.requested_actions);
+        const bound = bindReportedThread(validated.run, threadId);
+        if (output.task_key !== bound.task_key || output.run_id !== bound.run_id || output.role_id !== bound.role_id) {
+          throw new Error("Worker output does not match authoritative controller identity.");
+        }
+        outputValid = true;
+      }
     } catch (error) {
-      parseFailure = redactSecrets(error instanceof Error ? error.message : String(error));
+      parseFailure ??= redactSecrets(error instanceof Error ? error.message : String(error));
     }
     const actualHeadSha = gitHead(engine.repoRoot);
     let scopeEvidence;
@@ -259,6 +473,16 @@ export async function runCodexExecInternal({
       runCommand: validationRunner,
       now,
     });
+    const structuredOutputPresent = fs.existsSync(outputPath);
+    const workerDiagnostics = buildWorkerDiagnosticsInternal({
+      result,
+      events,
+      threadId,
+      parseFailure,
+      structuredOutputPresent,
+      outputValid,
+      validationEvidence,
+    });
     const completed = completeRunInternal({
       engine, contract, grant, capability,
       processExitCode: result.code,
@@ -269,9 +493,10 @@ export async function runCodexExecInternal({
       validationEvidence,
       threadId,
       reportedModel: validated.capability.model,
+      workerDiagnostics,
       now,
     });
-    return {
+    const response = {
       authoritative_status: completed.status,
       authoritative_head_sha: completed.head_sha,
       output: output ? sanitizeForLog(output) : null,
@@ -287,6 +512,8 @@ export async function runCodexExecInternal({
       sandbox_evidence: launch.sandbox_evidence,
       identity: completed,
     };
+    if (workerDiagnostics) response.worker_diagnostics = workerDiagnostics;
+    return response;
   } finally {
     fs.rmSync(temporary, { recursive: true, force: true });
   }
