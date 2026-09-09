@@ -48,12 +48,28 @@ const { locales, contentLocaleOf } = await importSource("src/content/company.ts"
 // Framing detector: the term is allowed, a promise to supply it is not.
 // ---------------------------------------------------------------------------
 
-/** Every wording the site has used for the material, English and Chinese. */
+/**
+ * Every wording the site has used for the material, in each language it now
+ * publishes. Spanish and German arrived with INTL-DEES-001: the offering copy,
+ * the product FAQ answers and the page metadata exist in both, so a claim
+ * reintroduced there would previously have passed this file untouched.
+ */
 const TERM_PATTERNS = [
   /concrete[\s-]*(?:grade[\s-]*)?pva[\s-]*fib(?:er|re)/i, // "concrete PVA fiber"
   /pva[\s-]*fib(?:er|re)[\s-]*(?:for|in|to)[\s-]*concrete/i, // "PVA fiber for concrete"
   /concrete[\s-]*(?:mix|reinforcement|shotcrete)[\s-]*(?:pva|fiber|fibre)/i,
   /混凝土[^，。、；\n]{0,12}?纤维/, // "混凝土 PVA 纤维"
+  // Spanish and German admit the plural and the article, so neither inflection
+  // can be the reason a sentence reads as "no mention". An unrecognised term is
+  // not a passing term: it is a sentence the detector never looked at.
+  /fibra(?:s)?[\s-]*(?:de[\s-]*)?pva[\s-]*(?:para|de)[\s-]*hormig/i, // "fibra(s) de PVA para hormigón"
+  /hormig[\s-]*(?:ón|on)[\s-]*(?:pva|fibra)/i, // "hormigón … PVA/fibra"
+  /pva[\s-]*(?:fibra|faser)s?[\s-]*(?:para|für)[\s-]*(?:hormig|beton)/i,
+  /pva[\s-]*fasern?[\s-]*(?:fuer|für)[\s-]*beton/i, // "PVA-Faser(n) für Beton"
+  /beton[\s-]*(?:pva|faser|stahlfaser)/i, // "Beton … PVA/Faser"
+  /pva[\s-]*fasern?[\s-]*im[\s-]*beton/i, // "PVA-Fasern im Beton"
+  /beton[\s-]*(?:stahl)?fasern?\b/i, // "Betonfasern", "Betonstahlfasern"
+  /\bfasern?\b[^.\n]{0,40}\bfür[\s-]*beton\b/i, // "Fasern für Beton" without the PVA prefix
 ];
 
 /** Verbs and nouns that put a material inside what the seller makes. */
@@ -65,6 +81,14 @@ const AFFIRM_PATTERNS = [
   /\binclude[sd]?\b/i,
   /生产|制造|加工供应|供应|提供/,
   /产品(?:范围|目录|线|清单)/,
+  // Spanish and German "we make it" wording, so the detector is not English-only.
+  /\bfabric\w*/i, // fabrica, fabricamos, fabricación
+  /\bproduc\w*imos\b|\bproducci[oó]n\b/i,
+  /\bsuministramos\b/i,
+  /nuestra\s+(?:gama|cat[áa]logo|l[íi]nea|oferta)\b/i,
+  /\bstellen (?:wir|auch|keine)\b/i, // "wir stellen … her"
+  /\b(?:herstellen|produzieren|liefern|anbieten|f[üu]hren)\b/i,
+  /unser(?:e[sn]?|es)?\s+(?:sortiment|programm|palette|angebot)\b/i,
 ];
 
 /** Explicit current-status denials, including the shipped ones. */
@@ -77,6 +101,13 @@ const DENY_PATTERNS = [
   /\bdoes not\b/i,
   /不(?:供应|生产|制造|提供|在|包括|属于|支持|建议)/,
   /没有|不涉及|不在/,
+  // A truthful refusal in the two new languages carries its negation with it.
+  /^\s*no[.,\s]/i,
+  /^\s*nein[.,\s]/i,
+  /\bno\s+(?:suministramos|fabricamos|producimos|ofrecemos|forma parte|est[áa]|contamos)/i,
+  /\b(?:nicht|keine?)\b/i,
+  /\bgeh[öo]rt nicht\b/i,
+  /\bf[üu]hren (?:wir )?nicht\b/i,
 ];
 
 const mentionsTerm = (text) => TERM_PATTERNS.some((re) => re.test(text));
@@ -124,10 +155,18 @@ const inOfferingList = (items) => items.some((item) => mentionsTerm(normalizeIte
 const stripComments = (source) =>
   source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
 
-// The four formats the owner confirmation says nothing about.
+/**
+ * The four formats the owner confirmation says nothing about, named the way each
+ * language the site publishes names them. Keyed by route Locale rather than
+ * ContentLocale: since INTL-DEES-001 the offering block is localized per route
+ * language, so a Spanish page may say "Algodón de PVA" and must still say nothing
+ * about hormigón.
+ */
 const OTHER_FORMATS = {
   en: ["PVA cotton", "PVA top", "PPVA fiber", "Gracell yarn"],
   zh: ["PVA Cotton", "PVA Top", "PPVA 纤维", "Gracell 纱线"],
+  es: ["Algodón de PVA", "PVA top", "Fibra PPVA", "Hilo Gracell"],
+  de: ["PVA-Baumwolle", "PVA Top", "PPVA-Faser", "Gracell-Garn"],
 };
 
 // ---------------------------------------------------------------------------
@@ -136,7 +175,7 @@ const OTHER_FORMATS = {
 
 test("extended-formats block names no concrete PVA fiber in any language", () => {
   const blocks = Object.entries(extendedFormats);
-  assert.equal(blocks.length, 2, "expected the en and zh offering blocks");
+  assert.equal(blocks.length, 4, "expected the en, zh, es and de offering blocks");
   for (const [contentLocale, block] of blocks) {
     const leaves = stringLeaves(block);
     assert.ok(leaves.length >= 4, `${contentLocale} offering block looks empty`);
@@ -394,8 +433,8 @@ test("every rendered page that sells formats omits it in every language", buildO
       );
       assert.ok(!promisesConcreteFiber(visible), path.relative(prerenderRoot, htmlPath));
       // The block still renders, so a pass cannot come from deleting the page.
-      const cl = contentLocaleOf(locale);
-      for (const format of OTHER_FORMATS[cl]) {
+      // Keyed by route locale: /es sells the same four formats, in Spanish.
+      for (const format of OTHER_FORMATS[locale]) {
         assert.ok(
           visible.includes(format),
           `${path.relative(prerenderRoot, htmlPath)} lost "${format}"`,
@@ -405,6 +444,29 @@ test("every rendered page that sells formats omits it in every language", buildO
     }
   }
   assert.equal(inspected, locales.length * 2);
+});
+
+/**
+ * The rendered check below covers the languages whose staple page shows the
+ * answer today. INTL-DEES-001 also wrote a Spanish and a German version of that
+ * refusal, and they live in the copy store until a reviewer approves the record —
+ * so they are checked at the store, where a mistranslation ("yes, we supply it",
+ * or a refusal that dropped its own negation) would otherwise reach the page the
+ * moment someone flips the record's status.
+ */
+test("the Spanish and German staple-fiber FAQ keeps answering no", async () => {
+  const { productCopy } = await importSource("src/content/translation-copy.ts");
+  const faqs = productCopy["pva-staple-fiber"].faqs;
+  for (const locale of ["es", "de"]) {
+    const pair = faqs[locale].find(([question]) => mentionsTerm(question));
+    assert.ok(pair, locale + ": no longer asks the concrete-fiber question at all");
+    const [question, answer] = pair;
+    assert.ok(isQuestion(question), locale + ": concrete-fiber entry is not a question: " + question);
+    assert.ok(mentionsTerm(answer), locale + ": answer stops naming what is not supplied: " + answer);
+    assert.ok(deniesTerm(answer), locale + ": answer carries no refusal: " + answer);
+    assert.ok(!promisesConcreteFiber(answer), locale + ": answer offers the material: " + answer);
+    assert.ok(!presentsAsOffering(answer), locale + ": answer presents the material as on offer: " + answer);
+  }
 });
 
 test("rendered staple-fiber pages keep answering the buyer honestly", buildOptions, () => {
