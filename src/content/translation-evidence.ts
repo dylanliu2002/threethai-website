@@ -1,4 +1,5 @@
 import { contentLocaleOf, locales, type ContentLocale, type Locale } from "./company";
+import { intlDees001Records } from "./translation-records";
 import {
   isSectionEvidencePath,
   sectionSurfaceFor,
@@ -93,10 +94,19 @@ export function isPromotionLocale(locale: string): locale is PromotionLocale {
 
 /**
  * One localized value. Nested on purpose: a product's `faqs` and `processGuide`
- * hold pairs inside lists, and a record must mirror the field's own shape so the
- * renderer consumes it unchanged.
+ * hold pairs inside lists, and an application's `problem`, `whereUsed`,
+ * `whyTemporary` and `testing` hold a `{ heading, body }` object. A record must
+ * mirror the field's own shape so the renderer consumes it unchanged — which is
+ * why the object branch is stated here instead of those four fields being
+ * flattened in the entity: flattening would move copy the model already
+ * describes, and the shape a reviewer signs off on would stop being the shape the
+ * page renders. Every leaf is still a string and `isGenuineTranslation` still
+ * walks to each one, so an object cannot hide an empty or untranslated member.
  */
-export type TranslatedValue = string | readonly TranslatedValue[];
+export type TranslatedValue =
+  | string
+  | readonly TranslatedValue[]
+  | { readonly [key: string]: TranslatedValue };
 
 /** Sections whose entity detail pages carry `Record<ContentLocale, …>` copy. */
 export const DEEP_CONTENT_SECTIONS = [
@@ -220,18 +230,40 @@ export type TranslationEvidence = {
 };
 
 /**
- * Approved evidence, by path and locale. Empty by fact, not by policy: ES and DE
- * pages still render the English record, and ES/DE core and section pages render
- * partially translated chrome over English body copy (INTL-DEES-002B measured
- * 128 of 248 UI strings per locale), so no record exists to approve yet.
+ * The evidence registry. INTL-DEES-001 put the first records into it — the nine
+ * entity detail pages this line localizes (four products, five applications), in
+ * both languages — and every one of them is a `draft`.
+ *
+ * That is the state the gate was built for: written copy is content work, and an
+ * unreviewed draft grants nothing. `TRANSLATED_PAGES` stays empty until a record
+ * is signed off by someone other than its author, so no ES or DE page owns a URL
+ * anywhere yet and every shipped SEO answer is what INTL-DEES-004B produced.
+ * Approval is now an edit to `status`, `reviewedBy` and `reviewedOn` on one
+ * record, with no code change anywhere else — which is the property
+ * INTL-DEES-003A asked this task to establish.
+ *
+ * The array is assembled by `./translation-records` from the live entity and
+ * `./translation-copy`, not typed here by hand, so `requiredFields` and `source`
+ * measure the page instead of describing it. Core and section routes are still
+ * absent: their prose is not yet gathered into a bundle they render through
+ * `pageCopyFor`, so declaring a surface for them would be a completeness claim
+ * nothing enforces (see `./page-surfaces`).
  */
-export const TRANSLATION_EVIDENCE: readonly TranslationEvidence[] = [];
+export const TRANSLATION_EVIDENCE: readonly TranslationEvidence[] = intlDees001Records();
 
 const sameText = (a: TranslatedValue, b: TranslatedValue): boolean =>
   JSON.stringify(a) === JSON.stringify(b);
 
-const textLeaves = (value: TranslatedValue): string[] =>
-  typeof value === "string" ? [value] : value.flatMap((part) => textLeaves(part));
+/**
+ * Every string inside a localized value, however it is nested. Lists and objects
+ * are both walked, so an `{ heading, body }` field cannot pass by carrying one
+ * translated member and one empty one, and `nonEmpty` sees all of them.
+ */
+const textLeaves = (value: TranslatedValue): string[] => {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap((part) => textLeaves(part));
+  return Object.values(value).flatMap((part) => textLeaves(part));
+};
 
 const nonEmpty = (value: TranslatedValue): boolean => {
   const leaves = textLeaves(value);
