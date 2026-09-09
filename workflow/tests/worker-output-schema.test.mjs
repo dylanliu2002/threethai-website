@@ -106,6 +106,49 @@ test("a valid enum remains accepted", () => {
   assert.equal(assertOpenAiStructuredOutputSchema(valid), valid);
 });
 
+test("a NaN const is rejected before model-request serialization", () => {
+  const invalid = structuredClone(WorkerOutputJsonSchema);
+  invalid.properties.summary = { type: "number", const: Number.NaN };
+  assert.throws(
+    () => serializeWorkerOutputSchemaInternal(invalid),
+    /summary\.const must be a valid JSON literal/i,
+  );
+});
+
+test("a nested non-JSON const value is rejected before model-request serialization", () => {
+  const invalid = structuredClone(WorkerOutputJsonSchema);
+  invalid.properties.summary = {
+    type: "object",
+    const: { value: undefined },
+    properties: { value: { type: ["string", "null"] } },
+    required: ["value"],
+    additionalProperties: false,
+  };
+  assert.throws(
+    () => serializeWorkerOutputSchemaInternal(invalid),
+    /summary\.const\.value must be a valid JSON literal/i,
+  );
+});
+
+test("valid scalar and composite const values remain accepted", () => {
+  const scalar = structuredClone(WorkerOutputJsonSchema);
+  scalar.properties.summary = { type: "number", const: 42 };
+  assert.equal(assertOpenAiStructuredOutputSchema(scalar), scalar);
+
+  const composite = structuredClone(WorkerOutputJsonSchema);
+  composite.properties.summary = {
+    type: "object",
+    const: { ready: true, values: [1, "two", null] },
+    properties: {
+      ready: { type: "boolean" },
+      values: { type: "array", items: { type: ["number", "string", "null"] } },
+    },
+    required: ["ready", "values"],
+    additionalProperties: false,
+  };
+  assert.equal(assertOpenAiStructuredOutputSchema(composite), composite);
+});
+
 test("successful synthetic worker output contract remains unchanged", () => {
   const output = {
     schema_version: "2.0.0",

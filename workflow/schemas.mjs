@@ -436,8 +436,11 @@ function assertOpenAiStructuredOutputNode(schema, location, { root = false } = {
   if (root && (types.length !== 1 || types[0] !== "object")) {
     throw new Error("Structured output root must have type object.");
   }
-  if (Object.hasOwn(schema, "const") && !matchesDeclaredJsonSchemaType(schema.const, types)) {
-    throw new Error(`${location}.const does not match its declared type.`);
+  if (Object.hasOwn(schema, "const")) {
+    if (!matchesDeclaredJsonSchemaType(schema.const, types)) {
+      throw new Error(`${location}.const does not match its declared type.`);
+    }
+    canonicalJsonLiteral(schema.const, `${location}.const`);
   }
   if (Object.hasOwn(schema, "enum")) {
     if (!Array.isArray(schema.enum) || schema.enum.length === 0) {
