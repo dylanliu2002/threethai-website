@@ -2,7 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Product } from "@/content/products";
 import type { Dictionary } from "@/content/i18n";
-import { contentLocaleOf, localePath, type Locale } from "@/content/company";
+import { localePath, type Locale } from "@/content/company";
+import { pageCopyFor } from "@/content/translation-availability";
 
 export default function ProductCard({
   product,
@@ -15,7 +16,9 @@ export default function ProductCard({
   dict: Dictionary;
   priority?: boolean;
 }) {
-  const cl = contentLocaleOf(locale);
+  // The card shows the product page's own name, tagline and alt text, so it reads
+  // them the way that page does: through the record that earned the URL ownership.
+  const { entity, contentLocale } = pageCopyFor(`/products/${product.slug}`, locale, product);
   return (
     <Link
       href={localePath(`/products/${product.slug}`, locale)}
@@ -24,7 +27,7 @@ export default function ProductCard({
       <div className="relative aspect-[4/3] overflow-hidden bg-muted">
         <Image
           src={product.image}
-          alt={product.imageAlt[cl]}
+          alt={entity.imageAlt[contentLocale]}
           fill
           sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
           className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
@@ -32,8 +35,8 @@ export default function ProductCard({
         />
       </div>
       <div className="flex flex-1 flex-col p-5">
-        <h3 className="display-3 !text-lg">{product.name[cl]}</h3>
-        <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{product.tagline[cl]}</p>
+        <h3 className="display-3 !text-lg">{entity.name[contentLocale]}</h3>
+        <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{entity.tagline[contentLocale]}</p>
         <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
           {dict.actions.viewSpecifications}
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true">

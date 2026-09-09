@@ -6,16 +6,16 @@ import Reveal from "@/components/layout/reveal";
 import { buyerAnswers } from "@/content/answers";
 import { buildMetadata, breadcrumbSchema, jsonLd } from "@/lib/seo";
 import { localePath, siteUrl, contentLocaleOf } from "@/content/company";
+import { pageMeta } from "@/content/server-copy";
 import { resolveLang } from "../_lang";
 
 type Props = { params: Promise<{ lang: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { locale } = await resolveLang(params, notFound);
+  const { dict, locale } = await resolveLang(params, notFound);
   return buildMetadata({
-    title: "PVA Yarn Buyer Questions & Technical Answers",
-    description:
-      "Evidence-led answers to 30 common sourcing questions about water-soluble PVA yarn, sewing thread, staple fiber and filament yarn — supplier selection, testing, MOQ, documents and audits.",
+    title: pageMeta[locale].answers.title,
+    description: pageMeta[locale].answers.description,
     path: "/answers",
     locale,
   });

@@ -6,7 +6,7 @@ import type { Application } from "@/content/applications";
 import { productBySlug } from "@/content/products";
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
-import { contentLocaleOf, localePath } from "@/content/company";
+import { localePath } from "@/content/company";
 import { pageCopyFor } from "@/content/translation-availability";
 
 /**
@@ -19,7 +19,6 @@ import { pageCopyFor } from "@/content/translation-availability";
  */
 export default function ApplicationView({ application, locale, dict }: { application: Application; locale: Locale; dict: Dictionary }) {
   const { entity, contentLocale } = pageCopyFor(`/applications/${application.slug}`, locale, application);
-  const cl = contentLocaleOf(locale);
   const t = dict.applicationPage;
   const lp = (path: string) => localePath(path, locale);
   const blocks = [
@@ -99,6 +98,9 @@ export default function ApplicationView({ application, locale, dict }: { applica
               {application.productSlugs.map((slug) => {
                 const product = productBySlug(slug);
                 if (!product) return null;
+                // The related product's name and tagline are that page's copy: read them
+                // through its own resolution so a promotion reaches this card too.
+                const productCopy = pageCopyFor(`/products/${slug}`, locale, product);
                 return (
                   <li key={slug}>
                     <Link
@@ -109,8 +111,8 @@ export default function ApplicationView({ application, locale, dict }: { applica
                         <Image src={product.image} alt="" fill sizes="56px" className="object-cover" />
                       </span>
                       <span>
-                        <span className="block font-semibold text-ink group-hover:text-primary">{product.name[cl]}</span>
-                        <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{product.tagline[cl]}</span>
+                        <span className="block font-semibold text-ink group-hover:text-primary">{productCopy.entity.name[productCopy.contentLocale]}</span>
+                        <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{productCopy.entity.tagline[productCopy.contentLocale]}</span>
                       </span>
                     </Link>
                   </li>

@@ -104,7 +104,7 @@ export default function SiteHeader({
       <div className="hidden bg-primary text-primary-foreground md:block">
         <div className="container-site flex h-9 items-center justify-between text-xs">
           <p className="tracking-wide opacity-90">
-            {locale === "zh" ? "水溶性 PVA 纱线 · 缝纫线 · 短纤 · 长丝" : "Water-soluble PVA yarn · thread · fiber · filament"}
+            {dict.header.tagline}
           </p>
           <div className="flex items-center gap-5 opacity-90">
             <a className="hover:text-gold" href="mailto:salesmanager@threethai.com">

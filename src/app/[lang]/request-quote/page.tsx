@@ -7,6 +7,7 @@ import Reveal from "@/components/layout/reveal";
 import InquiryForm from "@/components/forms/inquiry-form";
 import { buildMetadata, jsonLd } from "@/lib/seo";
 import { company, localePath, siteUrl } from "@/content/company";
+import { serverLabels } from "@/content/server-copy";
 import { resolveLang } from "../_lang";
 
 type Props = { params: Promise<{ lang: string }> };
@@ -56,7 +57,7 @@ export default async function LangRequestQuotePage({ params }: Props) {
         <div className="container-site grid gap-10 lg:grid-cols-[1.15fr_0.85fr]">
           <Reveal>
             <div className="card-line p-6 sm:p-8">
-              <Suspense fallback={<p className="text-sm text-muted-foreground">Loading form…</p>}>
+              <Suspense fallback={<p className="text-sm text-muted-foreground">{dict.labels.formLoading}</p>}>
                 <InquiryForm locale={locale} dict={dict} kind="quote" />
               </Suspense>
             </div>
@@ -83,7 +84,7 @@ export default async function LangRequestQuotePage({ params }: Props) {
                 </dl>
               </div>
               <p className="text-xs leading-relaxed text-muted-foreground">
-                Quotations are prepared against a complete specification — count system, construction, dissolution method, quantity, packing and Incoterm.
+                {serverLabels[locale].quoteAssuranceNote}
               </p>
             </aside>
           </Reveal>

@@ -5,6 +5,7 @@ import { factoryStats } from "@/content/factory";
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
 import { contentLocaleOf, localePath } from "@/content/company";
+import { serverLabels } from "@/content/server-copy";
 
 export default function HomeManufacturing({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const cl = contentLocaleOf(locale);
@@ -16,11 +17,7 @@ export default function HomeManufacturing({ locale, dict }: { locale: Locale; di
           <figure className="relative aspect-[4/3] overflow-hidden rounded-lg border border-white/15">
             <Image
               src="/images/factory-live/ring-spinning.webp"
-              alt={
-                locale === "zh"
-                  ? "荣沣纺织生产基地的环锭纺细纱机"
-                  : "Ring spinning frames at the Three Thai Textile production base"
-              }
+              alt={serverLabels[locale].homeManufacturingImageAlt}
               fill
               sizes="(min-width: 1024px) 45vw, 100vw"
               className="object-cover"

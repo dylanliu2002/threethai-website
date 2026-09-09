@@ -5,6 +5,7 @@ import { applications, applicationBySlug } from "@/content/applications";
 import { buildMetadata, breadcrumbSchema, jsonLd } from "@/lib/seo";
 import { contentLocaleOf, localePath, type Locale } from "@/content/company";
 import { pageCopyFor } from "@/content/translation-availability";
+import { pageMeta } from "@/content/server-copy";
 import { langParams, resolveLang } from "../../_lang";
 
 type Props = { params: Promise<{ lang: string; slug: string }> };
@@ -32,10 +33,10 @@ function applicationCopy(slug: string, locale: Locale) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   if (!applicationBySlug(slug)) return {};
-  const { locale } = await resolveLang(params, notFound);
+  const { dict, locale } = await resolveLang(params, notFound);
   const { application, name, summary } = applicationCopy(slug, locale);
   return buildMetadata({
-    title: `${name} — Water-Soluble PVA Applications`,
+    title: `${name} — ${pageMeta[locale].applications.suffix}`,
     description: summary,
     path: `/applications/${application.slug}`,
     locale,

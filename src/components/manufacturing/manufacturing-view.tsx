@@ -6,6 +6,7 @@ import { factoryEquipment, factoryStats, manufacturingIntro, processFlow } from 
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
 import { contentLocaleOf, localePath } from "@/content/company";
+import { serverLabels } from "@/content/server-copy";
 
 export default function ManufacturingView({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const cl = contentLocaleOf(locale);
@@ -48,7 +49,7 @@ export default function ManufacturingView({ locale, dict }: { locale: Locale; di
               <figure className="relative aspect-[16/10] overflow-hidden rounded-lg border border-border">
                 <Image
                   src="/images/factory-live/blowing-carding.webp"
-                  alt={locale === "zh" ? "清梳联生产现场" : "Blowing-carding line at the production base"}
+                  alt={serverLabels[locale].manufacturingHeroImageAlt}
                   fill
                   sizes="(min-width: 1024px) 45vw, 100vw"
                   className="object-cover"
@@ -80,7 +81,7 @@ export default function ManufacturingView({ locale, dict }: { locale: Locale; di
           <Reveal>
             <p className="eyebrow">{dict.nav.manufacturing}</p>
             <h2 className="display-2 mt-3 !text-2xl sm:!text-3xl">
-              {locale === "zh" ? "从清梳联到自动络筒的完整纺纱能力" : "Complete spinning capability, blow room to winding"}
+              {serverLabels[locale].spinningCapabilityHeading}
             </h2>
             <p className="lede mt-3 max-w-3xl">
               {locale === "zh"
@@ -97,7 +98,7 @@ export default function ManufacturingView({ locale, dict }: { locale: Locale; di
                     <div className="relative aspect-[4/3] bg-muted">
                       <Image
                         src={equipment.image}
-                        alt={`${equipment.name[cl]} — ${locale === "zh" ? "生产现场" : "live production"}`}
+                        alt={`${equipment.name[cl]} — ${serverLabels[locale].equipmentImageSuffix}`}
                         fill
                         sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                         className="object-cover"

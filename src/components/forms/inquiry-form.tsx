@@ -173,7 +173,7 @@ function InquiryFormInner({
         <Field label={f.email} name="email" type="email" required autoComplete="email" error={fieldError("email")} />
         <Field label={f.phone} name="phone" type="tel" autoComplete="tel" optionalLabel={dict.form.optional} />
         {!isContact && (
-          <Field label={f.destination} name="destination" optionalLabel={dict.form.optional} placeholder={locale === "zh" ? "如：印度／土耳其" : "e.g. India / Türkiye"} />
+          <Field label={f.destination} name="destination" optionalLabel={dict.form.optional} placeholder={dict.labels.destinationPlaceholder} />
         )}
       </div>
 
@@ -193,7 +193,7 @@ function InquiryFormInner({
                 <option value="water-soluble-pva-sewing-thread">Water-soluble PVA sewing thread · PVA 水溶缝纫线</option>
                 <option value="pva-staple-fiber">PVA staple fiber · PVA 短纤</option>
                 <option value="pva-filament-yarn">PVA filament yarn · PVA 长丝</option>
-                <option value="other">{locale === "zh" ? "其他 / 扩展形态" : "Other / extended format"}</option>
+                <option value="other">{dict.labels.productOtherOption}</option>
               </select>
             </div>
             <div>
@@ -213,9 +213,9 @@ function InquiryFormInner({
                 <option value="other">{dict.finder.applicationOptions.other}</option>
               </select>
             </div>
-            <Field label={f.specification} name="specification" optionalLabel={dict.form.optional} defaultValue={specificationDefaultValue} placeholder={locale === "zh" ? "如：40S/2 · 1.50 dtex × 38 mm" : "e.g. 40S/2 · 1.50 dtex × 38 mm"} />
+            <Field label={f.specification} name="specification" optionalLabel={dict.form.optional} defaultValue={specificationDefaultValue} placeholder={dict.labels.specificationPlaceholder} />
             <Field label={f.temperature} name="temperature" optionalLabel={dict.form.optional} defaultValue={temperatureParam} placeholder="20°C / 40°C / 90°C…" />
-            <Field label={f.quantity} name="quantity" optionalLabel={dict.form.optional} placeholder={locale === "zh" ? "样品／试单／年用量" : "sample / pilot / annual"} />
+            <Field label={f.quantity} name="quantity" optionalLabel={dict.form.optional} placeholder={dict.labels.quantityPlaceholder} />
           </div>
           {productName && (
             <p className="mt-3 rounded-md bg-secondary px-3 py-2 text-xs text-muted-foreground">

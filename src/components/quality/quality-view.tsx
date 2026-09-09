@@ -14,6 +14,7 @@ import {
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
 import { contentLocaleOf, localePath } from "@/content/company";
+import { serverLabels } from "@/content/server-copy";
 
 export default function QualityView({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const cl = contentLocaleOf(locale);
@@ -73,7 +74,7 @@ export default function QualityView({ locale, dict }: { locale: Locale; dict: Di
               <div>
                 <p className="eyebrow">{t.certsTitle}</p>
                 <h2 className="display-2 mt-3 !text-2xl sm:!text-3xl">
-                  {locale === "zh" ? "ISO · OEKO-TEX · SGS · 专利文件" : "ISO · OEKO-TEX · SGS · patent documents"}
+                  {serverLabels[locale].qualityEvidenceEyebrow}
                 </h2>
               </div>
               <p className="text-sm text-muted-foreground">{t.certsNote}</p>
@@ -157,7 +158,7 @@ export default function QualityView({ locale, dict }: { locale: Locale; dict: Di
 
           {/* Invention patents */}
           <h3 className="mt-12 text-lg font-semibold text-ink">
-            {locale === "zh" ? "授权发明专利" : "Granted invention patents"}
+            {serverLabels[locale].inventionPatentsHeading}
           </h3>
           <ul className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {inventionPatents.map((patent) => (
@@ -182,7 +183,7 @@ export default function QualityView({ locale, dict }: { locale: Locale; dict: Di
 
           {/* Foreign patents */}
           <h3 className="mt-12 text-lg font-semibold text-ink">
-            {locale === "zh" ? "国外授权专利" : "Patents granted abroad"}
+            {dict.qualityPage.patentsStatsForeign}
           </h3>
           <div className="mt-4 grid gap-5 sm:grid-cols-2">
             {foreignPatents.map((patent) => (
@@ -208,7 +209,7 @@ export default function QualityView({ locale, dict }: { locale: Locale; dict: Di
                       <dd className="font-mono font-medium text-foreground/80">{patent.number}</dd>
                     </div>
                     <div className="flex gap-2">
-                      <dt className="shrink-0">{locale === "zh" ? "优先权" : "Priority"}:</dt>
+                      <dt className="shrink-0">{serverLabels[locale].patentPriorityLabel}:</dt>
                       <dd className="font-mono text-foreground/80">{patent.priority}</dd>
                     </div>
                     <div className="flex gap-2">
@@ -232,15 +233,15 @@ export default function QualityView({ locale, dict }: { locale: Locale; dict: Di
           <p className="mt-1 text-sm text-muted-foreground">{t.utilityTableNote}</p>
           <details className="mt-4 rounded-lg border border-border bg-paper">
             <summary className="cursor-pointer select-none px-5 py-4 text-sm font-semibold text-ink hover:text-gold-deep">
-              {locale === "zh" ? `展开查看全部 ${patentStats.utilityCount} 件实用新型专利` : `Show all ${patentStats.utilityCount} utility model patents`}
+              {serverLabels[locale].utilityShowAll.replace("{count}", String(patentStats.utilityCount))}
             </summary>
             <div className="overflow-x-auto px-5 pb-5">
               <table className="table-spec w-full min-w-[640px]">
                 <thead>
                   <tr>
                     <th scope="col" className="text-left">{t.patentNoLabel}</th>
-                    <th scope="col" className="text-left">{locale === "zh" ? "授权公告号" : "Publication"}</th>
-                    <th scope="col" className="text-left">{locale === "zh" ? "实用新型名称" : "Title"}</th>
+                    <th scope="col" className="text-left">{serverLabels[locale].utilityPublicationColumn}</th>
+                    <th scope="col" className="text-left">{serverLabels[locale].utilityTitleColumn}</th>
                     <th scope="col" className="text-left">{t.patentGrantedLabel}</th>
                   </tr>
                 </thead>

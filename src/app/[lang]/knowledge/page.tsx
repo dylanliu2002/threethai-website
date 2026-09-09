@@ -6,16 +6,16 @@ import Reveal from "@/components/layout/reveal";
 import { articles } from "@/content/articles";
 import { buildMetadata, breadcrumbSchema, jsonLd } from "@/lib/seo";
 import { localePath, siteUrl, contentLocaleOf } from "@/content/company";
+import { pageMeta } from "@/content/server-copy";
 import { resolveLang } from "../_lang";
 
 type Props = { params: Promise<{ lang: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { locale } = await resolveLang(params, notFound);
+  const { dict, locale } = await resolveLang(params, notFound);
   return buildMetadata({
-    title: "Technical Resources — PVA Selection, Testing & QC Guides",
-    description:
-      "Technical articles for PVA buyers: dissolution temperature guide, buyer specification checklist, batch consistency evaluation and staple fiber vs filament selection.",
+    title: pageMeta[locale].knowledge.title,
+    description: pageMeta[locale].knowledge.description,
     path: "/knowledge",
     locale,
   });

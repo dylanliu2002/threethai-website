@@ -6,16 +6,16 @@ import Reveal from "@/components/layout/reveal";
 import { applications } from "@/content/applications";
 import { buildMetadata, breadcrumbSchema, jsonLd } from "@/lib/seo";
 import { contentLocaleOf, localePath } from "@/content/company";
+import { pageMeta } from "@/content/server-copy";
 import { resolveLang } from "../_lang";
 
 type Props = { params: Promise<{ lang: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { locale } = await resolveLang(params, notFound);
+  const { dict, locale } = await resolveLang(params, notFound);
   return buildMetadata({
-    title: "Applications of Water-Soluble PVA in Textile Manufacturing",
-    description:
-      "Where water-soluble PVA yarn, thread and fiber are used: towel weaving and zero-twist, embroidery and sewing, knitting, papermaking and technical textiles — with selection guidance.",
+    title: pageMeta[locale].applications.title,
+    description: pageMeta[locale].applications.description,
     path: "/applications",
     locale,
   });

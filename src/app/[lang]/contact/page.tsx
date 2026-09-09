@@ -2,16 +2,16 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import ContactView from "@/components/sections/contact-view";
 import { buildMetadata } from "@/lib/seo";
+import { pageMeta } from "@/content/server-copy";
 import { resolveLang } from "../_lang";
 
 type Props = { params: Promise<{ lang: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { locale } = await resolveLang(params, notFound);
+  const { dict, locale } = await resolveLang(params, notFound);
   return buildMetadata({
-    title: "Contact — Three Thai Textile (山东荣沣纺织)",
-    description:
-      "Contact the Three Thai Textile team in Shandong, China about water-soluble PVA products, specifications, samples, documents and factory audits.",
+    title: pageMeta[locale].contact.title,
+    description: pageMeta[locale].contact.description,
     path: "/contact",
     locale,
   });
