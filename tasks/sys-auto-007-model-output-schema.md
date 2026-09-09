@@ -93,6 +93,19 @@ used by the test process.
 - [x] Static validation, reconcile/tick dry-runs, lint, typecheck, and diff
   checks pass with canonical state unchanged.
 
+## Fresh-review Constraint Value Remediation
+
+- [x] Reject a non-string or non-compiling `pattern` before serialization.
+- [x] Require `enum` to be a non-empty array of valid JSON literals matching
+  the declared type.
+- [x] Reject duplicate enum values using canonical JSON value equality.
+- [x] Accept valid patterns and valid unique enums.
+- [x] Preserve the tracked worker-result schema and successful output contract.
+- [x] Focused tests pass `11/11`; full workflow tests pass `191/191` in the
+  isolated disposable context.
+- [x] Static validation, reconcile/tick dry-runs, lint, typecheck, and diff
+  checks pass with canonical state unchanged.
+
 ## Validation
 
 ```text

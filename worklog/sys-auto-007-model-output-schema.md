@@ -53,3 +53,20 @@
 - No scheduler, dispatch, activation, Grant, retry, worker, diagnostic, or
   successful-output behavior changed. The disposable authority path remained
   absent before and after full-suite execution.
+
+## 2026-09-09 — Fresh-review constraint value remediation
+
+- Made allowed `pattern` values fail closed unless they compile as valid
+  ECMAScript Unicode regular expressions.
+- Made `enum` values fail closed unless every value is a valid JSON literal,
+  matches the declared schema type, and is unique under canonical JSON value
+  equality. This also rejects structural duplicates with reordered object keys.
+- Added regressions for an invalid pattern, duplicate enum, non-JSON enum
+  value, valid pattern, and valid enum. The tracked schema and successful
+  worker-result contract remain unchanged.
+- Focused schema tests passed `11/11`; the complete disposable-context workflow
+  suite passed `191/191`. `validate --all`, reconcile and tick dry-runs, lint,
+  typecheck, syntax, and diff checks passed.
+- No scheduler, dispatch, activation, Grant, retry, worker, diagnostic, or
+  output-contract behavior changed. The disposable authority path remained
+  absent before and after full-suite execution.
