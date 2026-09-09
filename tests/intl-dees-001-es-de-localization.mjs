@@ -409,6 +409,8 @@ const CARD_RENDERERS = [
   "src/components/application/application-view.tsx",
   "src/app/[lang]/applications/page.tsx",
   "src/app/[lang]/knowledge/page.tsx",
+  "src/app/[lang]/knowledge/[slug]/page.tsx",
+  "src/app/[lang]/answers/page.tsx",
 ];
 
 test("REQ 2 · every card surface reads its copy from the card module", () => {

@@ -1,5 +1,7 @@
 import { applications, type Application } from "./applications";
 import { articles, type Article } from "./articles";
+import { answerTeasers } from "./answer-teasers";
+import { buyerAnswers } from "./answers";
 import { productCopy, applicationCopy } from "./translation-copy";
 import { products, type Product } from "./products";
 import type { Locale } from "./company";
@@ -195,4 +197,29 @@ export function articleCard(slug: string, locale: Locale): ArticleCardCopy {
     title: copy.title[locale],
     intro: copy.intro[locale],
   };
+}
+
+/**
+ * The question title of a buyer answer, as a card shows it.
+ *
+ * Title only. An answer's body, its expansion pack and its FAQ list are deferred
+ * content for this task, so `/es/answers/<slug>` still renders the model's own
+ * headline over English prose while the label linking to it is Spanish — the same
+ * card/page split as the knowledge teasers, stated rather than smoothed over.
+ * Nothing here reaches the promotion seam: an answer has no evidence record in
+ * either tier, and this is not how it would get one.
+ */
+export function answerCard(slug: string, locale: Locale): { question: string } {
+  const answer = buyerAnswers.find((entry) => entry.slug === slug);
+  if (!answer) throw new Error(`card-copy: unknown answer slug "${slug}"`);
+  if (locale === "en") return { question: answer.question.en };
+  if (locale === "zh") return { question: answer.question.zh };
+  const translated = answerTeasers[slug]?.[locale];
+  if (!translated) {
+    throw new Error(
+      `card-copy: answer-teasers has no ${locale} question for "${slug}", which cards render as a ` +
+        `link label. Add the value, or this label ships English beside a localized page.`,
+    );
+  }
+  return { question: translated };
 }

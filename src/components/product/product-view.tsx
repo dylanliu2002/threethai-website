@@ -12,7 +12,7 @@ import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
 import { localePath } from "@/content/company";
 import { DISPLAY_PAGES, pageCopyFor } from "@/content/translation-availability";
-import { applicationCard, articleCard, productCard } from "@/content/card-copy";
+import { answerCard, applicationCard, articleCard, productCard } from "@/content/card-copy";
 import { serverLabels } from "@/content/site-copy";
 
 /**
@@ -45,10 +45,10 @@ export default function ProductView({ product, locale, dict }: { product: Produc
       slug: application.slug,
       ...applicationCard(application.slug, locale),
     }));
-  // Article teasers follow the same card rule. Answers do not: this task defers the
-  // `/answers` and `/knowledge` bodies, so there is no reviewed text to put in a
-  // teaser table, and a question is a headline rather than a summary. They resolve
-  // through the gate below and localise the moment those routes get records.
+  // Article and answer teasers follow the same card rule: a card is this page's
+  // prose. The answer bodies and article bodies behind them are deferred content,
+  // so a label may be Spanish while the page it links to still renders English —
+  // that page is where a record would have to land, not this list.
   const relatedArticles = articles.slice(0, 2).map((article) => ({
     slug: article.slug,
     title: articleCard(article.slug, locale).title,
@@ -56,10 +56,10 @@ export default function ProductView({ product, locale, dict }: { product: Produc
   const relatedAnswers = buyerAnswers
     .filter((a) => a.relatedProduct === product.slug)
     .slice(0, 4)
-    .map((answer) => {
-      const copy = pageCopyFor(`/answers/${answer.slug}`, locale, answer);
-      return { slug: answer.slug, question: copy.entity.question[copy.contentLocale] };
-    });
+    .map((answer) => ({
+      slug: answer.slug,
+      question: answerCard(answer.slug, locale).question,
+    }));
   const index = allProducts.findIndex((p) => p.slug === product.slug);
   const next = allProducts[(index + 1) % allProducts.length];
   const nextCard = productCard(next.slug, locale);
