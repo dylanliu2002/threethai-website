@@ -5,8 +5,10 @@ import Breadcrumbs from "@/components/layout/breadcrumbs";
 import Reveal from "@/components/layout/reveal";
 import { applications } from "@/content/applications";
 import { buildMetadata, breadcrumbSchema, jsonLd } from "@/lib/seo";
-import { contentLocaleOf, localePath } from "@/content/company";
+import { localePath } from "@/content/company";
 import { pageMeta } from "@/content/site-copy";
+import { pageCopyFor } from "@/content/translation-availability";
+import { productBySlug } from "@/content/products";
 import { resolveLang } from "../_lang";
 
 type Props = { params: Promise<{ lang: string }> };
@@ -24,7 +26,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function LangApplicationsPage({ params }: Props) {
   const { dict, locale } = await resolveLang(params, notFound);
   const t = dict.applicationsPage;
-  const cl = contentLocaleOf(locale);
+  // Each card shows an application page's own headline text, so it reads it
+  // through the same gate that page uses: a promotion of /applications/x is
+  // what makes this card Spanish, not a locale guess here.
+  const cards = applications.map((application) => {
+    const copy = pageCopyFor(`/applications/${application.slug}`, locale, application);
+    return {
+      application,
+      name: copy.entity.name[copy.contentLocale],
+      summary: copy.entity.summary[copy.contentLocale],
+    };
+  });
   const lp = (p: string) => localePath(p, locale);
   return (
     <>
@@ -51,7 +63,7 @@ export default async function LangApplicationsPage({ params }: Props) {
 
       <section className="py-14 sm:py-16">
         <div className="container-site grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {applications.map((app, index) => (
+          {cards.map(({ application: app, name, summary }, index) => (
             <Reveal key={app.slug} delay={index * 60} className="h-full">
               <Link
                 href={lp(`/applications/${app.slug}`)}
@@ -61,19 +73,28 @@ export default async function LangApplicationsPage({ params }: Props) {
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold-deep">
                     {String(index + 1).padStart(2, "0")}
                   </p>
-                  <h2 className="mt-2 text-lg font-semibold text-ink group-hover:text-primary">{app.name[cl]}</h2>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{app.summary[cl]}</p>
+                  <h2 className="mt-2 text-lg font-semibold text-ink group-hover:text-primary">{name}</h2>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{summary}</p>
                   <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
                     {dict.actions.viewApplication}
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="transition-transform group-hover:translate-x-0.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
                   </span>
                 </div>
                 <ul className="border-t border-border bg-paper/60 px-6 py-4">
-                  {app.productSlugs.slice(0, 2).map((slug) => (
-                    <li key={slug} className="text-xs text-muted-foreground">
-                      → {dict.nav.products}: {slug.replaceAll("-", " ")}
-                    </li>
-                  ))}
+                  {app.productSlugs.slice(0, 2).map((slug) => {
+                    // The linked product's own name, not its URL slug with the
+                    // hyphens taken out: "water soluble pva yarn" is not a product
+                    // name in any language, and this line was wrong in English too.
+                    const product = productBySlug(slug);
+                    const copy = product
+                      ? pageCopyFor(`/products/${slug}`, locale, product)
+                      : null;
+                    return (
+                      <li key={slug} className="text-xs text-muted-foreground">
+                        → {dict.nav.products}: {copy ? copy.entity.name[copy.contentLocale] : slug}
+                      </li>
+                    );
+                  })}
                 </ul>
               </Link>
             </Reveal>

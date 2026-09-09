@@ -238,3 +238,27 @@ skipped**. Field-by-field against the pre-task build over all 222 documents: **E
 57/57 unchanged and ZH 55/55 unchanged** — this pass added no text to a language it
 does not translate — ES and DE changed only in visible text, title and description,
 and **no document moved an SEO field**.
+
+## 2026-09-09 — Second read of the pages: a slug masquerading as a product name
+
+The owner pasted `/es`, `/es/products`, `/es/knowledge` and `/es/applications` again.
+Three findings, all fixed:
+
+- `→ Productos: water soluble pva yarn` — the application card rendered
+  `slug.replaceAll("-", " ")`. A URL identifier is not a product name, and the bug was
+  not a localisation bug at all: the English page said `→ Products: pva staple fiber`
+  too. It now renders the product's own name through `pageCopyFor`.
+- The application cards (index + home) still used `contentLocaleOf`, so approving an
+  application record would have localised the page and not its cards. Now through the
+  gate — this removes the one gap the previous section listed as knowingly open.
+- `34 + 2 patents` was the last English word in the home certification marks; the
+  mark titles are per-locale, with the three standard names identical across
+  languages because those are the names of the documents.
+
+Residual after this pass (`/es/applications` 16 → 11 distinct English blocks;
+`/es/quality` 40, of which 36 are registered patent titles/numbers; `/es/products`
+27, of which 16 are technical spec chips): what is left is entity copy that the 18
+draft records already translate, and identifiers that must not be translated.
+
+EN 57/57 and ZH 55/55 documents still byte-unchanged; no SEO field moved; 203/203
+SEO tests pass; records still drafts.

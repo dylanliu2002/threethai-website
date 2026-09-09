@@ -3,11 +3,22 @@ import Image from "next/image";
 import Reveal from "@/components/layout/reveal";
 import { applications } from "@/content/applications";
 import type { Dictionary } from "@/content/i18n";
-import { contentLocaleOf, type Locale } from "@/content/company";
+import type { Locale } from "@/content/company";
+import { pageCopyFor } from "@/content/translation-availability";
 
 export default function HomeApplications({ locale, dict }: { locale: Locale; dict: Dictionary }) {
-  const cl = contentLocaleOf(locale);
   const t = dict.home.applications;
+  // Same rule as the applications index: an application's name, summary and image
+  // description belong to that page, so they arrive through its copy resolution.
+  const cards = applications.map((application) => {
+    const copy = pageCopyFor(`/applications/${application.slug}`, locale, application);
+    return {
+      application,
+      name: copy.entity.name[copy.contentLocale],
+      summary: copy.entity.summary[copy.contentLocale],
+      imageAlt: copy.entity.imageAlt[copy.contentLocale],
+    };
+  });
   return (
     <section className="border-y border-border bg-paper py-16 sm:py-20" aria-labelledby="home-applications-title">
       <div className="container-site">
@@ -25,7 +36,7 @@ export default function HomeApplications({ locale, dict }: { locale: Locale; dic
         </Reveal>
 
         <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
-          {applications.map((app, index) => (
+          {cards.map(({ application: app, name, summary, imageAlt }, index) => (
             <Reveal as="li" key={app.slug} delay={index * 60} className="h-full">
               <Link
                 href={`/${locale === "zh" ? "zh/" : ""}applications/${app.slug}`}
@@ -34,16 +45,16 @@ export default function HomeApplications({ locale, dict }: { locale: Locale; dic
                 <div className="relative aspect-[16/10] overflow-hidden bg-muted">
                   <Image
                     src={app.image}
-                    alt={app.imageAlt[cl]}
+                    alt={imageAlt}
                     fill
                     sizes="(min-width: 1024px) 20vw, (min-width: 640px) 50vw, 100vw"
                     className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                   />
                 </div>
                 <div className="flex flex-1 flex-col p-4">
-                  <h3 className="font-semibold text-ink">{app.name[cl]}</h3>
+                  <h3 className="font-semibold text-ink">{name}</h3>
                   <p className="mt-1.5 line-clamp-3 flex-1 text-[0.82rem] leading-relaxed text-muted-foreground">
-                    {app.summary[cl]}
+                    {summary}
                   </p>
                 </div>
               </Link>
