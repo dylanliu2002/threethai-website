@@ -405,10 +405,35 @@ test("build: documents did not grow to pay for the boundary", buildOptions, () =
   // The byte guard lives here, where it measures the thing that actually costs
   // money per request. The rejected complete-map encoding measured +3,210 B raw
   // per document; the shipped one costs tens of bytes.
-  const documents = walkFiles(PRERENDER_ROOT, new Set([".html"]));
-  const average = documents.reduce((sum, file) => sum + statSync(file).size, 0) / documents.length;
-  assert.ok(average < 78_000,
-    `average prerendered document is ${Math.round(average)} B against the ${76_751} B the leaked build measured — the prop encoding grew the documents`);
+  //
+  // INTL-DEES-001 split the measurement by language. A global average cannot tell
+  // a leak from a localization: translating a page legitimately makes that page
+  // bigger, and Spanish and German documents now carry their own longer text. The
+  // languages this task does NOT translate are the ones that would grow if the
+  // boundary leaked, so they are pinned at the size they had before it, byte for
+  // byte. English and Chinese measured 0 B of change at the INTL-DEES-001 head.
+  const byLanguage = (predicate) =>
+    walkFiles(PRERENDER_ROOT, new Set([".html"]))
+      .map((file) => path.relative(PRERENDER_ROOT, file).split(path.sep).join("/"))
+      .filter(predicate)
+      .map((rel) => statSync(path.join(PRERENDER_ROOT, rel)).size);
+  const average = (sizes) => sizes.reduce((a, b) => a + b, 0) / sizes.length;
+
+  const localized = (rel) => rel === "es.html" || rel === "de.html"
+    || rel.startsWith("es/") || rel.startsWith("de/");
+  const untouched = byLanguage((rel) => !localized(rel));
+  const averageUntouched = average(untouched);
+  // Measured at the INTL-DEES-001 head: the 110 untranslated documents this file walks average 76,384 B —
+  // byte-for-byte the size they had before this task, because localization added
+  // no text to a page whose language it did not change. The ceiling below is that
+  // measured number plus 416 B of headroom: a prop carrying a rule, or copy landing in the
+  // dictionary for a language nobody translated, moves it by kilobytes.
+  assert.ok(averageUntouched < 76_800,
+    `untranslated (EN/ZH) documents average ${Math.round(averageUntouched)} B against the 76,384 B they measured before INTL-DEES-001 — text reached pages this task does not translate`);
+
+  const all = average(byLanguage(() => true));
+  assert.ok(all < 79_200,
+    `average prerendered document is ${Math.round(all)} B against the ${76_751} B the leaked build measured; INTL-DEES-001 raised the ceiling from 78,000 to cover Spanish and German text on the pages that now carry it, and any further growth must be explained by more localized copy, not by a policy reaching the browser`);
 });
 
 test("build: consolidation and head alternates are untouched by the boundary", buildOptions, () => {

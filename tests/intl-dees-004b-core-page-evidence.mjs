@@ -135,9 +135,21 @@ const reasonsOf = (evidence, surfaces = SECTION_SURFACES) =>
 
 const promotionFor = (record, surfaces) => approvedPromotions([record], surfaces);
 
-assert.deepEqual([...TRANSLATION_EVIDENCE], [], "004B must ship zero evidence records");
+// 004B shipped against an empty registry because no ES or DE copy existed yet.
+// INTL-DEES-001 has since written it, and every record is a draft awaiting the
+// owner's review. What this file's rules depend on is not that nobody has written
+// anything down: it is that nothing is approved, and that no core or section route
+// has declared a copy surface — the two things that would make a section promotion
+// possible. Both still hold, and are now asserted as themselves rather than as a
+// side effect of an empty array.
+assert.deepEqual(approvedPromotions(TRANSLATION_EVIDENCE), [], "no shipped record may grant a promotion");
 assert.deepEqual(Object.keys(SECTION_SURFACES), [], "004B must ship zero declared surfaces");
 assert.deepEqual([...TRANSLATED_PAGES], [], "004B must ship zero promotions");
+assert.equal(
+  TRANSLATION_EVIDENCE.every((record) => record.status === "draft"),
+  true,
+  "every record that ships today must be a draft",
+);
 
 // ---------------------------------------------------------------------------
 // 1 · The two page classes, kept apart.
