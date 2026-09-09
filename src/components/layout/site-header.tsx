@@ -4,10 +4,11 @@ import Link from "next/link";
 import Image from "next/image";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { usePathname } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Dictionary } from "@/content/i18n";
 import { company, htmlLang, localeLabels, localePath, locales, type Locale } from "@/content/company";
 import { clientLabels } from "@/content/site-copy";
+import { markLocaleChosen } from "@/content/locale-suggestion";
 
 const UI_PREFIXES = locales.filter((l) => l !== "en");
 
@@ -72,19 +73,48 @@ export default function SiteHeader({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  /*
+   * The panel and the desktop menu close by derivation, not from inside a link's
+   * click handler. Calling setOpen(false) or details.open = false there removes the
+   * <a> while its own click is still being processed — the dialog unmounts its
+   * content, <details> hides it — and the navigation can be dropped, which is the
+   * "I clicked and nothing happened, then I clicked again" report. `pathname`
+   * changing is the fact that a navigation happened, so that is what closes them.
+   */
+  const [openedOn, setOpenedOn] = useState(pathname);
+  const dialogOpen = open && openedOn === pathname;
+  const detailsRef = useRef<HTMLDetailsElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const firstMobileLinkRef = useRef<HTMLAnchorElement>(null);
   const { path: currentPath } = splitLocalePath(pathname);
+
+  useEffect(() => {
+    if (detailsRef.current) detailsRef.current.open = false;
+  }, [pathname]);
 
   const isActive = (href: string) =>
     href === "/"
       ? currentPath === "/"
       : currentPath === href || currentPath.startsWith(`${href}/`);
 
+  /**
+   * Where a picker click goes.
+   *
+   * zh, es and de carry their locale in the path, so the path alone states the
+   * choice. English owns the prefix-free URL, so a bare `/products` says nothing
+   * about English and a stored preference may legitimately relocate it — that is
+   * how a visitor who last chose Deutsch ends up on `/de/products` after typing
+   * the English address. So the English entry points at the `/en` safety alias:
+   * the choice is written into the path itself, which survives a bookmark, a
+   * shared link and a back navigation, and the alias consolidates permanently
+   * onto the English owner while recording `en` as the preference. Measured
+   * against the routing policy: `/en/products` lands in English even with a
+   * stale `threethai_locale=de`, because the alias persists the served locale
+   * before the stored preference is ever consulted.
+   */
   const switchHref = (target: Locale) => {
     const { path } = splitLocalePath(pathname);
-    const href = localePath(path, target);
-    return `${href}${target === "en" ? "?_locale=en" : ""}`;
+    return target === "en" ? `/en${path === "/" ? "" : path}` : localePath(path, target);
   };
 
   // Locales that genuinely have this page. The switcher keeps linking users to
@@ -99,7 +129,14 @@ export default function SiteHeader({
   const currentLabel = localeLabels[locale];
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={setOpen} modal>
+    <DialogPrimitive.Root
+      open={dialogOpen}
+      onOpenChange={(next) => {
+        if (next) setOpenedOn(pathname);
+        setOpen(next);
+      }}
+      modal
+    >
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
       {/* Utility strip */}
       <div className="hidden bg-primary text-primary-foreground md:block">
@@ -138,7 +175,7 @@ export default function SiteHeader({
         </nav>
 
         <div className="flex items-center gap-2">
-          <details className="group relative hidden sm:block" data-testid="lang-switcher">
+          <details ref={detailsRef} className="group relative hidden sm:block" data-testid="lang-switcher">
             <summary
               className="flex cursor-pointer list-none items-center gap-1.5 rounded-md border border-input px-2.5 py-1.5 text-xs font-semibold text-ink [&::-webkit-details-marker]:hidden"
               aria-label={`${dict.actions.language}: ${currentLabel}`}
@@ -152,21 +189,36 @@ export default function SiteHeader({
             <ul className="absolute end-0 z-50 mt-1 max-h-80 w-44 overflow-y-auto rounded-md border border-border bg-background py-1 shadow-lg">
               {locales.map((l) => (
                 <li key={l}>
-                  <Link
+                  {/*
+                    A plain anchor, deliberately. Changing site language is a
+                    document-level event — every locale serves its own prerendered
+                    page — and next/link would try to resolve it in the client router
+                    instead. Measured in Chrome: English is the prefix-free owner, so
+                    its `/en/products` exists only as a 308 from the proxy, which the
+                    router never consults; it picked another locale out of its prefetch
+                    data and landed a visitor who clicked English on /es/products.
+                  */}
+                  <a
                     href={switchHref(l)}
                     hrefLang={localizedTargets.includes(l) ? htmlLang[l] : undefined}
                     lang={localizedTargets.includes(l) ? htmlLang[l] : undefined}
                     aria-current={l === locale ? "true" : undefined}
                     className={`flex items-center justify-between px-3 py-2 text-sm ${l === locale ? "bg-secondary font-semibold text-primary" : "text-foreground/80 hover:bg-secondary/60 hover:text-primary"}`}
                     onClick={(e) => {
-                      if (l === locale) e.preventDefault();
-                      const details = e.currentTarget.closest("details");
-                      if (details) details.open = false;
+                      if (l === locale) {
+                        // Nothing to navigate to; close the menu the click opened.
+                        e.preventDefault();
+                        if (detailsRef.current) detailsRef.current.open = false;
+                        return;
+                      }
+                      // Record the choice where JS can see it: the cookie the proxy
+                      // writes is httpOnly, so the notice could never read it.
+                      markLocaleChosen();
                     }}
                   >
                     {localeLabels[l]}
                     {l === locale && <span aria-hidden="true">✓</span>}
-                  </Link>
+                  </a>
                 </li>
               ))}
             </ul>
@@ -182,7 +234,7 @@ export default function SiteHeader({
               type="button"
               className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-input text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:hidden"
               aria-controls="mobile-nav"
-              aria-label={open ? dict.actions.close : dict.actions.menu}
+              aria-label={dialogOpen ? dict.actions.close : dict.actions.menu}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                 {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
@@ -234,16 +286,15 @@ export default function SiteHeader({
               className={`rounded-md px-3 py-3 text-base font-medium ${
                 isActive(item.href) ? "bg-secondary text-primary" : "text-foreground"
               }`}
-              onClick={() => setOpen(false)}
             >
               {dict.nav[item.label as keyof typeof dict.nav]}
             </Link>
           ))}
           <div className="mt-4 flex flex-col gap-3 border-t border-border pt-5">
-            <Link href={localePath("/request-quote", locale)} className="btn-gold w-full" onClick={() => setOpen(false)}>
+            <Link href={localePath("/request-quote", locale)} className="btn-gold w-full">
               {dict.actions.requestQuote}
             </Link>
-            <Link href={localePath("/request-sample", locale)} className="btn-ghost w-full" onClick={() => setOpen(false)}>
+            <Link href={localePath("/request-sample", locale)} className="btn-ghost w-full">
               {dict.actions.requestSample}
             </Link>
             <details className="mt-2" data-testid="lang-switcher-mobile">
@@ -253,19 +304,25 @@ export default function SiteHeader({
               </summary>
               <div className="mt-2 grid grid-cols-2 gap-1.5">
                 {locales.map((l) => (
-                  <Link
+                  <a
                     key={l}
                     href={switchHref(l)}
                     hrefLang={localizedTargets.includes(l) ? htmlLang[l] : undefined}
                     lang={localizedTargets.includes(l) ? htmlLang[l] : undefined}
                     className={`rounded px-2 py-1.5 text-sm ${l === locale ? "bg-primary font-semibold text-primary-foreground" : "bg-secondary/60 text-foreground/80"}`}
                     onClick={(e) => {
-                      if (l === locale) e.preventDefault();
-                      setOpen(false);
+                      // Plain anchor for the same reason as the desktop list: a
+                      // language is a document, not a client-route transition.
+                      if (l === locale) {
+                        e.preventDefault();
+                        setOpen(false);
+                        return;
+                      }
+                      markLocaleChosen();
                     }}
                   >
                     {localeLabels[l]}
-                  </Link>
+                  </a>
                 ))}
               </div>
             </details>

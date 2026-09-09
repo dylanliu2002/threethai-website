@@ -364,20 +364,29 @@ test("build: the client bundle returns to its INTL-DEES-002B size", buildOptions
   // What this assertion really owns is "the 1,684 B of SEO-gate code that
   // INTL-DEES-003A put in every browser is gone", and the load-bearing proof of
   // that is the POLICY_STRINGS scan immediately above: it names the code, this one
-  // only counts bytes. So when INTL-DEES-001 added localized strings that the
-  // header and the inquiry form must render client-side (the logo alt, the two
-  // landmark names, the four product-family options, in all four languages —
-  // measured 1,237 B), the honest move is to name that content here rather than
-  // widen TOLERANCE into something that no longer resembles a tolerance. A future
-  // gate leak is caught by the string scan, not by this ceiling.
-  const CLIENT_CONTENT_001 = 1_237; // localized labels, INTL-DEES-001
+  // only counts bytes. So when later tasks added client-rendered content that is
+  // not a gate leak, each addition is named here with its measured cost rather
+  // than folded into a tolerance that would stop resembling one.
+  //
+  // A future gate leak is caught by the string scan, not by this ceiling.
+  const CLIENT_LABELS_001 = 1_237; // localized labels in the header and inquiry form
+  // Measured at the committed state: 833,313 B total against the 822,743 B baseline,
+  // so 10,570 B above it. 1,237 B is the labels above; this 9,333 B is the notice
+  // (component 7,990 B, its strings 434 B in the shared label module the header
+  // already imports) plus the 909 B that bought the fix making switching work at
+  // all — locale links became plain anchors, because the client router resolves
+  // /en/<path> to some other locale, and the notice needed a JS-visible mark since
+  // the preference cookie is httpOnly. Verified in Chrome: one click now lands on
+  // the language clicked, from every locale, desktop and mobile.
+  const LOCALE_NOTICE = 9_333; // notice + anchor switcher; owner-accepted 2026-09-09
+  const CLIENT_CONTENT = CLIENT_LABELS_001 + LOCALE_NOTICE;
   const total = walkFiles(chunksRoot, new Set([".js"])).reduce((sum, file) => sum + statSync(file).size, 0);
-  assert.ok(total <= LEAKED_003A_TOTAL - 1_000 + CLIENT_CONTENT_001,
+  assert.ok(total <= LEAKED_003A_TOTAL - 1_000 + CLIENT_CONTENT,
     `the bundle did not shrink: ${total} B, within ${LEAKED_003A_TOTAL - total} B of the `
-    + `${LEAKED_003A_TOTAL} B leaked build against a ${CLIENT_CONTENT_001} B documented allowance`);
-  assert.ok(total <= BASE_002B_TOTAL + TOLERANCE + CLIENT_CONTENT_001,
+    + `${LEAKED_003A_TOTAL} B leaked build against a ${CLIENT_CONTENT} B itemized allowance`);
+  assert.ok(total <= BASE_002B_TOTAL + TOLERANCE + CLIENT_CONTENT,
     `client bundle is ${total - BASE_002B_TOTAL} B above the ${BASE_002B_TOTAL} B INTL-DEES-002B `
-    + `baseline (tolerance ${TOLERANCE} B + ${CLIENT_CONTENT_001} B of INTL-DEES-001 client labels)`);
+    + `baseline (tolerance ${TOLERANCE} B + ${CLIENT_LABELS_001} B labels + ${LOCALE_NOTICE} B notice)`);
   assert.ok(total > BASE_002B_TOTAL - 20_000,
     `the bundle lost far more than this task can explain: ${total} B vs ${BASE_002B_TOTAL} B baseline`);
 });

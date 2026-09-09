@@ -325,6 +325,9 @@ export const clientLabels: Record<Locale, Record<string, string>> = {
     destinationPlaceholder: "e.g. India / Türkiye",
     specificationPlaceholder: "e.g. 40S/2 · 1.50 dtex × 38 mm",
     quantityPlaceholder: "sample / pilot / annual",
+    localeNotice: "This site is also available in",
+    localeNoticeLink: "English",
+    localeNoticeDismiss: "No thanks",
     homeAriaLabel: "Three Thai Textile home",
     logoAlt: "THREE THAI — PVA yarn/thread/fiber",
     // Landmark names a screen reader announces on every page. They sat in the
@@ -346,6 +349,9 @@ export const clientLabels: Record<Locale, Record<string, string>> = {
     destinationPlaceholder: "如：印度／土耳其",
     specificationPlaceholder: "如：40S/2 · 1.50 dtex × 38 mm",
     quantityPlaceholder: "样品／试单／年用量",
+    localeNotice: "本站也提供中文版本：",
+    localeNoticeLink: "切换到中文",
+    localeNoticeDismiss: "不用了",
     // Kept verbatim: these three are what `/zh` pages render today, and INTL-001
     // adds languages without rewriting the two that already ship. The Chinese
     // product-option labels read as bilingual because that is the live text.
@@ -369,6 +375,9 @@ export const clientLabels: Record<Locale, Record<string, string>> = {
     productOptionThread: "Hilo de coser de PVA hidrosoluble",
     productOptionStaple: "Fibra cortada de PVA",
     productOptionFilament: "Hilo de filamento de PVA",
+    localeNotice: "Este sitio también está disponible en",
+    localeNoticeLink: "español",
+    localeNoticeDismiss: "No, gracias",
     mainNavAriaLabel: "Principal",
     mobileNavAriaLabel: "Navegación móvil",
   },
@@ -385,6 +394,9 @@ export const clientLabels: Record<Locale, Record<string, string>> = {
     productOptionThread: "Wasserlösliches PVA-Nähgarn",
     productOptionStaple: "PVA-Stapelfaser",
     productOptionFilament: "PVA-Filamentgarn",
+    localeNotice: "Diese Website gibt es auch auf",
+    localeNoticeLink: "Deutsch",
+    localeNoticeDismiss: "Nein danke",
     mainNavAriaLabel: "Hauptnavigation",
     mobileNavAriaLabel: "Mobile Navigation",
   },
