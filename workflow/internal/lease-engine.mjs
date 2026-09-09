@@ -3,7 +3,8 @@ import { execFileSync } from "node:child_process";
 import { createRunIdentityInternal } from "./identity-engine.mjs";
 import { canonicalJson, sha256 } from "../canonical.mjs";
 import { assertActualChangesAllowed } from "../git-evidence.mjs";
-import { ReviewRecordSchema } from "../schemas.mjs";
+import { ReviewRecordSchema, WorkerDiagnosticsSchema } from "../schemas.mjs";
+import { assertNoSecretsDeep, sanitizeForLog } from "../secrets.mjs";
 import { SCHEMA_VERSION } from "../constants.mjs";
 import { contractLockRequests, lockRequestsConflict } from "../locks.mjs";
 import { validateGrantAgainstAnchorInternal } from "./authority-engine.mjs";
@@ -315,6 +316,7 @@ function authoritativeReviewResult({ output, contract, grant, capability, run, t
 export function completeRunInternal({
   engine, contract, grant, capability, processExitCode, outputValid, output,
   actualHeadSha, scopeEvidence, validationEvidence, threadId, reportedModel,
+  workerDiagnostics = null,
   now = new Date(), verifyCard = true,
 }) {
   const status = completionStatus({
@@ -323,10 +325,18 @@ export function completeRunInternal({
     validationPassed: validationEvidence?.passed === true,
     action: capability.action,
   });
+  const durableDiagnostics = workerDiagnostics === null
+    ? null
+    : WorkerDiagnosticsSchema.parse(sanitizeForLog(workerDiagnostics));
+  if (durableDiagnostics) {
+    assertNoSecretsDeep(durableDiagnostics, "worker diagnostics");
+  }
+  const completionPayload = { status, actual_head_sha: actualHeadSha };
+  if (durableDiagnostics) completionPayload.worker_diagnostics = durableDiagnostics;
   return privilegedMutationInternal({
     engine, contract, grant, capability, action: capability.action,
     type: "run.completed", taskKey: capability.task_key, runId: capability.run_id,
-    payload: { status, actual_head_sha: actualHeadSha }, now, verifyCard,
+    payload: completionPayload, now, verifyCard,
   }, (state, validated) => {
     const run = state.runs[validated.capability.run_id];
     const task = state.tasks[validated.capability.task_key];

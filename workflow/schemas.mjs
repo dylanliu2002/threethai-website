@@ -271,6 +271,34 @@ export const RunIdentitySchema = z.object({
   ]),
 }).strict();
 
+export const WorkerDiagnosticsSchema = z.object({
+  diagnostics_version: z.literal("1.0.0"),
+  worker_exit_code: z.number().int().nullable(),
+  close_signal: z.string().min(1).nullable(),
+  termination_reason: z.enum([
+    "TIMEOUT", "CANCELLED", "SIGNAL", "NONZERO_EXIT",
+    "MISSING_STRUCTURED_OUTPUT", "INVALID_STRUCTURED_OUTPUT",
+    "VALIDATION_FAILED", "UNKNOWN",
+  ]),
+  thread_id: z.string().min(1).nullable(),
+  thread_lifecycle_status: z.enum(["STARTED", "COMPLETED", "FAILED", "UNKNOWN"]),
+  model_stage_status: z.enum(["STARTED", "COMPLETED", "FAILED", "UNKNOWN"]),
+  sanitized_stderr: z.string().max(4096),
+  sanitized_error: z.string().max(4096).nullable(),
+  structured_output_present: z.boolean(),
+  validator_result: z.object({
+    status: z.enum(["PASS", "FAIL", "UNKNOWN"]),
+    evidence_digest: DigestSchema.nullable(),
+    commands: z.array(z.object({
+      index: z.number().int().nonnegative(),
+      exit_code: z.number().int().nullable(),
+      signal: z.string().min(1).nullable(),
+      output_digest: DigestSchema.nullable(),
+      error_digest: DigestSchema.nullable(),
+    }).strict()),
+  }).strict(),
+}).strict();
+
 export const ControllerCapabilitySchema = z.object({
   capability_version: z.literal("1.0.0"), capability_id: z.string().uuid(),
   authorization_id: z.string().uuid(), task_key: TaskKeySchema,

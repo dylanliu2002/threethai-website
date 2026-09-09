@@ -63,6 +63,126 @@ export function threadIdFromEventsInternal(events) {
   return started.thread_id;
 }
 
+const DIAGNOSTIC_TEXT_LIMIT = 4096;
+
+function diagnosticText(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const sanitized = sanitizeForLog(value);
+  const text = typeof sanitized === "string" ? sanitized : JSON.stringify(sanitized);
+  return redactSecrets(text).slice(0, DIAGNOSTIC_TEXT_LIMIT);
+}
+
+function lifecycleFromEvents(events, threadId) {
+  const eventTypes = new Set(events.map((event) => event?.type).filter(Boolean));
+  const failed = eventTypes.has("turn.failed") || eventTypes.has("error");
+  const completed = eventTypes.has("turn.completed");
+  const started = eventTypes.has("turn.started")
+    || eventTypes.has("item.started")
+    || eventTypes.has("item.completed");
+  return {
+    thread_lifecycle_status: failed
+      ? "FAILED"
+      : completed
+        ? "COMPLETED"
+        : threadId
+          ? "STARTED"
+          : "UNKNOWN",
+    model_stage_status: failed
+      ? "FAILED"
+      : completed
+        ? "COMPLETED"
+        : started
+          ? "STARTED"
+          : "UNKNOWN",
+  };
+}
+
+function terminationReason({
+  result,
+  structuredOutputPresent,
+  outputValid,
+  validationEvidence,
+}) {
+  if (result.timedOut) return "TIMEOUT";
+  if (result.terminationRequested) return "CANCELLED";
+  if (result.closeSignal) return "SIGNAL";
+  if (result.code !== 0) return "NONZERO_EXIT";
+  if (!structuredOutputPresent) return "MISSING_STRUCTURED_OUTPUT";
+  if (!outputValid) return "INVALID_STRUCTURED_OUTPUT";
+  if (validationEvidence?.passed === false) return "VALIDATION_FAILED";
+  return "UNKNOWN";
+}
+
+export function buildWorkerDiagnosticsInternal({
+  result,
+  events = [],
+  threadId = null,
+  parseFailure = null,
+  structuredOutputPresent = false,
+  outputValid = false,
+  validationEvidence = null,
+}) {
+  const abnormal = result.code !== 0
+    || result.timedOut
+    || result.terminationRequested
+    || Boolean(result.closeSignal)
+    || !structuredOutputPresent
+    || !outputValid
+    || validationEvidence?.passed === false;
+  if (!abnormal) return null;
+  const lifecycle = lifecycleFromEvents(events, threadId);
+  const eventErrors = events
+    .filter((event) => event?.type === "turn.failed" || event?.type === "error")
+    .map((event) => event.error ?? event.message ?? event)
+    .filter((value) => value !== null && value !== undefined);
+  const validatorCommands = Array.isArray(validationEvidence?.commands)
+    ? validationEvidence.commands.map((command, index) => ({
+      index,
+      exit_code: Number.isInteger(command.exit_code) ? command.exit_code : null,
+      signal: typeof command.signal === "string" && command.signal.length > 0
+        ? command.signal
+        : null,
+      output_digest: typeof command.output_digest === "string"
+        ? command.output_digest
+        : null,
+      error_digest: typeof command.error_digest === "string"
+        ? command.error_digest
+        : null,
+    }))
+    : [];
+  return {
+    diagnostics_version: "1.0.0",
+    worker_exit_code: Number.isInteger(result.code) ? result.code : null,
+    close_signal: typeof result.closeSignal === "string" && result.closeSignal.length > 0
+      ? result.closeSignal
+      : null,
+    termination_reason: terminationReason({
+      result,
+      structuredOutputPresent,
+      outputValid,
+      validationEvidence,
+    }),
+    thread_id: threadId,
+    ...lifecycle,
+    sanitized_stderr: diagnosticText(result.stderr) ?? "",
+    sanitized_error: parseFailure || eventErrors.length > 0
+      ? diagnosticText([parseFailure, ...eventErrors].filter(Boolean))
+      : null,
+    structured_output_present: structuredOutputPresent,
+    validator_result: {
+      status: validationEvidence?.passed === true
+        ? "PASS"
+        : validationEvidence?.passed === false
+          ? "FAIL"
+          : "UNKNOWN",
+      evidence_digest: typeof validationEvidence?.evidence_digest === "string"
+        ? validationEvidence.evidence_digest
+        : null,
+      commands: validatorCommands,
+    },
+  };
+}
+
 export async function superviseChildProcessInternal({
   command,
   args,
@@ -259,6 +379,16 @@ export async function runCodexExecInternal({
       runCommand: validationRunner,
       now,
     });
+    const structuredOutputPresent = fs.existsSync(outputPath);
+    const workerDiagnostics = buildWorkerDiagnosticsInternal({
+      result,
+      events,
+      threadId,
+      parseFailure,
+      structuredOutputPresent,
+      outputValid,
+      validationEvidence,
+    });
     const completed = completeRunInternal({
       engine, contract, grant, capability,
       processExitCode: result.code,
@@ -269,9 +399,10 @@ export async function runCodexExecInternal({
       validationEvidence,
       threadId,
       reportedModel: validated.capability.model,
+      workerDiagnostics,
       now,
     });
-    return {
+    const response = {
       authoritative_status: completed.status,
       authoritative_head_sha: completed.head_sha,
       output: output ? sanitizeForLog(output) : null,
@@ -287,6 +418,8 @@ export async function runCodexExecInternal({
       sandbox_evidence: launch.sandbox_evidence,
       identity: completed,
     };
+    if (workerDiagnostics) response.worker_diagnostics = workerDiagnostics;
+    return response;
   } finally {
     fs.rmSync(temporary, { recursive: true, force: true });
   }
