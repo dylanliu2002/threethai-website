@@ -361,22 +361,180 @@ export const RuntimeEventSchema = z.object({
   occurred_at: z.string().datetime(), payload: z.record(z.string(), z.unknown()),
 }).strict();
 
+const JSON_SCHEMA_TYPES = new Set([
+  "array", "boolean", "integer", "null", "number", "object", "string",
+]);
+const JSON_SCHEMA_STRING_FORMATS = new Set([
+  "date", "date-time", "duration", "email", "hostname", "ipv4", "ipv6", "time", "uuid",
+]);
+const WORKER_OUTPUT_SCHEMA_KEYWORDS = new Set([
+  "additionalProperties", "const", "enum", "format", "items",
+  "pattern", "properties", "required", "type",
+]);
+
+function declaredJsonSchemaTypes(type, location) {
+  const types = Array.isArray(type) ? type : [type];
+  if (types.length === 0 || new Set(types).size !== types.length
+    || types.some((candidate) => !JSON_SCHEMA_TYPES.has(candidate))) {
+    throw new Error(`${location} must declare a valid JSON Schema type.`);
+  }
+  return types;
+}
+
+function matchesDeclaredJsonSchemaType(value, types) {
+  if (value === null) return types.includes("null");
+  if (Array.isArray(value)) return types.includes("array");
+  if (Number.isInteger(value) && types.includes("integer")) return true;
+  if (typeof value === "number") return types.includes("number");
+  return types.includes(typeof value);
+}
+
+function canonicalJsonLiteral(value, location, ancestors = new Set()) {
+  if (value === null) return "null";
+  if (typeof value === "string" || typeof value === "boolean") return JSON.stringify(value);
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error(`${location} must be a valid JSON literal.`);
+    return JSON.stringify(value);
+  }
+  if (typeof value !== "object" || ancestors.has(value)) {
+    throw new Error(`${location} must be a valid JSON literal.`);
+  }
+  const ownKeys = Reflect.ownKeys(value);
+  const descriptors = new Map(ownKeys.map((key) => [
+    key, Object.getOwnPropertyDescriptor(value, key),
+  ]));
+  for (const key of ownKeys) {
+    if (!Object.hasOwn(descriptors.get(key) ?? {}, "value")) {
+      const propertyLocation = typeof key !== "string"
+        ? location
+        : Array.isArray(value) && /^(?:0|[1-9]\d*)$/.test(key)
+          ? `${location}[${key}]`
+          : `${location}.${key}`;
+      throw new Error(`${propertyLocation} must be a valid JSON literal.`);
+    }
+  }
+  const descendants = new Set(ancestors);
+  descendants.add(value);
+  if (Array.isArray(value)) {
+    const items = [];
+    for (let index = 0; index < value.length; index += 1) {
+      const descriptor = descriptors.get(String(index));
+      if (!descriptor) {
+        throw new Error(`${location} must be a valid JSON literal.`);
+      }
+      items.push(canonicalJsonLiteral(
+        descriptor.value, `${location}[${index}]`, descendants,
+      ));
+    }
+    return `[${items.join(",")}]`;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if ((prototype !== Object.prototype && prototype !== null)
+    || ownKeys.some((key) => typeof key !== "string"
+      || !descriptors.get(key)?.enumerable)) {
+    throw new Error(`${location} must be a valid JSON literal.`);
+  }
+  return `{${ownKeys.sort().map((key) =>
+    `${JSON.stringify(key)}:${canonicalJsonLiteral(
+      descriptors.get(key).value, `${location}.${key}`, descendants,
+    )}`
+  ).join(",")}}`;
+}
+
+function assertOpenAiStructuredOutputNode(schema, location, { root = false } = {}) {
+  if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+    throw new Error(`${location} must be a JSON Schema object.`);
+  }
+  const unsupportedKeyword = Object.keys(schema)
+    .find((keyword) => !WORKER_OUTPUT_SCHEMA_KEYWORDS.has(keyword));
+  if (unsupportedKeyword) {
+    throw new Error(`${location} contains unsupported JSON Schema keyword: ${unsupportedKeyword}.`);
+  }
+  const types = declaredJsonSchemaTypes(schema.type, location);
+  if (root && (types.length !== 1 || types[0] !== "object")) {
+    throw new Error("Structured output root must have type object.");
+  }
+  if (Object.hasOwn(schema, "const")) {
+    if (!matchesDeclaredJsonSchemaType(schema.const, types)) {
+      throw new Error(`${location}.const does not match its declared type.`);
+    }
+    canonicalJsonLiteral(schema.const, `${location}.const`);
+  }
+  if (Object.hasOwn(schema, "enum")) {
+    if (!Array.isArray(schema.enum) || schema.enum.length === 0) {
+      throw new Error(`${location}.enum must contain values matching its declared type.`);
+    }
+    const enumValues = new Set();
+    for (let index = 0; index < schema.enum.length; index += 1) {
+      const value = schema.enum[index];
+      if (!matchesDeclaredJsonSchemaType(value, types)) {
+        throw new Error(`${location}.enum must contain values matching its declared type.`);
+      }
+      const canonical = canonicalJsonLiteral(value, `${location}.enum[${index}]`);
+      if (enumValues.has(canonical)) {
+        throw new Error(`${location}.enum must not contain duplicate values.`);
+      }
+      enumValues.add(canonical);
+    }
+  }
+  if (Object.hasOwn(schema, "pattern")
+    && (!types.includes("string") || typeof schema.pattern !== "string")) {
+    throw new Error(`${location}.pattern must be a string constraint on a string type.`);
+  }
+  if (Object.hasOwn(schema, "pattern")) {
+    try {
+      new RegExp(schema.pattern, "u");
+    } catch {
+      throw new Error(`${location}.pattern must compile as a valid regular expression.`);
+    }
+  }
+  if (Object.hasOwn(schema, "format")
+    && (!types.includes("string") || !JSON_SCHEMA_STRING_FORMATS.has(schema.format))) {
+    throw new Error(`${location}.format is not supported for its declared type.`);
+  }
+  if (types.includes("object")) {
+    if (!schema.properties || typeof schema.properties !== "object"
+      || Array.isArray(schema.properties) || schema.additionalProperties !== false) {
+      throw new Error(`${location} objects require properties and additionalProperties false.`);
+    }
+    const propertyNames = Object.keys(schema.properties);
+    if (!Array.isArray(schema.required)
+      || new Set(schema.required).size !== schema.required.length
+      || schema.required.some((name) => typeof name !== "string")
+      || schema.required.length !== propertyNames.length
+      || propertyNames.some((name) => !schema.required.includes(name))) {
+      throw new Error(`${location}.required must contain every property exactly once.`);
+    }
+    for (const [name, propertySchema] of Object.entries(schema.properties)) {
+      assertOpenAiStructuredOutputNode(propertySchema, `${location}.properties.${name}`);
+    }
+  }
+  if (types.includes("array")) {
+    assertOpenAiStructuredOutputNode(schema.items, `${location}.items`);
+  }
+}
+
+export function assertOpenAiStructuredOutputSchema(schema) {
+  assertOpenAiStructuredOutputNode(schema, "codex_output_schema", { root: true });
+  return schema;
+}
+
 export const WorkerOutputJsonSchema = {
   type: "object", additionalProperties: false,
   required: ["schema_version", "task_key", "run_id", "role_id", "outcome", "phase",
     "base_sha", "head_sha", "summary", "changed_files", "validation", "findings", "requested_actions"],
   properties: {
-    schema_version: { const: SCHEMA_VERSION }, task_key: { type: "string" },
-    run_id: { type: "string", format: "uuid" }, role_id: { enum: ROLES },
-    outcome: { enum: ["COMPLETED", "CHANGES_REQUESTED", "APPROVED", "BLOCKED", "FAILED"] },
-    phase: { enum: PHASES }, base_sha: { type: "string", pattern: "^[0-9a-f]{40}$" },
+    schema_version: { type: "string", const: SCHEMA_VERSION }, task_key: { type: "string" },
+    run_id: { type: "string", format: "uuid" }, role_id: { type: "string", enum: ROLES },
+    outcome: { type: "string", enum: ["COMPLETED", "CHANGES_REQUESTED", "APPROVED", "BLOCKED", "FAILED"] },
+    phase: { type: "string", enum: PHASES }, base_sha: { type: "string", pattern: "^[0-9a-f]{40}$" },
     head_sha: { type: ["string", "null"], pattern: "^[0-9a-f]{40}$" },
     summary: { type: "string" }, changed_files: { type: "array", items: { type: "string" } },
     validation: { type: "array", items: { type: "object", additionalProperties: false,
       required: ["name", "outcome", "evidence"], properties: { name: { type: "string" },
-        outcome: { enum: ["PASS", "FAIL", "NOT_AVAILABLE"] }, evidence: { type: "string" } } } },
+        outcome: { type: "string", enum: ["PASS", "FAIL", "NOT_AVAILABLE"] }, evidence: { type: "string" } } } },
     findings: { type: "array", items: { type: "object", additionalProperties: false,
-      required: ["severity", "message"], properties: { severity: { enum: ["BLOCKER", "MAJOR", "MINOR"] },
+      required: ["severity", "message"], properties: { severity: { type: "string", enum: ["BLOCKER", "MAJOR", "MINOR"] },
         message: { type: "string" } } } },
     requested_actions: { type: "array", items: { type: "string" } },
   },

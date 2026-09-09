@@ -17,10 +17,11 @@
     "requested_actions"
   ],
   "properties": {
-    "schema_version": { "const": "2.0.0" },
+    "schema_version": { "type": "string", "const": "2.0.0" },
     "task_key": { "type": "string" },
     "run_id": { "type": "string", "format": "uuid" },
     "role_id": {
+      "type": "string",
       "enum": [
         "ORCHESTRATOR",
         "TECHNICAL_SEO",
@@ -32,8 +33,8 @@
         "BACKLINK"
       ]
     },
-    "outcome": { "enum": ["COMPLETED", "CHANGES_REQUESTED", "APPROVED", "BLOCKED", "FAILED"] },
-    "phase": { "enum": ["INTAKE", "QUEUED", "IMPLEMENT", "VALIDATE", "INDEPENDENT_REVIEW", "CORRECT", "CLOSEOUT", "PR_READY", "WAITING_FOR_MERGE", "COMPLETE"] },
+    "outcome": { "type": "string", "enum": ["COMPLETED", "CHANGES_REQUESTED", "APPROVED", "BLOCKED", "FAILED"] },
+    "phase": { "type": "string", "enum": ["INTAKE", "QUEUED", "IMPLEMENT", "VALIDATE", "INDEPENDENT_REVIEW", "CORRECT", "CLOSEOUT", "PR_READY", "WAITING_FOR_MERGE", "COMPLETE"] },
     "base_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "head_sha": { "type": ["string", "null"], "pattern": "^[0-9a-f]{40}$" },
     "summary": { "type": "string" },
@@ -46,7 +47,7 @@
         "required": ["name", "outcome", "evidence"],
         "properties": {
           "name": { "type": "string" },
-          "outcome": { "enum": ["PASS", "FAIL", "NOT_AVAILABLE"] },
+          "outcome": { "type": "string", "enum": ["PASS", "FAIL", "NOT_AVAILABLE"] },
           "evidence": { "type": "string" }
         }
       }
@@ -58,7 +59,7 @@
         "additionalProperties": false,
         "required": ["severity", "message"],
         "properties": {
-          "severity": { "enum": ["BLOCKER", "MAJOR", "MINOR"] },
+          "severity": { "type": "string", "enum": ["BLOCKER", "MAJOR", "MINOR"] },
           "message": { "type": "string" }
         }
       }
