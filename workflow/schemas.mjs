@@ -367,6 +367,10 @@ const JSON_SCHEMA_TYPES = new Set([
 const JSON_SCHEMA_STRING_FORMATS = new Set([
   "date", "date-time", "duration", "email", "hostname", "ipv4", "ipv6", "time", "uuid",
 ]);
+const WORKER_OUTPUT_SCHEMA_KEYWORDS = new Set([
+  "additionalProperties", "const", "enum", "format", "items",
+  "pattern", "properties", "required", "type",
+]);
 
 function declaredJsonSchemaTypes(type, location) {
   const types = Array.isArray(type) ? type : [type];
@@ -388,6 +392,11 @@ function matchesDeclaredJsonSchemaType(value, types) {
 function assertOpenAiStructuredOutputNode(schema, location, { root = false } = {}) {
   if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
     throw new Error(`${location} must be a JSON Schema object.`);
+  }
+  const unsupportedKeyword = Object.keys(schema)
+    .find((keyword) => !WORKER_OUTPUT_SCHEMA_KEYWORDS.has(keyword));
+  if (unsupportedKeyword) {
+    throw new Error(`${location} contains unsupported JSON Schema keyword: ${unsupportedKeyword}.`);
   }
   const types = declaredJsonSchemaTypes(schema.type, location);
   if (root && (types.length !== 1 || types[0] !== "object")) {

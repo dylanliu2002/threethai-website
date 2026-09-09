@@ -48,6 +48,24 @@ test("invalid schema is rejected before model-request serialization", () => {
   );
 });
 
+test("allOf is rejected before model-request serialization", () => {
+  const invalid = structuredClone(WorkerOutputJsonSchema);
+  invalid.allOf = [];
+  assert.throws(
+    () => serializeWorkerOutputSchemaInternal(invalid),
+    /unsupported JSON Schema keyword: allOf/i,
+  );
+});
+
+test("an unknown nested schema keyword is rejected fail-closed", () => {
+  const invalid = structuredClone(WorkerOutputJsonSchema);
+  invalid.properties.summary.unevaluatedProperties = false;
+  assert.throws(
+    () => serializeWorkerOutputSchemaInternal(invalid),
+    /summary.*unsupported JSON Schema keyword: unevaluatedProperties/i,
+  );
+});
+
 test("successful synthetic worker output contract remains unchanged", () => {
   const output = {
     schema_version: "2.0.0",
