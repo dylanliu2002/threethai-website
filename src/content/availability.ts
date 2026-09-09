@@ -40,12 +40,15 @@ import {
  * For EN and ZH that resolution is the content model's own guarantee:
  * `ContentLocale` carries their copy on every entity, so `contentLocaleOf`
  * returns the locale itself. For ES and DE it is a per-page fact with no
- * exemptions. Entity detail pages render English body copy, and core and
- * section routes render partially translated chrome over English body copy, so
- * neither kind of page is an ES or DE owner today. Nothing here may treat a
- * locale, or a class of paths, as translated by default: assuming it for deep
- * pages produced 86 duplicate copies, and assuming it for core pages would do
- * the same to the rest of the site.
+ * exemptions, and it is a fact about *approval*, not about text: INTL-DEES-001
+ * shipped complete Spanish and German records for 18 deep pages, all of them
+ * `draft`, and every one of those pages displays its translated copy while none
+ * of them owns a URL. Core and section routes are further behind — translated
+ * chrome and cards over a body whose record does not exist yet. Neither kind of
+ * page is an ES or DE owner until somebody signs the record. Nothing here may
+ * treat a locale, or a class of paths, as translated by default: assuming it for
+ * deep pages produced 86 duplicate copies, and assuming it for core pages would
+ * do the same to the rest of the site.
  *
  * Whether such a fact exists for a given ES/DE page is not decided here either.
  * A promotion enters only through `./translation-evidence`: a reviewed record
@@ -116,9 +119,17 @@ export function createAvailabilityPolicy(registry: readonly TranslatedPage[] = T
     `${siteUrl}${localePath(path, canonicalLocaleFor(path, locale))}`;
 
   /**
-   * Language of the rendered body copy, as a BCP-47 tag. Used for `og:locale`
-   * and JSON-LD `inLanguage`, which describe content and therefore follow the
-   * canonical owner, not the URL prefix.
+   * Language of the page's *claimed* content, as a BCP-47 tag. Used for
+   * `og:locale` and JSON-LD `inLanguage`, which are assertions about ownership
+   * and therefore follow the canonical owner, not the URL prefix.
+   *
+   * Since INTL-DEES-001 these two can legitimately disagree about a `draft`
+   * page: a route may display a complete unreviewed translation
+   * (`DISPLAY_PAGES` in ./translation-availability) while this function still
+   * answers English, because the machine-readable language is part of the claim
+   * and the claim is what needs a reviewer. Approving the record removes the
+   * disagreement; nothing here may be widened to match the display tier, or a
+   * page with no review would start telling Google it owns a localized URL.
    */
   const contentHtmlLangOf = (path: string, locale: Locale): string =>
     htmlLang[canonicalLocaleFor(path, locale)];

@@ -7,7 +7,7 @@ import { productBySlug } from "@/content/products";
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
 import { localePath } from "@/content/company";
-import { pageCopyFor } from "@/content/translation-availability";
+import { DISPLAY_PAGES, pageCopyFor } from "@/content/translation-availability";
 import { productCard } from "@/content/card-copy";
 
 /**
@@ -20,7 +20,7 @@ import { productCard } from "@/content/card-copy";
  * rather than waiting on those product pages' own approvals.
  */
 export default function ApplicationView({ application, locale, dict }: { application: Application; locale: Locale; dict: Dictionary }) {
-  const { entity, contentLocale } = pageCopyFor(`/applications/${application.slug}`, locale, application);
+  const { entity, contentLocale } = pageCopyFor(`/applications/${application.slug}`, locale, application, DISPLAY_PAGES);
   const t = dict.applicationPage;
   const lp = (path: string) => localePath(path, locale);
   const blocks = [

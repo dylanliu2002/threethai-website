@@ -6,7 +6,7 @@ import { articles, articleBySlug } from "@/content/articles";
 import { products } from "@/content/products";
 import { buildMetadata, articleSchema, breadcrumbSchema, jsonLd } from "@/lib/seo";
 import { localePath, contentLocaleOf } from "@/content/company";
-import { pageCopyFor } from "@/content/translation-availability";
+import { DISPLAY_PAGES, pageCopyFor } from "@/content/translation-availability";
 import { langParams, resolveLang } from "../../_lang";
 
 type Props = { params: Promise<{ lang: string; slug: string }> };
@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const record = articleBySlug(slug);
   if (!record) return {};
   const { locale } = await resolveLang(params, notFound);
-  const { entity: article, contentLocale } = pageCopyFor(`/knowledge/${slug}`, locale, record);
+  const { entity: article, contentLocale } = pageCopyFor(`/knowledge/${slug}`, locale, record, DISPLAY_PAGES);
   return buildMetadata({
     title: article.title[contentLocale],
     description: article.metaDescription[contentLocale],
@@ -42,7 +42,7 @@ export default async function LangArticlePage({ params }: Props) {
   const record = articleBySlug(slug);
   if (!record) notFound();
   const { dict, locale } = await resolveLang(params, notFound);
-  const { entity: article, contentLocale } = pageCopyFor(`/knowledge/${slug}`, locale, record);
+  const { entity: article, contentLocale } = pageCopyFor(`/knowledge/${slug}`, locale, record, DISPLAY_PAGES);
   const cl = contentLocaleOf(locale);
   const lp = (p: string) => localePath(p, locale);
   const others = articles.filter((a) => a.slug !== article.slug).slice(0, 3);

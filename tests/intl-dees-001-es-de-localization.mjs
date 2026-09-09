@@ -531,27 +531,48 @@ test("REQ 5 · localizing a card grants the page behind it nothing", async () =>
 const PRERENDER_ROOT = path.join(repoRoot, ".next", "server", "app");
 const buildOptions = { skip: !existsSync(PRERENDER_ROOT) };
 
-test("REQ 4 · the shipped HTML still serves English deep copy on ES and DE", buildOptions, () => {
-  const doc = (rel) => readFileSync(path.join(PRERENDER_ROOT, rel), "utf8");
-  const englishName = products[0].name.en;
+test("REQ 4 · a draft page displays its translation and claims none of it", buildOptions, () => {
+  const raw = (rel) => readFileSync(path.join(PRERENDER_ROOT, rel), "utf8");
   for (const locale of ["es", "de"]) {
-    const html = doc(`${locale}/products/${products[0].slug}.html`);
-    assert.ok(html.includes(englishName), `${locale} product page no longer renders the model's English copy`);
-    // A long prose field, not a product name: a name is a short phrase the
-    // localized chrome legitimately repeats, while this sentence exists only in
-    // the copy store until a reviewer approves the record.
-    const unique = productCopy[products[0].slug].technicalOverview[locale][0];
-    assert.ok(unique.length > 120, "the fixture field is too short to prove anything");
-    assert.ok(!html.includes(unique.slice(0, 80)),
-      `draft-record copy reached the shipped ${locale} page before anyone approved it`);
-    // The chrome is localized even though the entity copy is not — the state a
-    // draft leaves the page in, and the reason no promotion may rest on it.
-    assert.ok(html.includes(getDictionary(locale).nav.products), `${locale} page lost its localized navigation`);
-    assert.ok(/<link rel="canonical" href="[^"]*\/products\/[^"]+"/.test(html),
-      `${locale} page no longer canonicalises to its English owner`);
-    assert.equal(/rel="alternate" hreflang="es"/.test(html), false, `${locale} declares an es alternate`);
-    assert.equal(/rel="alternate" hreflang="de"/.test(html), false, `${locale} declares a de alternate`);
+    const product = products[0];
+    const application = applications[0];
+    const productHtml = raw(`${locale}/products/${product.slug}.html`);
+    const applicationHtml = raw(`${locale}/applications/${application.slug}.html`);
+    const productPage = visibleText(productHtml);
+    const applicationPage = visibleText(applicationHtml);
+
+    // The display tier: text that exists only in the copy store is now on the
+    // page, and the model's English is gone from it. A long prose field is the
+    // witness, not a name — the localized header strip repeats short names in
+    // every document, so a name proves nothing either way.
+    for (const [page, html, label, english, translated] of [
+      [productPage, productHtml, product.slug, product.tagline.en, productCopy[product.slug].tagline[locale]],
+      [applicationPage, applicationHtml, application.slug, application.summary.en,
+        applicationCopy[application.slug].summary[locale]],
+    ]) {
+      assert.ok(translated.length > 60, `${label}: the fixture field is too short to prove anything`);
+      assert.ok(page.includes(translated),
+        `${locale} ${label} did not render the draft record's copy`);
+      assert.equal(page.includes(english), false,
+        `${locale} ${label} still renders the model's English body copy`);
+      assert.ok(page.includes(getDictionary(locale).nav.products), `${locale} ${label} lost its localized navigation`);
+
+      // The claim tier, unmoved by a draft. All four surfaces a promotion owns.
+      assert.match(html, new RegExp(`<link rel="canonical" href="[^"]*/(products|applications)/[^"]+"`),
+        `${locale} ${label} no longer canonicalises to its English owner`);
+      assert.equal(/rel="alternate" hreflang="(es|de)"/.test(html), false, `${locale} ${label} declares a graph`);
+      assert.match(html, /property="og:locale" content="en_/, `${locale} ${label} moved og:locale`);
+      for (const tag of [...html.matchAll(/"inLanguage":\s*"([^"]+)"/g)].map((m) => m[1])) {
+        assert.equal(tag, htmlLang.en, `${locale} ${label} claims ${tag} in structured data`);
+      }
+    }
   }
+  // English and Chinese are owners by the model's guarantee and never went
+  // through this seam, so their shipped pages still carry the model's own text.
+  const english = visibleText(raw(`products/${products[0].slug}.html`));
+  assert.ok(english.includes(products[0].tagline.en), "the English owner lost its own copy");
+  const chinese = visibleText(readFileSync(path.join(PRERENDER_ROOT, "zh", "products", `${products[0].slug}.html`), "utf8"));
+  assert.ok(chinese.includes(products[0].tagline.zh), "the Chinese owner lost its own copy");
 });
 
 /**
@@ -591,28 +612,23 @@ test("REQ 4 · the shipped HTML shows localized cards over unpromoted pages", bu
     // What a card contributes: the listing page and the home page carry it.
     const listings = [page(`${locale}.html`), page(`${locale}/products.html`)];
     for (const text of listings) assert.ok(text.includes(card.tagline),
-      `${locale} card did not ship the localized tagline`);
+      `${locale} card did not ship its localized tagline`);
     assert.ok(page(`${locale}.html`).includes(appCard.summary), `${locale} home application card stayed English`);
     assert.ok(page(`${locale}/applications.html`).includes(appCard.summary), `${locale} application card stayed English`);
     assert.ok(page(`${locale}/knowledge.html`).includes(teaser.title), `${locale} knowledge teaser stayed English`);
     assert.ok(page(`${locale}/knowledge.html`).includes(teaser.intro), `${locale} teaser intro stayed English`);
 
-    // What a page claims: the same strings must be absent from the document the
-    // record would promote, which still answers in the owner's language.
-    const productPage = page(`${locale}/products/${product.slug}.html`);
-    assert.ok(productPage.includes(product.tagline.en), `${locale} product page lost the body it still owns`);
-    assert.equal(productPage.includes(card.tagline), false,
-      `draft-record copy reached ${locale} ${product.slug} before anyone approved it`);
-    const applicationPage = page(`${locale}/applications/${application.slug}.html`);
-    assert.ok(applicationPage.includes(application.summary.en), `${locale} application page lost the body it still owns`);
-    assert.equal(applicationPage.includes(appCard.summary), false,
-      `draft-record copy reached ${locale} ${application.slug} before anyone approved it`);
+    // What a deferred page still claims: `/knowledge/*` and `/answers/*` have no
+    // record in either tier, so their own copy is still the model's. The card
+    // above may be Spanish while the page behind it is English, and that is the
+    // honest shape of a page this task has not translated rather than a promotion
+    // nobody signed.
     const articlePage = page(`${locale}/knowledge/${article.slug}.html`);
     assert.ok(articlePage.includes(article.title.en), `${locale} article page lost the headline it still owns`);
     assert.equal(articlePage.includes(teaser.title), false,
       `the localized teaser leaked into ${locale} ${article.slug}`);
 
-    // And the four SEO surfaces still describe the pre-card world.
+    // And the four SEO surfaces still describe the pre-approval world.
     const policy = createAvailabilityPolicy();
     for (const pagePath of LOCALIZED_PAGES.map((entry) => entry.path)) {
       assert.equal(policy.canonicalLocaleFor(pagePath, locale), "en", `${locale} ${pagePath} owns its URL`);

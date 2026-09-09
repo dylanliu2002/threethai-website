@@ -492,3 +492,67 @@ export function approvedPromotions(
 ): readonly TranslatedPage[] {
   return approvedEvidence(registry, surfaces).map(promotionOf);
 }
+
+/**
+ * The reasons that describe a reviewer rather than the copy.
+ *
+ * Every other rule in `evidenceDecisionFor` is a statement about the text or
+ * about the page: is the path promotable, does the record cover the fields it
+ * declares, is each value non-empty, genuinely different from its own English
+ * source, free of duplicate (path, locale) pairs, and — for a section page —
+ * exactly its declared surface. Those are all checkable without a human, and
+ * INTL-DEES-001's records are assembled from the live entity and the copy store,
+ * so a record that fails any of them is a defect, not a pending review.
+ *
+ * These three are different in kind: they say nobody signed the record yet.
+ * `self-approved` is deliberately absent — an author signing their own
+ * translation is a defect, and it is not repaired by displaying the text.
+ */
+const APPROVAL_ONLY_REASONS = new Set([
+  "status-not-approved:draft",
+  "provenance-missing:reviewedBy",
+  "provenance-missing:reviewedOn",
+]);
+
+/** Is this record's only outstanding requirement a signature? */
+export function awaitsReviewOnly(
+  evidence: TranslationEvidence,
+  registry: readonly TranslationEvidence[] = TRANSLATION_EVIDENCE,
+  surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
+): boolean {
+  const { reasons } = evidenceDecisionFor(evidence, registry, surfaces);
+  return reasons.every((reason) => APPROVAL_ONLY_REASONS.has(reason));
+}
+
+/**
+ * The copy a page may *display*, and the only thing that grants a page a URL.
+ *
+ * Two tiers, deliberately, because INTL-DEES-001 shipped real Spanish and German
+ * records and the owner holds the sign-off: a draft is complete text awaiting a
+ * review, and a buyer reading `/es/products/x` in English is not a state worth
+ * protecting while that text exists. But a page may not tell Google it owns a
+ * localized URL until somebody has actually reviewed it, because that claim is
+ * what a crawler acts on.
+ *
+ * So `displayPromotions` is `approvedPromotions` minus the signature
+ * requirement, and the four SEO surfaces — canonical, hreflang, sitemap
+ * eligibility and `inLanguage` — are derived only from `approvedPromotions`, as
+ * before. Display may run ahead of the claim; the claim may never run ahead of
+ * display, because the same field-completeness rules gate both and `pageCopyFor`
+ * still throws at prerender for a page that shows body copy its record does not
+ * cover. Approving a record changes nothing about the text — it is the same
+ * record read twice — and moves only the claim.
+ *
+ * The cost is stated plainly rather than hidden: while a page displays tier-one
+ * copy it still canonicalises to its English owner, so its visible prose and its
+ * machine-readable language disagree. That is a page that is not yet indexable in
+ * its own right, which is what a draft means. It is also strictly better than an
+ * untranslated page for a human reader, and it resolves to consistency the moment
+ * the owner signs the record.
+ */
+export function displayPromotions(
+  registry: readonly TranslationEvidence[] = TRANSLATION_EVIDENCE,
+  surfaces: Readonly<Record<string, SectionSurface>> = SECTION_SURFACES,
+): readonly TranslatedPage[] {
+  return registry.filter((evidence) => awaitsReviewOnly(evidence, registry, surfaces)).map(promotionOf);
+}

@@ -11,7 +11,7 @@ import { articles } from "@/content/articles";
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
 import { localePath } from "@/content/company";
-import { pageCopyFor } from "@/content/translation-availability";
+import { DISPLAY_PAGES, pageCopyFor } from "@/content/translation-availability";
 import { applicationCard, articleCard, productCard } from "@/content/card-copy";
 import { serverLabels } from "@/content/site-copy";
 
@@ -27,7 +27,7 @@ import { serverLabels } from "@/content/site-copy";
  * record, and the cards this page advertises with go through `card-copy`.
  */
 export default function ProductView({ product, locale, dict }: { product: Product; locale: Locale; dict: Dictionary }) {
-  const { entity, contentLocale } = pageCopyFor(`/products/${product.slug}`, locale, product);
+  const { entity, contentLocale } = pageCopyFor(`/products/${product.slug}`, locale, product, DISPLAY_PAGES);
   const t = dict.productsIndex;
   const lp = (path: string) => localePath(path, locale);
   /**
