@@ -405,6 +405,8 @@ const CARD_RENDERERS = [
   "src/components/product/product-card.tsx",
   "src/components/sections/home-applications.tsx",
   "src/components/sections/home-knowledge.tsx",
+  "src/components/product/product-view.tsx",
+  "src/components/application/application-view.tsx",
   "src/app/[lang]/applications/page.tsx",
   "src/app/[lang]/knowledge/page.tsx",
 ];

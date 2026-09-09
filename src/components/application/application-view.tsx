@@ -8,14 +8,16 @@ import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
 import { localePath } from "@/content/company";
 import { pageCopyFor } from "@/content/translation-availability";
+import { productCard } from "@/content/card-copy";
 
 /**
  * Shared application-page template — all five application pages render here.
  *
  * The application's own copy resolves through `pageCopyFor`, the same call the
  * SEO policy reads, so a promoted page renders the registered translation and an
- * unpromoted one is unchanged. `cl` stays for related products, whose copy this
- * page's promotion never claims to cover.
+ * unpromoted one is unchanged. The related-product list is a card: this page is
+ * doing the advertising, so it reads `card-copy` and localises with the reader
+ * rather than waiting on those product pages' own approvals.
  */
 export default function ApplicationView({ application, locale, dict }: { application: Application; locale: Locale; dict: Dictionary }) {
   const { entity, contentLocale } = pageCopyFor(`/applications/${application.slug}`, locale, application);
@@ -98,9 +100,9 @@ export default function ApplicationView({ application, locale, dict }: { applica
               {application.productSlugs.map((slug) => {
                 const product = productBySlug(slug);
                 if (!product) return null;
-                // The related product's name and tagline are that page's copy: read them
-                // through its own resolution so a promotion reaches this card too.
-                const productCopy = pageCopyFor(`/products/${slug}`, locale, product);
+                // A card, not this page's body copy, so it is allowed to be Spanish
+                // before /products/x is promoted. See src/content/card-copy.ts.
+                const card = productCard(slug, locale);
                 return (
                   <li key={slug}>
                     <Link
@@ -111,8 +113,8 @@ export default function ApplicationView({ application, locale, dict }: { applica
                         <Image src={product.image} alt="" fill sizes="56px" className="object-cover" />
                       </span>
                       <span>
-                        <span className="block font-semibold text-ink group-hover:text-primary">{productCopy.entity.name[productCopy.contentLocale]}</span>
-                        <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{productCopy.entity.tagline[productCopy.contentLocale]}</span>
+                        <span className="block font-semibold text-ink group-hover:text-primary">{card.name}</span>
+                        <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{card.tagline}</span>
                       </span>
                     </Link>
                   </li>

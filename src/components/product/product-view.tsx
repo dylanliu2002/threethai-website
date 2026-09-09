@@ -12,6 +12,7 @@ import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
 import { localePath } from "@/content/company";
 import { pageCopyFor } from "@/content/translation-availability";
+import { applicationCard, articleCard, productCard } from "@/content/card-copy";
 import { serverLabels } from "@/content/site-copy";
 
 /**
@@ -21,38 +22,37 @@ import { serverLabels } from "@/content/site-copy";
  * The page's own body copy comes from `pageCopyFor`, the same resolution the SEO
  * policy reads: an unpromoted route gets the model record and the
  * `contentLocaleOf` key back unchanged, and a promoted one gets the entity whose
- * fields carry the registered translation. `cl` stays for copy belonging to
- * *other* entities (related apps, answers, articles, the next product) and for
- * shared notices — a promotion only ever describes this page's own record.
+ * fields carry the registered translation. `cl` stays for the deferred answer
+ * teasers and for shared notices — a promotion only ever describes this page's own
+ * record, and the cards this page advertises with go through `card-copy`.
  */
 export default function ProductView({ product, locale, dict }: { product: Product; locale: Locale; dict: Dictionary }) {
   const { entity, contentLocale } = pageCopyFor(`/products/${product.slug}`, locale, product);
   const t = dict.productsIndex;
   const lp = (path: string) => localePath(path, locale);
   /**
-   * A related application's name and summary are *that page's* copy, so they
-   * resolve through the same gate this page's own copy does: when
-   * `/applications/x` is promoted, its reviewed text is what appears in this
-   * teaser, and when it is not the card is unchanged. Indexing the model record
-   * with `contentLocaleOf` instead would leave a promoted Spanish product page
-   * advertising its own applications in English — a gap no promotion describes,
-   * which is exactly the shape INTL-DEES-002B refused to bless.
+   * A related application's name and summary are a card: this page is doing the
+   * advertising, so the text is this page's prose and follows the reader's
+   * language. It is deliberately not read through `pageCopyFor` — that seam turns
+   * an approved record into URL ownership for the page it describes, and a teaser
+   * must not be able to trigger it. The store it reads is the store that page's own
+   * record will be assembled from, so promoting `/applications/x` cannot make this
+   * card disagree with that page's headline.
    */
   const relatedApps = applications
     .filter((a) => product.applicationsSlugs.includes(a.slug))
-    .map((application) => {
-      const copy = pageCopyFor(`/applications/${application.slug}`, locale, application);
-      return {
-        slug: application.slug,
-        name: copy.entity.name[copy.contentLocale],
-        summary: copy.entity.summary[copy.contentLocale],
-      };
-    });
-  // Same rule for the resource teasers as for the application cards below: each
-  // string belongs to the page it links to, so each is read through that page's
-  // own copy resolution. Answers and knowledge are deferred by this task, which
-  // means they resolve to the model's language today — and to the reviewed
-  // translation the moment those routes get a record, without another edit here.
+    .map((application) => ({
+      slug: application.slug,
+      ...applicationCard(application.slug, locale),
+    }));
+  // Article teasers follow the same card rule. Answers do not: this task defers the
+  // `/answers` and `/knowledge` bodies, so there is no reviewed text to put in a
+  // teaser table, and a question is a headline rather than a summary. They resolve
+  // through the gate below and localise the moment those routes get records.
+  const relatedArticles = articles.slice(0, 2).map((article) => ({
+    slug: article.slug,
+    title: articleCard(article.slug, locale).title,
+  }));
   const relatedAnswers = buyerAnswers
     .filter((a) => a.relatedProduct === product.slug)
     .slice(0, 4)
@@ -60,13 +60,9 @@ export default function ProductView({ product, locale, dict }: { product: Produc
       const copy = pageCopyFor(`/answers/${answer.slug}`, locale, answer);
       return { slug: answer.slug, question: copy.entity.question[copy.contentLocale] };
     });
-  const relatedArticles = articles.slice(0, 2).map((article) => {
-    const copy = pageCopyFor(`/knowledge/${article.slug}`, locale, article);
-    return { slug: article.slug, title: copy.entity.title[copy.contentLocale] };
-  });
   const index = allProducts.findIndex((p) => p.slug === product.slug);
   const next = allProducts[(index + 1) % allProducts.length];
-  const nextCopy = pageCopyFor(`/products/${next.slug}`, locale, next);
+  const nextCard = productCard(next.slug, locale);
 
   return (
     <>
@@ -300,7 +296,7 @@ export default function ProductView({ product, locale, dict }: { product: Produc
           </div>
           <div className="mt-8">
             <Link href={lp(`/products/${next.slug}`)} className="group inline-flex items-center gap-2 text-sm font-semibold text-primary">
-              {t.nextPrev}: {nextCopy.entity.name[nextCopy.contentLocale]}
+              {t.nextPrev}: {nextCard.name}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="transition-transform group-hover:translate-x-0.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
             </Link>
           </div>

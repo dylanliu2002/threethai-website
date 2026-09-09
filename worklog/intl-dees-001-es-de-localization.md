@@ -351,3 +351,40 @@ absent from `/es/products/<slug>.html`, with canonical, sitemap and hreflang unm
 
 EN 57/57 and ZH 55/55 documents still byte-unchanged; no SEO field moved; 208/208 SEO
 tests pass; all 18 records are still `draft` with `reviewedOn` unset.
+
+## 2026-09-09 — The two seams have to be two everywhere
+
+Checking the new rule against the whole tree found that `product-view.tsx` and
+`application-view.tsx` still read *other* pages' text through the gate: a related
+application's name and summary, a related article's title, the previous/next product
+name. So the same application would have rendered `Fabricación de toallas y tejido sin
+torsión` on the home card and `Towel weaving & zero-twist` on a product page — same
+reader, same language, two labels. That is the defect the owner has now reported twice,
+reached by following the principle rather than the page they pasted.
+
+Both views now take those four surfaces from `card-copy`; page bodies are unchanged and
+still resolve through `pageCopyFor`. `CARD_RENDERERS` in the suite grew from five files
+to seven so the rule cannot be half-applied again.
+
+One surface is deliberately left on the gate: the related **answers** on a product page.
+`/answers/*` has no translated store at all (this task defers answers and article
+bodies), so there is no reviewed text to put in a teaser table, and a question is a
+headline rather than a summary — inventing one would be content work outside the
+agreed scope. It localises when those routes get records.
+
+| Route | Before | After |
+| --- | --- | --- |
+| `/es/products/<4 slugs>` | 58–60% | **51–53%** |
+| `/es/applications/<5 slugs>` | 38–48% | **38–40%** |
+| `/es/applications/towel-weaving` | 46% (25/54) | 39% (21/54) |
+| `/es/applications/technical-textiles` | 48% (27/56) | 38% (21/56) |
+| `/es/products/water-soluble-pva-yarn` | 60% (67/111) | 51% (57/111) |
+
+Rebuilt (225/225) and re-measured against the pre-task snapshot: EN 57/57 and ZH 55/55
+documents unchanged, ES/DE text changed on 55 documents each, **0 documents moved an SEO
+field**. `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` 208/208; lint and `tsc --noEmit` clean;
+all 18 records still `draft`.
+
+The comparison needed `%TEMP%\base-app`, which the earlier passes used; a run against a
+relative `base-app` silently reports `before 0 documents` and "0 changed" for everything,
+which reads as a clean result and proves nothing. Re-ran with the absolute path.
