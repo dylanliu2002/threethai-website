@@ -54,6 +54,11 @@ const subscribe = (notify: () => void) => {
  * unchanged, 0 dynamic routes), the suggestion cannot become a redirect because
  * this file holds no way to navigate, and dismissal never reaches a server.
  *
+ * Standing down after an explicit choice reads localStorage, not the picker's
+ * cookie: that cookie is httpOnly, so `document.cookie` can never see it and the
+ * rule silently never fired until the picker began leaving a JS-visible mark beside
+ * it (markLocaleChosen, in ./locale-suggestion). Verified in Chrome.
+ *
  * What it does cost is 8,424 B of client bundle — 7,990 B for the component and
  * 434 B for its strings, which live in the shared label module the header already
  * imports. Mounting it in the English layout alone measured worse (29 KB: the

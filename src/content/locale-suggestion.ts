@@ -58,8 +58,31 @@ export function pathWithoutLocale(pathname: string): string {
  * The cookie the language picker writes (see ./locale-routing). A visitor who has
  * already chosen a language has told us what they want, so the notice must not
  * argue with that choice on every page.
+ *
+ * It is `httpOnly`, which is correct for a preference the server resolves, and it
+ * is also unreadable from JS — so the notice cannot consult it directly. That is
+ * what markLocaleChosen() below is for: the picker records the same fact in a form
+ * the browser can see, into the same key the dismissal uses.
  */
 export const CHOSEN_LOCALE_COOKIE = "threethai_locale";
 
-/** Where the dismissal is remembered. localStorage, so no request carries it. */
+/**
+ * Where "this visitor has settled their language" is remembered — by dismissing the
+ * notice, or by using the picker. localStorage, so no request carries it.
+ */
 export const DISMISSAL_STORAGE_KEY = "threethai.localeNotice.dismissed";
+
+/**
+ * Called by the picker when a click actually navigates.
+ *
+ * Without it the notice keeps offering a language to someone who has already chosen
+ * one: their choice is stored in an httpOnly cookie that `document.cookie` cannot
+ * read, so the stand-down rule silently never fired.
+ */
+export function markLocaleChosen(): void {
+  try {
+    window.localStorage.setItem(DISMISSAL_STORAGE_KEY, "1");
+  } catch {
+    // A storage-disabled browser loses the stand-down signal, not the page.
+  }
+}

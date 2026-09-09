@@ -329,9 +329,9 @@ test("REQ 7 · a link handler may not close the container the link lives in", ()
   const synchronousCloses = (header.match(/setOpen\(false\);/g) || []).length;
   assert.ok(synchronousCloses <= 1,
     `at most one synchronous close is allowed (the current-language no-op); found ${synchronousCloses}`);
-  // The no-op guard has to come first, so a real navigation returns untouched.
-  assert.equal((header.match(/if \(l !== locale\) return;/g) || []).length, 2,
-    "both switchers must return early for a real navigation, one per locale list");
+  // The no-op branch has to come first, so a real navigation is never touched.
+  assert.equal((header.match(/if \(l === locale\) \{/g) || []).length, 2,
+    "both switchers must handle the current-language no-op first, one per locale list");
   assert.match(header, /const dialogOpen = open && openedOn === pathname;/,
     "the panel must close because the path it was opened on is gone");
   assert.match(header, /<DialogPrimitive\.Root\s*\n?\s*open=\{dialogOpen\}/,
@@ -339,6 +339,22 @@ test("REQ 7 · a link handler may not close the container the link lives in", ()
   assert.match(header, /ref=\{detailsRef\}/, "the desktop menu must be reachable to close");
   assert.match(header, /useEffect\(\(\) => \{\s*if \(detailsRef\.current\)[\s\S]{0,80}\}, \[pathname\]\);/,
     "the desktop menu must close on navigation, in an effect keyed to the path");
+
+  // A language is a document, not a client-route transition. Verified in Chrome:
+  // with next/link, English (the prefix-free owner, reached only through the /en
+  // alias and its 308) was resolved by the router out of its prefetch data and
+  // landed the visitor on a different locale entirely — clicking English from /es
+  // arrived at /de. An anchor goes through the proxy, which is where the alias and
+  // the preference are actually decided.
+  assert.equal((header.match(/<a[\s\S]{0,80}href=\{switchHref\(l\)\}/g) || []).length, 2,
+    "both locale lists must navigate with real anchors, not next/link");
+  assert.equal((header.match(/<Link[\s\S]{0,80}href=\{switchHref\(l\)\}/g) || []).length, 0,
+    "a switcher link routed through the client router can resolve /en/<path> wrongly");
+
+  // And the choice must be visible to JS, or the language notice never stands down:
+  // the proxy's cookie is httpOnly.
+  assert.equal((header.match(/markLocaleChosen\(\);/g) || []).length, 2,
+    "both switchers must record the choice where the notice can read it");
 });
 
 /* --------------------------------------------------- proxy wiring (source) */

@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Dictionary } from "@/content/i18n";
 import { company, htmlLang, localeLabels, localePath, locales, type Locale } from "@/content/company";
 import { clientLabels } from "@/content/site-copy";
+import { markLocaleChosen } from "@/content/locale-suggestion";
 
 const UI_PREFIXES = locales.filter((l) => l !== "en");
 
@@ -188,24 +189,36 @@ export default function SiteHeader({
             <ul className="absolute end-0 z-50 mt-1 max-h-80 w-44 overflow-y-auto rounded-md border border-border bg-background py-1 shadow-lg">
               {locales.map((l) => (
                 <li key={l}>
-                  <Link
+                  {/*
+                    A plain anchor, deliberately. Changing site language is a
+                    document-level event — every locale serves its own prerendered
+                    page — and next/link would try to resolve it in the client router
+                    instead. Measured in Chrome: English is the prefix-free owner, so
+                    its `/en/products` exists only as a 308 from the proxy, which the
+                    router never consults; it picked another locale out of its prefetch
+                    data and landed a visitor who clicked English on /es/products.
+                  */}
+                  <a
                     href={switchHref(l)}
                     hrefLang={localizedTargets.includes(l) ? htmlLang[l] : undefined}
                     lang={localizedTargets.includes(l) ? htmlLang[l] : undefined}
                     aria-current={l === locale ? "true" : undefined}
                     className={`flex items-center justify-between px-3 py-2 text-sm ${l === locale ? "bg-secondary font-semibold text-primary" : "text-foreground/80 hover:bg-secondary/60 hover:text-primary"}`}
                     onClick={(e) => {
-                      // A real navigation is left alone: the transition changes
-                      // `pathname`, and the effect above closes the menu. Touching
-                      // `open` here would hide the link mid-click.
-                      if (l !== locale) return;
-                      e.preventDefault();
-                      if (detailsRef.current) detailsRef.current.open = false;
+                      if (l === locale) {
+                        // Nothing to navigate to; close the menu the click opened.
+                        e.preventDefault();
+                        if (detailsRef.current) detailsRef.current.open = false;
+                        return;
+                      }
+                      // Record the choice where JS can see it: the cookie the proxy
+                      // writes is httpOnly, so the notice could never read it.
+                      markLocaleChosen();
                     }}
                   >
                     {localeLabels[l]}
                     {l === locale && <span aria-hidden="true">✓</span>}
-                  </Link>
+                  </a>
                 </li>
               ))}
             </ul>
@@ -291,20 +304,25 @@ export default function SiteHeader({
               </summary>
               <div className="mt-2 grid grid-cols-2 gap-1.5">
                 {locales.map((l) => (
-                  <Link
+                  <a
                     key={l}
                     href={switchHref(l)}
                     hrefLang={localizedTargets.includes(l) ? htmlLang[l] : undefined}
                     lang={localizedTargets.includes(l) ? htmlLang[l] : undefined}
                     className={`rounded px-2 py-1.5 text-sm ${l === locale ? "bg-primary font-semibold text-primary-foreground" : "bg-secondary/60 text-foreground/80"}`}
                     onClick={(e) => {
-                      if (l !== locale) return; // the path change closes the panel
-                      e.preventDefault();
-                      setOpen(false);
+                      // Plain anchor for the same reason as the desktop list: a
+                      // language is a document, not a client-route transition.
+                      if (l === locale) {
+                        e.preventDefault();
+                        setOpen(false);
+                        return;
+                      }
+                      markLocaleChosen();
                     }}
                   >
                     {localeLabels[l]}
-                  </Link>
+                  </a>
                 ))}
               </div>
             </details>

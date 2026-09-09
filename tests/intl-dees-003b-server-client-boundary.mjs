@@ -370,13 +370,15 @@ test("build: the client bundle returns to its INTL-DEES-002B size", buildOptions
   //
   // A future gate leak is caught by the string scan, not by this ceiling.
   const CLIENT_LABELS_001 = 1_237; // localized labels in the header and inquiry form
-  // Measured against a build with the notice unmounted: 832,404 B with it, 823,980 B
-  // without any of it. The component is 7,990 B; its three strings live in the
-  // shared label module the header already imports, so they cost 434 B whether or
-  // not the component is ever mounted. Both are the notice's price, and the
-  // store-based version is 318 B dearer than the effect version it replaced —
-  // React's answer to "read browser state" is not free, it is just correct.
-  const LOCALE_NOTICE = 8_424; // component 7,990 B + 434 B of strings; owner-accepted 2026-09-09
+  // Measured at the committed state: 833,313 B total against the 822,743 B baseline,
+  // so 10,570 B above it. 1,237 B is the labels above; this 9,333 B is the notice
+  // (component 7,990 B, its strings 434 B in the shared label module the header
+  // already imports) plus the 909 B that bought the fix making switching work at
+  // all — locale links became plain anchors, because the client router resolves
+  // /en/<path> to some other locale, and the notice needed a JS-visible mark since
+  // the preference cookie is httpOnly. Verified in Chrome: one click now lands on
+  // the language clicked, from every locale, desktop and mobile.
+  const LOCALE_NOTICE = 9_333; // notice + anchor switcher; owner-accepted 2026-09-09
   const CLIENT_CONTENT = CLIENT_LABELS_001 + LOCALE_NOTICE;
   const total = walkFiles(chunksRoot, new Set([".js"])).reduce((sum, file) => sum + statSync(file).size, 0);
   assert.ok(total <= LEAKED_003A_TOTAL - 1_000 + CLIENT_CONTENT,
