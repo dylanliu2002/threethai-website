@@ -388,3 +388,61 @@ all 18 records still `draft`.
 The comparison needed `%TEMP%\base-app`, which the earlier passes used; a run against a
 relative `base-app` silently reports `before 0 documents` and "0 changed" for everything,
 which reads as a clean result and proves nothing. Re-ran with the absolute path.
+
+## 2026-09-09/10 — The owner's ruling: a four-language base site, and two tiers
+
+The target was restated: not ES/DE awaiting SEO promotion, but the site being a
+four-language base site the way it was a Chinese-and-English one. That splits the one
+gate in two, and the split is the durable outcome of this whole card:
+
+- **rendering ← completeness.** `DISPLAY_PAGES = displayPromotions()` is
+  `approvedPromotions()` minus only the three signature-shaped reasons. Pages pass it
+  to `pageCopyFor` at the call site. Every other rule still applies, including
+  `self-approved` and `copy-not-translated`, so half a translation still cannot show.
+- **the four SEO signals ← approval.** canonical, hreflang, sitemap, `inLanguage`
+  still resolve from `TRANSLATED_PAGES = approvedPromotions()`, and no policy function
+  accepts the display list.
+- Cost stated rather than discovered: a draft page's visible prose and its
+  machine-readable language disagree until signed. Approving changes no text.
+
+What that made visible next was the class of English no metric had been reading:
+
+| What | Where it hid | Now |
+| --- | --- | --- |
+| spec chips (`PVA yarn`, `sewing thread`, `fiber`, `filament`) | plain strings in `catalog.ts` | `Record<Locale, string>` per chip, codes and figures identical in all four languages; `/es/products` 38 → 16% |
+| 36 patent titles | `titleEn` in `patents.ts` | `titleEs`/`titleDe` + `patentTitle()`; registered Chinese title kept on the line beneath; `/es/quality` 52 → 38% |
+| form option labels, logo `alt`, `Main`/`Mobile`/`Breadcrumb` landmarks | attributes, and the inquiry form prerenders as a Suspense skeleton | `clientLabels`/`serverLabels`; attribute residue per page 4–9 → 1 |
+
+Two errors worth keeping, both mine:
+
+- I told the translation pass a machine "is an oiling/applying machine"; its registered
+  title says 整理机, and it obediently wrote `lubricación` / `Garnölungsmaschine`. That
+  narrows what the patent claims. Reverted to `acabado` / `Garn-Ausrüstungsmaschine` in
+  `eb20c77`. The generator then corrupted the single-line patent objects by inserting at
+  line start — reverted, re-run against "does `titleEn` own its line", verified 36/36
+  digit-for-digit. The agent's own report claimed 38 titles; the module has 36.
+- A language-switch bug was reported (pick English, land in German). The decision layer
+  was correct in all 320 combinations; the cause is that English owns the prefix-free
+  URL, so its picker entry could only travel as `?_locale=en`, which is stripped on
+  arrival — a bookmark or back navigation then follows the `threethai_locale` cookie.
+  Fixed by routing the English entry through `/en/<path>` (`e9b604e`), which persists
+  `en` before the cookie is consulted. `tests/language-switcher-roundtrip.mjs` pins it,
+  including "no cookie-driven relocation may be a cacheable 308" — the shape that would
+  make this symptom permanent. Its first harness had a vacuous loop check (comparing a
+  decision's target against the state already advanced to it) and failed loudly; fixed to
+  track visited paths.
+
+The owner then asked for the big-site behaviour and chose the non-blocking form: a
+dismissible "also available in …" notice, browser-only, `useSyncExternalStore` with a
+null server snapshot, dismissal in localStorage, standing down when the picker's cookie
+exists. Measured price: **8,424 B** in the shared shell, **29 KB** when mounted only in
+the English layout (a 63 KB chunk duplicated per route tree) — narrower placement is not
+cheaper. Accepted and recorded as named allowances in 003B's ceiling, whose real teeth
+are the POLICY_STRINGS chunk scan. An effect-based first draft was rejected by the
+repo's own `react-hooks/set-state-in-effect` rule; the store version costs 318 B more
+and is correct.
+
+After each pass: build 225/225 static, 0 dynamic routes, 220/220 SEO tests, lint and
+tsc clean, EN 57/57 and ZH 55/55 documents byte-unchanged, **0 documents moved an SEO
+field**, all 18 records still `draft` with `reviewedOn` unset.
+
