@@ -5,7 +5,7 @@ import { products, productBySlug } from "@/content/products";
 import { buildMetadata, breadcrumbSchema, faqSchema, jsonLd, productPageSchema } from "@/lib/seo";
 import { localePath } from "@/content/company";
 import { pageCopyFor } from "@/content/translation-availability";
-import { pageMeta } from "@/content/server-copy";
+import { pageMeta, productTitlePattern } from "@/content/site-copy";
 import { langParams, resolveLang } from "../../_lang";
 
 type Props = { params: Promise<{ lang: string; slug: string }> };
@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { dict, locale } = await resolveLang(params, notFound);
   const { entity, contentLocale } = pageCopyFor(`/products/${slug}`, locale, product);
   return buildMetadata({
-    title: `${entity.name[contentLocale]} ${pageMeta[locale].products.suffix}`,
+    title: productTitlePattern[locale].replace("%s", entity.name[contentLocale]),
     description: entity.metaDescription[contentLocale],
     path: `/products/${product.slug}`,
     locale,

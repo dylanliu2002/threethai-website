@@ -5,7 +5,7 @@ import ProductFinder from "@/components/forms/product-finder";
 import { buildMetadata } from "@/lib/seo";
 import { localePath } from "@/content/company";
 import { temperatureCatalog } from "@/content/catalog";
-import { pageMeta } from "@/content/server-copy";
+import { pageMeta } from "@/content/site-copy";
 import { resolveLang } from "../_lang";
 
 type Props = { params: Promise<{ lang: string }> };

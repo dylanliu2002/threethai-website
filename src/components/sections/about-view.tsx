@@ -6,7 +6,7 @@ import { factoryStats } from "@/content/factory";
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
 import { company, contentLocaleOf, localePath } from "@/content/company";
-import { serverLabels } from "@/content/server-copy";
+import { serverLabels } from "@/content/site-copy";
 
 export default function AboutView({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const cl = contentLocaleOf(locale);

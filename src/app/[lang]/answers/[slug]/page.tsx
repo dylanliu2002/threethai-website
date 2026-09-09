@@ -7,7 +7,7 @@ import { buyerAnswers, answerBySlug, expandedAnswerFor } from "@/content/answers
 import { articleSchema, breadcrumbSchema, buildMetadata, faqSchema, jsonLd, webPageSchema } from "@/lib/seo";
 import { localePath, contentLocaleOf, type Locale } from "@/content/company";
 import { pageCopyFor } from "@/content/translation-availability";
-import { pageMeta } from "@/content/server-copy";
+import { pageMeta } from "@/content/site-copy";
 import { langParams, resolveLang } from "../../_lang";
 
 type Props = { params: Promise<{ lang: string; slug: string }> };

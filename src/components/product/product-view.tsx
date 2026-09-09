@@ -12,7 +12,7 @@ import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
 import { localePath } from "@/content/company";
 import { pageCopyFor } from "@/content/translation-availability";
-import { serverLabels } from "@/content/server-copy";
+import { serverLabels } from "@/content/site-copy";
 
 /**
  * Shared product-page template (master prompt §12). All four product pages
@@ -213,7 +213,7 @@ export default function ProductView({ product, locale, dict }: { product: Produc
           <Reveal>
             <p className="eyebrow">{t.processTitle}</p>
             <h2 className="display-2 mt-3 !text-2xl sm:!text-3xl">
-              {locale === "zh" ? "从需求到批量供应的三步流程" : "From requirement to repeatable supply"}
+              {serverLabels[locale].requirementToSupplyHeading}
             </h2>
           </Reveal>
           <ol className="mt-8 grid gap-5 md:grid-cols-3">

@@ -6,7 +6,7 @@ import Reveal from "@/components/layout/reveal";
 import { applications } from "@/content/applications";
 import { buildMetadata, breadcrumbSchema, jsonLd } from "@/lib/seo";
 import { contentLocaleOf, localePath } from "@/content/company";
-import { pageMeta } from "@/content/server-copy";
+import { pageMeta } from "@/content/site-copy";
 import { resolveLang } from "../_lang";
 
 type Props = { params: Promise<{ lang: string }> };

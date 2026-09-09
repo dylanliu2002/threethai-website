@@ -375,25 +375,6 @@ export const partial: PartialDictionary = {
     body: "Die angeforderte Seite existiert nicht. Nutzen Sie den Produktindex oder schreiben Sie direkt an unser Team.",
   },
   // INTL-DEES-001: page metadata and the labels that were literals in the
-  // route files and components. See the note in `en.ts`.
-  header: {
-    tagline: "Wasserlösliches PVA-Garn · Nähgarn · Stapelfaser · Filament",
-  },
+  // route files and components. See the note in `en.ts`.
 
-  /**
-   * INTL-DEES-001: only what a client component renders stays in the
-   * dictionary. `site-header`, `inquiry-form` and `product-finder` are
-   * `"use client"` and receive the whole merged dictionary as a prop, so every
-   * key here is serialized into the payload of all 222 documents. Page titles,
-   * descriptions and the labels that only server components draw live in
-   * `src/content/server-copy.ts` for that reason — measured: putting them here
-   * grew an English page by 4,805 bytes to carry text no browser reads.
-   */
-  labels: {
-    formLoading: "Formular wird geladen…",
-    productOtherOption: "Sonstige / erweiterte Form",
-    destinationPlaceholder: "z. B. Indien / Türkei",
-    specificationPlaceholder: "z. B. 40S/2 · 1,50 dtex × 38 mm",
-    quantityPlaceholder: "Muster / Pilotcharge / Jahresmenge",
-  },
 };

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import ContactView from "@/components/sections/contact-view";
 import { buildMetadata } from "@/lib/seo";
-import { pageMeta } from "@/content/server-copy";
+import { pageMeta } from "@/content/site-copy";
 import { resolveLang } from "../_lang";
 
 type Props = { params: Promise<{ lang: string }> };

@@ -7,6 +7,7 @@ import type { Dictionary } from "@/content/i18n";
 import { productBySlug } from "@/content/products";
 import { applicationBySlug } from "@/content/applications";
 import { company, contentLocaleOf, type Locale } from "@/content/company";
+import { clientLabels } from "@/content/site-copy";
 
 const initialState: InquiryState = { status: "idle" };
 
@@ -173,7 +174,7 @@ function InquiryFormInner({
         <Field label={f.email} name="email" type="email" required autoComplete="email" error={fieldError("email")} />
         <Field label={f.phone} name="phone" type="tel" autoComplete="tel" optionalLabel={dict.form.optional} />
         {!isContact && (
-          <Field label={f.destination} name="destination" optionalLabel={dict.form.optional} placeholder={dict.labels.destinationPlaceholder} />
+          <Field label={f.destination} name="destination" optionalLabel={dict.form.optional} placeholder={clientLabels[locale].destinationPlaceholder} />
         )}
       </div>
 
@@ -193,7 +194,7 @@ function InquiryFormInner({
                 <option value="water-soluble-pva-sewing-thread">Water-soluble PVA sewing thread · PVA 水溶缝纫线</option>
                 <option value="pva-staple-fiber">PVA staple fiber · PVA 短纤</option>
                 <option value="pva-filament-yarn">PVA filament yarn · PVA 长丝</option>
-                <option value="other">{dict.labels.productOtherOption}</option>
+                <option value="other">{clientLabels[locale].productOtherOption}</option>
               </select>
             </div>
             <div>
@@ -213,9 +214,9 @@ function InquiryFormInner({
                 <option value="other">{dict.finder.applicationOptions.other}</option>
               </select>
             </div>
-            <Field label={f.specification} name="specification" optionalLabel={dict.form.optional} defaultValue={specificationDefaultValue} placeholder={dict.labels.specificationPlaceholder} />
+            <Field label={f.specification} name="specification" optionalLabel={dict.form.optional} defaultValue={specificationDefaultValue} placeholder={clientLabels[locale].specificationPlaceholder} />
             <Field label={f.temperature} name="temperature" optionalLabel={dict.form.optional} defaultValue={temperatureParam} placeholder="20°C / 40°C / 90°C…" />
-            <Field label={f.quantity} name="quantity" optionalLabel={dict.form.optional} placeholder={dict.labels.quantityPlaceholder} />
+            <Field label={f.quantity} name="quantity" optionalLabel={dict.form.optional} placeholder={clientLabels[locale].quantityPlaceholder} />
           </div>
           {productName && (
             <p className="mt-3 rounded-md bg-secondary px-3 py-2 text-xs text-muted-foreground">

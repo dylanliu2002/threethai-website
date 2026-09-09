@@ -353,40 +353,6 @@ const dict = {
     title: "Page not found",
     body: "The page you requested does not exist. Try the product index or write to our team directly.",
   },
-  /**
-   * INTL-DEES-001 adds the three groups below. They hold copy that used to be
-   * unreachable for a fallback locale: page titles and descriptions written as
-   * literals inside each route file under `app/[lang]`, and labels written as
-   * `locale === "zh" ? "…" : "…"` inside a component. Both patterns render
-   * English on `/es` and `/de` no matter what the dictionaries say, so a page
-   * could be fully localized and still hand Google an English `<title>` — and a
-   * promotion reviewed against the page's prose would not have described it.
-   *
-   * They are new top-level groups rather than keys inside `about`, `finder`,
-   * `qualityPage` etc. because they are the shared *chrome* of those pages, not
-   * their body prose, and keeping them together makes the boundary this task
-   * drew reviewable in one place.
-   */
-  header: {
-    tagline: "Water-soluble PVA yarn · thread · fiber · filament",
-  },
-
-  /**
-   * INTL-DEES-001: only what a client component renders stays in the
-   * dictionary. `site-header`, `inquiry-form` and `product-finder` are
-   * `"use client"` and receive the whole merged dictionary as a prop, so every
-   * key here is serialized into the payload of all 222 documents. Page titles,
-   * descriptions and the labels that only server components draw live in
-   * `src/content/server-copy.ts` for that reason — measured: putting them here
-   * grew an English page by 4,805 bytes to carry text no browser reads.
-   */
-  labels: {
-    formLoading: "Loading form…",
-    productOtherOption: "Other / extended format",
-    destinationPlaceholder: "e.g. India / Türkiye",
-    specificationPlaceholder: "e.g. 40S/2 · 1.50 dtex × 38 mm",
-    quantityPlaceholder: "sample / pilot / annual",
-  },
 };
 
 

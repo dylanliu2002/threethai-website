@@ -5,7 +5,7 @@ import InquiryForm from "@/components/forms/inquiry-form";
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
 import { company, localePath } from "@/content/company";
-import { serverLabels } from "@/content/server-copy";
+import { serverLabels } from "@/content/site-copy";
 
 export default function ContactView({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const t = dict.contact;

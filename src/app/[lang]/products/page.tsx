@@ -8,7 +8,7 @@ import { products, extendedFormats } from "@/content/products";
 import { temperatureCatalog, temperatureIntro } from "@/content/catalog";
 import { buildMetadata, breadcrumbSchema, jsonLd } from "@/lib/seo";
 import { localePath } from "@/content/company";
-import { serverLabels, pageMeta } from "@/content/server-copy";
+import { serverLabels, pageMeta } from "@/content/site-copy";
 import { resolveLang } from "../_lang";
 
 type Props = { params: Promise<{ lang: string }> };

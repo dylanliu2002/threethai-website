@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 import type { Dictionary } from "@/content/i18n";
 import { company, htmlLang, localeLabels, localePath, locales, type Locale } from "@/content/company";
+import { clientLabels } from "@/content/site-copy";
 
 const UI_PREFIXES = locales.filter((l) => l !== "en");
 
@@ -104,7 +105,7 @@ export default function SiteHeader({
       <div className="hidden bg-primary text-primary-foreground md:block">
         <div className="container-site flex h-9 items-center justify-between text-xs">
           <p className="tracking-wide opacity-90">
-            {dict.header.tagline}
+            {clientLabels[locale].headerTagline}
           </p>
           <div className="flex items-center gap-5 opacity-90">
             <a className="hover:text-gold" href="mailto:salesmanager@threethai.com">

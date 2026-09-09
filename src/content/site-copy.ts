@@ -1,7 +1,7 @@
 import type { Locale } from "./company";
 
 /**
- * Localized copy that only a server component renders.
+ * Localized copy that a route or component reads per locale, without the dictionary.
  *
  * This is deliberately NOT part of `src/content/i18n`'s `Dictionary`. The
  * dictionary travels into the browser: `src/app/[lang]/layout.tsx` passes the
@@ -26,10 +26,35 @@ import type { Locale } from "./company";
  * to describe and no renderer that could mistake it for one.
  */
 
-/** One page's search-result title and description, per language. */
-export type PageMeta = { title: string; description: string; suffix?: string };
+/**
+ * One page's search-result title and description, per language.
+ *
+ * `suffix` is appended after the page's own separator, which is how the
+ * application and answer routes already built their titles.
+ */
+export type PageMeta = {
+  title: string;
+  description: string;
+  suffix?: string;
+};
 
 /** Route key → its metadata in each language. */
+/**
+ * The product page title as a whole pattern per language, "%s" standing for the
+ * product name — rather than a suffix glued onto it. English has no separator
+ * (`Water-Soluble PVA Yarn Manufacturer & Supplier`); carried over verbatim into
+ * Spanish or German that yields two noun phrases with nothing between them
+ * ("Fibra cortada de PVA Fabricante y proveedor"), which is what the first
+ * promotion build actually produced. The English string is byte-identical to the
+ * concatenation it replaces, so no English title moves.
+ */
+export const productTitlePattern: Record<Locale, string> = {
+  en: "%s Manufacturer & Supplier",
+  zh: "%s — 制造商与供应商",
+  es: "%s — fabricante y proveedor",
+  de: "%s — Hersteller und Anbieter",
+};
+
 export const pageMeta: Record<Locale, Record<string, PageMeta>> = {
   en: {
     about: {
@@ -73,7 +98,7 @@ export const pageMeta: Record<Locale, Record<string, PageMeta>> = {
       title: "Water-Soluble PVA Yarn, Thread, Fiber & Filament | Products",
       description:
         "Explore water-soluble PVA yarn, sewing thread, staple fiber and filament yarn by material form and dissolution temperature from 20°C to 90°C. Batch-level QC, traceable samples.",
-      suffix: "Manufacturer & Supplier",
+
     },
     quality: {
       title: "Quality & Certification — ISO 9001, OEKO-TEX Class I, Patents",
@@ -138,7 +163,7 @@ export const pageMeta: Record<Locale, Record<string, PageMeta>> = {
       title: "PVA 产品中心 — 水溶纱、缝纫线、短纤、长丝",
       description:
         "按材料形态与水溶温度（20°C–90°C）浏览水溶性 PVA 纱线、缝纫线、短纤和长丝，均支持批次级质检与样品验证。",
-      suffix: "制造商与供应商",
+
     },
     quality: {
       title: "品质与认证 — ISO 9001 · OEKO-TEX I 类 · 34 项专利",
@@ -198,7 +223,7 @@ export const pageMeta: Record<Locale, Record<string, PageMeta>> = {
       title: "Hilo, hilo de coser, fibra y filamento de PVA hidrosoluble | Productos",
       description:
         "Explore el hilo de PVA hidrosoluble, el hilo de coser, la fibra cortada y el filamento por forma de material y temperatura de disolución de 20 °C a 90 °C. Control por lote y muestras trazables.",
-      suffix: "Fabricante y proveedor",
+
     },
     quality: {
       title: "Calidad y certificación — ISO 9001, OEKO-TEX Clase I, patentes",
@@ -258,7 +283,7 @@ export const pageMeta: Record<Locale, Record<string, PageMeta>> = {
       title: "Wasserlösliche PVA-Garne, Nähgarn, Faser & Filament | Produkte",
       description:
         "Wasserlösliche PVA-Garne, Nähgarn, Stapelfaser und Filament nach Materialform und Auflösungstemperatur von 20 °C bis 90 °C — Prüfung pro Charge, rückverfolgbare Muster.",
-      suffix: "Hersteller & Anbieter",
+
     },
     quality: {
       title: "Qualität & Zertifizierung — ISO 9001, OEKO-TEX Klasse I, Patente",
@@ -283,6 +308,50 @@ export const pageMeta: Record<Locale, Record<string, PageMeta>> = {
  * server components. The keys stay in the declaration order of the first locale so
  * a reviewer can read English, Chinese, Spanish and German side by side.
  */
+/**
+ * The strings a client component renders. They live here, imported by the
+ * component that draws them, rather than in `Dictionary`: the three `"use
+ * client"` components receive the whole dictionary as a prop, so a key added
+ * there is serialized into the payload of every one of the 222 prerendered
+ * documents. Measured: `header.tagline` alone, in the dictionary, added 342 B
+ * to an English page and 366 B to a Chinese page — pages this task does not
+ * translate at all. Imported instead, the same six strings cost once.
+ */
+export const clientLabels: Record<Locale, Record<string, string>> = {
+  en: {
+    headerTagline: "Water-soluble PVA yarn · thread · fiber · filament",
+    formLoading: "Loading form…",
+    productOtherOption: "Other / extended format",
+    destinationPlaceholder: "e.g. India / Türkiye",
+    specificationPlaceholder: "e.g. 40S/2 · 1.50 dtex × 38 mm",
+    quantityPlaceholder: "sample / pilot / annual",
+  },
+  zh: {
+    headerTagline: "水溶性 PVA 纱线 · 缝纫线 · 短纤 · 长丝",
+    formLoading: "正在加载表单…",
+    productOtherOption: "其他 / 扩展形态",
+    destinationPlaceholder: "如：印度／土耳其",
+    specificationPlaceholder: "如：40S/2 · 1.50 dtex × 38 mm",
+    quantityPlaceholder: "样品／试单／年用量",
+  },
+  es: {
+    headerTagline: "Hilo de PVA hidrosoluble · hilo de coser · fibra cortada · filamento",
+    formLoading: "Cargando el formulario…",
+    productOtherOption: "Otro / formato adicional",
+    destinationPlaceholder: "p. ej., India / Turquía",
+    specificationPlaceholder: "p. ej., 40S/2 · 1,50 dtex × 38 mm",
+    quantityPlaceholder: "muestra / prueba / consumo anual",
+  },
+  de: {
+    headerTagline: "Wasserlösliches PVA-Garn · Nähgarn · Stapelfaser · Filament",
+    formLoading: "Formular wird geladen…",
+    productOtherOption: "Sonstige / erweiterte Form",
+    destinationPlaceholder: "z. B. Indien / Türkei",
+    specificationPlaceholder: "z. B. 40S/2 · 1,50 dtex × 38 mm",
+    quantityPlaceholder: "Muster / Pilotcharge / Jahresmenge",
+  },
+};
+
 export const serverLabels: Record<Locale, Record<string, string>> = {
   en: {
     temperatureColumn: "Temperature",

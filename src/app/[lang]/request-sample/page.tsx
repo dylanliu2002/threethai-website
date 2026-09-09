@@ -6,7 +6,7 @@ import Reveal from "@/components/layout/reveal";
 import InquiryForm from "@/components/forms/inquiry-form";
 import { buildMetadata, jsonLd } from "@/lib/seo";
 import { company, localePath, siteUrl } from "@/content/company";
-import { pageMeta } from "@/content/server-copy";
+import { pageMeta } from "@/content/site-copy";
 import { resolveLang } from "../_lang";
 
 type Props = { params: Promise<{ lang: string }> };
