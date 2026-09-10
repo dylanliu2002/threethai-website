@@ -263,7 +263,9 @@ export const partial: PartialDictionary = {
     englishNote: "Pflegt unser Fachtext-Team — Bewertungen und Aussagen werden verifiziert, nicht übernommen.",
   },
   knowledgeIndex: {
-    title: "Fachartikel",
+    // Copied from this dictionary's own `nav.knowledge` (de.ts:48) so the H1 and
+    // the nav agree; see the note in en.ts. Not a new translation.
+    title: "Ressourcen",
     lead: "Auswahlguides, Prüfrahmen und Spezifikations-Checklisten unseres PVA-Engineering-Teams.",
     published: "Veröffentlicht",
     updated: "Aktualisiert",

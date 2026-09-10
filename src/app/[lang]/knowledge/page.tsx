@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import Breadcrumbs from "@/components/layout/breadcrumbs";
 import Reveal from "@/components/layout/reveal";
 import { articles } from "@/content/articles";
+import { knowledgeBlocks } from "@/content/resources-groups";
 import { buildMetadata, breadcrumbSchema, jsonLd } from "@/lib/seo";
 import { localePath, siteUrl } from "@/content/company";
 import { pageMeta } from "@/content/site-copy";
@@ -30,6 +32,8 @@ export default async function LangKnowledgePage({ params }: Props) {
   // src/content/card-copy.ts.
   const teaser = (slug: string) => articleCard(slug, locale);
   const lp = (p: string) => localePath(p, locale);
+  const blocks = knowledgeBlocks();
+  const bySlug = new Map(articles.map((article) => [article.slug, article]));
   return (
     <>
       {jsonLd([
@@ -67,29 +71,53 @@ export default async function LangKnowledgePage({ params }: Props) {
 
       <section className="py-14 sm:py-16">
         <div className="container-site">
-          <ul className="grid gap-5 md:grid-cols-2">
-            {articles.map((article, index) => (
-              <Reveal as="li" key={article.slug} delay={index * 60} className="h-full">
-                <Link
-                  href={lp(`/knowledge/${article.slug}`)}
-                  className="card-line group flex h-full flex-col p-6 transition-all duration-200 hover:border-primary/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                >
-                  <div className="flex items-center gap-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-deep">{teaser(article.slug).category}</p>
-                    <time dateTime={article.dateModified} className="text-xs text-muted-foreground">
-                      {t.updated} {article.dateModified}
-                    </time>
-                  </div>
-                  <h2 className="mt-3 font-semibold leading-snug text-ink group-hover:text-primary">{teaser(article.slug).title}</h2>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{teaser(article.slug).intro}</p>
-                  <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
-                    {dict.actions.readArticle}
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="transition-transform group-hover:translate-x-0.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-                  </span>
-                </Link>
-              </Reveal>
-            ))}
-          </ul>
+          {blocks.map((block, blockIndex) => {
+            // Every member of a labelled group shares one `category`, so any of
+            // their cards carries that label in the reader's language. This page
+            // never reads `article.category[contentLocale]` — a card is its prose.
+            const label = block.label ? teaser(block.slugs[0]).category : null;
+            const CardTitle = label ? "h3" : "h2";
+            return (
+              <Fragment key={label ?? "all"}>
+                {label && (
+                  <h2
+                    className={`text-sm font-semibold uppercase tracking-[0.14em] text-gold-deep ${
+                      blockIndex === 0 ? "" : "mt-10"
+                    }`}
+                  >
+                    {label}
+                  </h2>
+                )}
+                <ul className={label ? "mt-4 grid gap-5 md:grid-cols-2" : "grid gap-5 md:grid-cols-2"}>
+                  {block.slugs.map((slug, index) => {
+                    const article = bySlug.get(slug);
+                    if (!article) return null;
+                    return (
+                      <Reveal as="li" key={article.slug} delay={index * 60} className="h-full">
+                        <Link
+                          href={lp(`/knowledge/${article.slug}`)}
+                          className="card-line group flex h-full flex-col p-6 transition-all duration-200 hover:border-primary/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        >
+                          <div className="flex items-center gap-3">
+                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-deep">{teaser(article.slug).category}</p>
+                            <time dateTime={article.dateModified} className="text-xs text-muted-foreground">
+                              {t.updated} {article.dateModified}
+                            </time>
+                          </div>
+                          <CardTitle className="mt-3 font-semibold leading-snug text-ink group-hover:text-primary">{teaser(article.slug).title}</CardTitle>
+                          <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{teaser(article.slug).intro}</p>
+                          <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+                            {dict.actions.readArticle}
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="transition-transform group-hover:translate-x-0.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                          </span>
+                        </Link>
+                      </Reveal>
+                    );
+                  })}
+                </ul>
+              </Fragment>
+            );
+          })}
 
           <Reveal delay={100}>
             <div className="mt-10 flex flex-wrap items-center justify-between gap-4 rounded-lg bg-secondary p-6">

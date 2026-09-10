@@ -262,7 +262,8 @@ export const partial: PartialDictionary = {
     englishNote: "Mantenido por nuestro equipo de contenido técnico — las clasificaciones y afirmaciones se verifican, no se repiten.",
   },
   knowledgeIndex: {
-    title: "Artículos técnicos",
+    // Igual que nav.knowledge de este diccionario (es.ts:47); véase la nota en en.ts.
+    title: "Recursos",
     lead: "Guías de selección, métodos de ensayo y listas de verificación de especificaciones de nuestro equipo de contenido de ingeniería PVA.",
     published: "Publicado",
     updated: "Actualizado",
