@@ -120,7 +120,9 @@ test("REQ 1 · the click is settled in one hop, so no intermediate can re-decide
           // is the assertion that notices if that ever becomes the landing path.
           assert.equal(first.stripLocaleParam, false,
             "the English entry carries no query parameter, so nothing should be stripping one");
-          assert.equal(first.permanent, true, "the /en alias consolidation is stable and should be cacheable");
+          // REQ 3's own rule applies to the alias: it persists a preference, so a
+          // cached copy of it would stop delivering that preference.
+          assert.equal(first.permanent, false, "a cached /en hop would swallow the picker's cookie");
           assert.equal(first.target, localePath(basePath, "en"),
             `the /en alias must consolidate onto the English owner, got ${first.target}`);
         }
@@ -162,12 +164,15 @@ test("REQ 3 · no cookie-dependent relocation may be cached by a browser", () =>
   }
   assert.deepEqual(offenders, [], `cacheable cookie-driven redirects:\n${offenders.join("\n")}`);
 
-  // The permanent ones are the retired-prefix and /en consolidations, and each
-  // must land on the English owner — a cached hop to a *non*-English URL would
-  // be the same bug wearing a different hat.
+  // The permanent ones are the retired-prefix consolidations, and each must land
+  // on the English owner — a cached hop to a *non*-English URL would be the same
+  // bug wearing a different hat. `/en` is in this loop because it must reach the
+  // same owner in one hop, but it is deliberately temporary: unlike `/pt`, it is
+  // the live target of the language picker and it writes the preference cookie,
+  // so caching it re-creates the bug this requirement exists to prevent.
   for (const stale of ["pt", "ru", "ar", "tr", "vi", "id", "en"]) {
     const decision = routeFor({ pathname: `/${stale}/products`, selectedLocale: null, savedLocale: null });
-    assert.equal(decision.permanent, stale !== "en" ? true : true, `/${stale}/products must consolidate permanently`);
+    assert.equal(decision.permanent, stale !== "en", `/${stale}/products permanence is wrong`);
     assert.equal(decision.locale, "en", `/${stale}/products consolidated to ${decision.locale}`);
     assert.equal(decision.target, "/products", `/${stale}/products did not reach the English owner`);
   }

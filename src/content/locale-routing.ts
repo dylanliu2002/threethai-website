@@ -20,7 +20,7 @@ import { localePath, locales, type Locale } from "./company";
 export const LOCALE_COOKIE = "threethai_locale";
 /** One-time language-switch hint, removed before the destination renders. */
 export const LOCALE_PARAM = "_locale";
-/** Status for the `/en` safety alias; locale moves stay temporary. */
+/** Status for the retired locale prefixes; the `/en` alias and locale moves stay temporary. */
 export const PERMANENT_REDIRECT_STATUS = 308;
 
 /**
@@ -43,8 +43,9 @@ export type RetiredLocale = (typeof retiredLocales)[number];
  * Visitor locale is chosen from explicit signals ONLY, in this order:
  *   1. `?_locale=` (the language picker's one-time hint), if it names a
  *      supported locale
- *   2. a retired locale prefix or the `/en` alias, permanently consolidated
- *      onto the prefix-free English owner
+ *   2. a retired locale prefix or the `/en` alias, consolidated onto the
+ *      prefix-free English owner in one hop (the retired prefixes permanently,
+ *      the alias temporarily — see the note in `routeFor`)
  *   3. a retired `?_locale=` hint, stripped rather than honoured
  *   4. the URL's own locale prefix
  *   5. a valid saved preference cookie
@@ -133,7 +134,9 @@ export function retiredLocaleOfPathname(pathname: string): RetiredLocale | undef
 /**
  * `true` when the path's leading segment names a locale that owns no page any
  * more — the `/en` safety alias or one of the six retired prefixes. Both are
- * answered with a single permanent hop onto `englishOwnerOf`.
+ * answered with a single hop onto `englishOwnerOf`; only the retired prefixes
+ * get the cacheable (permanent) status, because the alias must keep delivering
+ * its preference cookie.
  *
  * The test is on the leading segment rather than on a string compare with the
  * owner, because normalising and consolidating are different things: `/answers/`
@@ -189,11 +192,21 @@ export function routeFor(input: {
     };
   }
 
-  // 2 · The `/en` safety alias and the six retired locale prefixes. Permanent,
-  // one hop, and their destination is always the existing prefix-free English
-  // owner: this never creates a page at `/en/…` or `/pt/…`, and no such URL is
-  // ever advertised or entered in the sitemap. Retiring a locale must not
-  // 404 a URL that GSC-INDEX-002 spent its consolidation pointing at English.
+  // 2 · The `/en` safety alias and the six retired locale prefixes. One hop, and
+  // their destination is always the existing prefix-free English owner: this never
+  // creates a page at `/en/…` or `/pt/…`, and no such URL is ever advertised or
+  // entered in the sitemap. Retiring a locale must not 404 a URL that GSC-INDEX-002
+  // spent its consolidation pointing at English.
+  //
+  // Only the retired prefixes get the permanent status. `/en/…` is how the language
+  // picker expresses "now", and a cached response is a bad place to hang a
+  // preference: measured in Chrome, the first `/en` click applied `Set-Cookie` and
+  // landed in English, and every later one was served from the cached 308 without
+  // it, so `threethai_locale` stayed at the previous language and rule 5 moved the
+  // visitor straight back there — clicking English from `/es` once worked and then
+  // never again in the same profile. A 307 is not stored, so the cookie arrives on
+  // every switch. Nothing is lost: no `/en/…` URL is declared anywhere, so the
+  // crawl signal permanence was bought for is not on offer here.
   //
   // `persist` records the locale actually served, which is also what replaces a
   // stale `threethai_locale=pt`; leaving the cookie alone would let a retired
@@ -204,7 +217,9 @@ export function routeFor(input: {
       locale: "en",
       target: owner,
       persist: "en",
-      permanent: true,
+      // The `/en` alias stays temporary so its preference cookie is delivered every
+      // time; retired prefixes keep the permanent consolidation GSC-INDEX-002 built.
+      permanent: englishAliasOf(pathname) === null,
       // Unrelated query parameters survive the hop untouched. Only a retired
       // `?_locale` hint is dropped here, so a bookmark like
       // `/pt/answers?_locale=pt` cannot arrive at a URL that redirects again.

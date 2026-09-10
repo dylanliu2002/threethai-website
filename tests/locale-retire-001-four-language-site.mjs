@@ -497,7 +497,12 @@ test("REQ 13-16: ES and DE core pages consolidate onto the English owner", async
 // ---------------------------------------------------------------------------
 // REQ 17 · 18 · 19 · 20 — the GSC-LOCALE-003A invariants survive the change.
 // ---------------------------------------------------------------------------
-test("REQ 17: /en remains a permanent alias onto the prefix-free English owner", () => {
+// REQ 17 as written also pinned `permanent: true`. That half moved to
+// GSC-LOCALE-003A: the /en alias is how the language picker expresses "now", and
+// a cached 308 swallows the Set-Cookie that records the choice, so the second
+// click from a non-English page silently undid itself. One hop onto the
+// prefix-free owner is what this card owns, and it is asserted unchanged.
+test("REQ 17: /en remains a one-hop alias onto the prefix-free English owner", () => {
   for (const [pathname, target] of [
     ["/en", "/"],
     ["/en/answers", "/answers"],
@@ -507,7 +512,7 @@ test("REQ 17: /en remains a permanent alias onto the prefix-free English owner",
     const decision = routeFor({ pathname });
     assert.equal(decision.kind, "redirect", pathname);
     assert.equal(decision.target, target, pathname);
-    assert.equal(decision.permanent, true, `${pathname} alias must stay permanent`);
+    assert.equal(decision.permanent, false, `${pathname} alias must stay uncached`);
     assert.equal(decision.locale, "en", pathname);
     assert.equal(englishAliasOf(pathname), target, pathname);
     assert.equal(routeFor({ pathname }).stripLocaleParam, false, `${pathname} must preserve unrelated query parameters`);

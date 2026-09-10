@@ -257,16 +257,24 @@ test("REQ 9: ?_locale=zh switches to Chinese and records the choice", () => {
 // ---------------------------------------------------------------------------
 // REQ 10 · 11 — the /en safety alias.
 // ---------------------------------------------------------------------------
-test("REQ 10: /en permanently redirects to the site root", () => {
+// REQ 10/11/18 as originally written also pinned `permanent: true` for the /en
+// alias. Measured in Chrome on 2026-09-10, that half is what broke the picker: a
+// cached 308 does not re-apply its Set-Cookie, so the second and later clicks on
+// English reused the stored redirect, threethai_locale stayed at the language the
+// visitor was leaving, and rule 5 moved them straight back. The alias is therefore
+// temporary; everything 003A needed from it — one hop, onto the prefix-free owner,
+// never onto /zh//es, never a rendered page — is asserted here unchanged. Retired
+// prefixes keep their 308, because those URLs really were indexed.
+test("REQ 10: /en redirects to the site root, in one temporary hop", () => {
   const decision = routeFor({ pathname: "/en" });
   assert.equal(decision.kind, "redirect");
   assert.equal(decision.target, "/");
-  assert.equal(decision.permanent, true);
-  assert.equal(decision.permanent ? PERMANENT_REDIRECT_STATUS : null, 308);
+  assert.equal(decision.permanent, false, "a cached alias response would swallow the picker's cookie");
+  assert.equal(decision.persist, "en", "the alias still records the language it serves");
   assert.equal(englishAliasOf("/en"), "/");
 });
 
-test("REQ 11: /en/* permanently redirects to its prefix-free English owner", () => {
+test("REQ 11: /en/* redirects to its prefix-free English owner, temporarily", () => {
   const cases = [
     ["/en/products/water-soluble-pva-yarn", "/products/water-soluble-pva-yarn"],
     ["/en/answers", "/answers"],
@@ -278,7 +286,7 @@ test("REQ 11: /en/* permanently redirects to its prefix-free English owner", () 
     const decision = routeFor({ pathname });
     assert.equal(decision.kind, "redirect", pathname);
     assert.equal(decision.target, target, pathname);
-    assert.equal(decision.permanent, true, `${pathname} alias must be permanent`);
+    assert.equal(decision.permanent, false, `${pathname} alias must stay uncached`);
     assert.equal(decision.locale, "en", pathname);
     assert.equal(englishAliasOf(pathname), target, pathname);
     // One hop only: the alias lands on the owner, never on another locale.
@@ -309,7 +317,7 @@ test("REQ 11: the alias matches only a complete /en segment", () => {
 test("REQ 11/18: unknown /en/* slugs alias onto the owner and stay proper 404s, never /zh/en/*", () => {
   for (const pathname of ["/en/products/definitely-not-real", "/en/answers/nope"]) {
     const decision = routeFor({ pathname });
-    assert.equal(decision.permanent, true, pathname);
+    assert.equal(decision.permanent, false, pathname);
     assert.ok(!decision.target.startsWith("/zh"), `${pathname} must not produce /zh/en/…`);
     assert.ok(!/\/en\//.test(decision.target), `${pathname} must not double-prefix`);
   }
@@ -477,7 +485,10 @@ test("plumbing: the proxy delegates and preserves the existing response statuses
   assert.match(source, /stripLocaleParam/, "proxy must only drop ?_locale when told to");
   assert.doesNotMatch(source, /includes\("en"\)|=== "en"/, "proxy must not special-case locales itself");
   assert.doesNotMatch(source, /canonical/i, "no page ownership may be expressed as a redirect");
-  assert.ok(PERMANENT_REDIRECT_STATUS === 308, "the alias must be permanent, not a temporary hop");
+  // The constant now serves only retired prefixes; `permanent: false` falls
+  // through to NextResponse's default 307 so the picker's cookie is never cached.
+  assert.ok(PERMANENT_REDIRECT_STATUS === 308, "a retired prefix must consolidate permanently, not a temporary hop");
+  assert.match(source, /decision\.permanent \? PERMANENT_REDIRECT_STATUS/, "the proxy must vary status by the decision");
   assert.equal(typeof localePath, "function");
   assert.ok(locales.includes("en") && locales.includes("de"));
   assert.equal(htmlLang.en, "en");
