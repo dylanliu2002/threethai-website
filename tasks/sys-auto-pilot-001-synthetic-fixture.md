@@ -40,7 +40,8 @@ other file.
 - Production, DNS, and deployment: forbidden.
 - Task adoption: forbidden.
 - `MAX_WORKERS`: exactly one.
-- Timeout: 300 seconds.
+- Timeout: 360 seconds. The controller lease remains 120 seconds longer so
+  transport fallback and deterministic closeout cannot consume the lease.
 - The one-time activation is consumed before process launch on the first
   dispatch attempt, whether that attempt later succeeds or fails.
 

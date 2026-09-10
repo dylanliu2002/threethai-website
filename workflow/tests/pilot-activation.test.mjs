@@ -240,6 +240,7 @@ test("PILOT-ACTIVATION-02 generic permanent activation remains unavailable", () 
 test("PILOT-CONTRACT-01 machine contract allows only the expected output file", () => {
   const machineContract = contract();
   assert.equal(assertSyntheticPilotContract(machineContract), true);
+  assert.equal(machineContract.contract_revision, 4);
   assert.deepEqual(machineContract.write_files, [OUTPUT_PATH]);
   assert.deepEqual(machineContract.write_prefixes, []);
   assert.equal(machineContract.synthetic_pilot.network, true);
@@ -247,6 +248,13 @@ test("PILOT-CONTRACT-01 machine contract allows only the expected output file", 
   assert.deepEqual(machineContract.synthetic_pilot.network_proxy.allowed_domains, ["chatgpt.com"]);
   assert.equal(machineContract.synthetic_pilot.network_proxy.unrestricted_direct_egress, false);
   assert.equal(machineContract.synthetic_pilot.network_proxy.local_private_network, false);
+  assert.equal(machineContract.limits.timeout_seconds, 360);
+  assert.equal(machineContract.limits.lease_seconds, 480);
+  assert.equal(
+    machineContract.limits.lease_seconds - machineContract.limits.timeout_seconds,
+    120,
+  );
+  assert.equal(machineContract.synthetic_pilot.timeout_seconds, 360);
 });
 
 test("PILOT-CONTRACT-02 wrong branch or worktree fails closed", () => {

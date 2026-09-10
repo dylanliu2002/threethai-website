@@ -625,6 +625,7 @@ test("PILOT-FIXTURE-01 synthetic task is deterministic disposable and not execut
   assert.deepEqual(fixture.network_proxy.allowed_domains, ["chatgpt.com"]);
   assert.equal(fixture.network_proxy.unrestricted_direct_egress, false);
   assert.equal(fixture.network_proxy.local_private_network, false);
+  assert.equal(fixture.timeout_seconds, 360);
   assert.equal(fixture.git_push, false);
   assert.equal(fixture.pull_request, false);
   assert.equal(fixture.production, false);

@@ -85,6 +85,11 @@ function legacyExpiredGrant(contract, authority, worktreeRealpath, {
   });
   grant.contract_revision = 1;
   grant.contract_digest = "1".repeat(64);
+  grant.limits = {
+    ...grant.limits,
+    timeout_seconds: 300,
+    lease_seconds: 420,
+  };
   grant.synthetic_pilot = {
     task_key: SYNTHETIC_PILOT_TASK_KEY,
     write_files: ["workflow/fixtures/pilot/output/synthetic-result.json"],
@@ -281,6 +286,8 @@ function assertRotationRejectedWithoutCanonicalMutation(fixture, pattern) {
 
 test("ROTATE-01 expired authentic legacy Grant rotates to the current restricted contract", (t) => {
   const fixture = createFixture(t);
+  assert.equal(fixture.oldGrant.limits.timeout_seconds, 300);
+  assert.equal(fixture.oldGrant.limits.lease_seconds, 420);
   const result = fixture.rotate();
   const freshBytes = fs.readFileSync(fixture.canonicalGrant);
   const freshGrant = JSON.parse(freshBytes.toString("utf8"));
@@ -304,6 +311,8 @@ test("ROTATE-01 expired authentic legacy Grant rotates to the current restricted
   assert.equal(freshGrant.synthetic_pilot.network_proxy.enforced, true);
   assert.deepEqual(freshGrant.synthetic_pilot.network_proxy.allowed_domains, ["chatgpt.com"]);
   assert.equal(freshGrant.limits.max_workers, 1);
+  assert.equal(freshGrant.limits.timeout_seconds, 360);
+  assert.equal(freshGrant.limits.lease_seconds, 480);
   assert.equal(freshGrant.activation.synthetic_pilot_once.max_dispatch_attempts, 1);
   assert.equal(freshGrant.activation.synthetic_pilot_once.network, true);
   assert.equal(freshGrant.activation.autonomous, false);
