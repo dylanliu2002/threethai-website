@@ -3,8 +3,8 @@
   "task_key": "sys-auto-pilot-001-synthetic-fixture",
   "task_id": "SYS-AUTO-PILOT-001",
   "card_path": "tasks/sys-auto-pilot-001-synthetic-fixture.md",
-  "card_blob_sha": "55bb57e6198ffbbb87bbf5b12f212ab2365a0d95",
-  "contract_revision": 3,
+  "card_blob_sha": "6bdc95ef5ec0a61627a3f29c37eb1922029b2915",
+  "contract_revision": 4,
   "status": "READY",
   "phase": "QUEUED",
   "mode": "IMPLEMENT",
@@ -63,8 +63,8 @@
   "limits": {
     "max_workers": 1,
     "max_correction_cycles": 0,
-    "timeout_seconds": 300,
-    "lease_seconds": 420
+    "timeout_seconds": 360,
+    "lease_seconds": 480
   },
   "synthetic_pilot": {
     "task_key": "sys-auto-pilot-001-synthetic-fixture",
@@ -100,7 +100,7 @@
     "deployment": false,
     "task_adoption": false,
     "max_workers": 1,
-    "timeout_seconds": 300
+    "timeout_seconds": 360
   },
   "provenance": {
     "proposal_names": [],

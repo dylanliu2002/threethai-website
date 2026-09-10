@@ -42,7 +42,7 @@
   "production": false,
   "task_adoption": false,
   "max_workers": 1,
-  "timeout_seconds": 300,
+  "timeout_seconds": 360,
   "validation": [
     "git diff --check",
     "node workflow/cli.mjs validate --all",
