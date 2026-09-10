@@ -6,8 +6,10 @@ import type { ContentLocale } from "./company";
 /**
  * Buyer answers — English copy migrated verbatim from the legacy site
  * (30 Q&As; URLs preserved), Simplified Chinese layered on top so the /zh
- * routes render fully localized. The three long-form expanded answers live
- * in answer-expanded.ts (EN + zh maps).
+ * routes render fully localized. Exactly ONE long-form expansion exists today —
+ * `best-pva-water-soluble-yarn-manufacturers-china`, in EN and zh maps in
+ * `answer-expanded.ts`. An earlier revision of this comment claimed three; the
+ * file has one key in each map.
  */
 
 export type BuyerAnswerPatch = {
