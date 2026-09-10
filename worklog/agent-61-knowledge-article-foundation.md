@@ -165,12 +165,33 @@ diff is clean. Line endings and encoding must be checked against the base blob
 separately, and any whole-file diff on a file this task changed three lines of is a
 defect until proven otherwise.
 
+## 2026-09-11 — Pushed for independent review
+
+- Pre-push gates per `AGENTS.md` §3/§12/§14:
+  - `git log -1 --pretty=fuller` on `8566365` → `Author: dylanliu2002
+    <dylanliu2002@gmail.com>`, Committer identical. Identity gate passed on the
+    newest commit, not a historical one.
+  - `git status --porcelain` empty; branch = 3 commits over `3d01f21`.
+  - `git fetch` re-run: `origin/main` still `3d01f21`, so the task base is current
+    main and no rebase was needed.
+  - `git ls-remote --heads origin codex/61-knowledge-article-foundation` returned
+    nothing before the push, confirming a new branch with no force-push and no
+    overwrite of shared state.
+- Pushed `codex/61-knowledge-article-foundation` (`-u`, upstream now the branch's own
+  remote ref rather than `main`). Remote verified at
+  `8566365884a6ea26e15175bcad696d3e832cc293`, equal to local `HEAD`.
+- **Not merged.** No pull request opened. `main` untouched. The card sits at `REVIEW`
+  awaiting a reviewer on a different role/worker than the implementer.
+- State carried into review: the six-category taxonomy ships as structure without
+  visible headings (Coordination Item 1). This is the single decision most likely to
+  come back as `CHANGES_REQUESTED`, and the fix is owner-supplied reviewed
+  translations, not a code change.
+
 ## 2026-09-11 — Deliberately not done
 
 - No article copy written; no R1–R8. No number, test value, setpoint or case added.
 - No ES/DE/ZH translation of article bodies; no evidence record; `SECTION_SURFACES`
   left empty, so no reviewer name or date was ever required or fabricated.
 - No route, sitemap, canonical, hreflang, redirect or `globals.css` change.
-- No merge, and no push beyond the task branch.
 - `home-knowledge.tsx` (`slice(0, 3)`) and the product page's answer links were left
   alone: both change visible text on pages outside this card's goal.

@@ -232,13 +232,23 @@ table or figure markup appearing where the model declares none.
 
 ## Completion Record
 
-- Commit: see `git log -1` on `codex/61-knowledge-article-foundation`
-- Base / rebase commit: `3d01f21` (`origin/main` at branch creation)
-- Changed files: 13 modified, 5 new — listed in the File Allowlist above
-- Validation results: typecheck clean · lint clean · build clean (225 pages) ·
-  `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` 231/231 pass, 0 skipped ·
+- Commits (pushed to `origin/codex/61-knowledge-article-foundation`, remote SHA
+  `8566365884a6ea26e15175bcad696d3e832cc293`, verified equal to local `HEAD`):
+  - `6538b13` feat(knowledge): let an article hold tables, lists, callouts and links
+  - `6d65950` refactor(knowledge): name the section one thing in all four locales
+  - `8566365` test(knowledge): guard the article model, and record task 61
+- Base / rebase commit: `3d01f21` — re-verified after fetch as the current
+  `origin/main`, so no rebase was required
+- Identity gate: `Author/Commit = dylanliu2002 <dylanliu2002@gmail.com>` confirmed on
+  the latest commit before push
+- Changed files: 13 modified, 7 new — listed in the File Allowlist above
+- Validation results: typecheck clean · lint clean (exit 0) · build clean (225 pages /
+  222 documents, unchanged from baseline) ·
+  `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` **231 pass / 0 fail / 0 skipped** ·
   `test:first-wave` 5/5 · body integrity 16/16 documents · seam guard killed by mutation
+  on a disposable copy outside the repository
 - Worklog: `worklog/agent-61-knowledge-article-foundation.md`
+- Not merged, no pull request opened, `main` untouched
 - Remaining risks:
   1. Category headings are invisible today (Coordination Item 1) — a reviewer may
      judge this as not meeting §3; the alternative was unreviewed translation.
@@ -249,6 +259,9 @@ table or figure markup appearing where the model declares none.
      synthetic fixture and by source assertions, not by shipped content — no article
      uses them yet. The first R-series article is the real test.
   4. Verified against a local prerender, not against a deployed environment.
+  5. Two self-inflicted defects (CRLF normalisation in `de.ts`/`es.ts`, then
+     character corruption during the repair) were found and fixed before push; both
+     passed every automated gate unnoticed. Method and detection are in the worklog.
 
 ## Rollback
 
