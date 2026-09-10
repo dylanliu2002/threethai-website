@@ -114,7 +114,12 @@ function pilotFixture() {
   return { machineContract, grant, stateDirectory, engine, activation };
 }
 
-function reservePilot(fixture, wakeupId = crypto.randomUUID()) {
+function reservePilot(
+  fixture,
+  wakeupId = crypto.randomUUID(),
+  activation = fixture.activation,
+  now = new Date("2026-09-06T00:02:00.000Z"),
+) {
   return reserveTaskDispatchInternal({
     engine: fixture.engine,
     contract: fixture.machineContract,
@@ -123,9 +128,55 @@ function reservePilot(fixture, wakeupId = crypto.randomUUID()) {
     baseSha: HEAD,
     roleId: fixture.machineContract.owner_role,
     maxWorkersCeiling: 1,
-    pilotActivationId: fixture.activation.activation_id,
-    now: new Date("2026-09-06T00:02:00.000Z"),
+    pilotActivationId: activation.activation_id,
+    now,
   });
+}
+
+function preparePriorPilotCycle(fixture, priorStatus = "SUCCESS") {
+  const prior = reservePilot(fixture, "prior-pilot-cycle");
+  const reviewTarget = {
+    implementation_run_id: prior.run.run_id,
+    implementation_worker_id: prior.run.worker_id,
+    implementation_thread_id: "thread-prior-pilot-cycle",
+    reviewed_base_sha: HEAD,
+    reviewed_head_sha: HEAD,
+    validation_digest: "a".repeat(64),
+    implementation_evidence_digest: "b".repeat(64),
+  };
+  mutateControllerStateInternal(fixture.stateDirectory, {
+    type: "test.prior-pilot-cycle",
+    taskKey: TASK_KEY,
+    runId: prior.run.run_id,
+  }, (state) => {
+    state.runs[prior.run.run_id].status = priorStatus;
+    state.runs[prior.run.run_id].completed_at = "2026-09-06T00:03:00.000Z";
+    delete state.leases[prior.lease.lease_id];
+    for (const [reservationId, reservation] of Object.entries(state.reservations)) {
+      if (reservation.lease_id === prior.lease.lease_id) delete state.reservations[reservationId];
+    }
+    state.tasks[TASK_KEY] = {
+      ...state.tasks[TASK_KEY],
+      status: "REVIEW",
+      phase: "INDEPENDENT_REVIEW",
+      lease_id: null,
+      correction_count: 2,
+      reviewer_run_ids: [crypto.randomUUID()],
+      review_record: null,
+      approval_revision: 3,
+      review_target: reviewTarget,
+      implementation_run_id: prior.run.run_id,
+    };
+    return { simulated: true };
+  });
+  const activation = enableSyntheticPilotOnceInternal(fixture.stateDirectory, {
+    request: activationRequest(),
+    authorizationId: fixture.grant.authorization_id,
+    contractDigest: fixture.grant.contract_digest,
+    cardBlobSha: fixture.grant.card_blob_sha,
+    now: new Date("2026-09-06T00:04:00.000Z"),
+  });
+  return { prior, activation, reviewTarget };
 }
 
 test("PILOT-BOOTSTRAP-01 no matching key creates a fresh secure authority keypair", (t) => {
@@ -413,6 +464,185 @@ test("PILOT-WAKEUP-02 the same activation wakeup remains idempotently blocked", 
     assert.equal(duplicate.duplicate, true);
     assert.equal(duplicate.reason, "duplicate-wakeup");
     assert.equal(Object.hasOwn(state.wakeups, activationWakeupId), true);
+  } finally {
+    cleanupFixture(fixture.stateDirectory);
+  }
+});
+
+test("PILOT-REACTIVATION-01 fresh activation starts a new cycle after terminal SUCCESS", () => {
+  const fixture = pilotFixture();
+  try {
+    const { prior, activation, reviewTarget } = preparePriorPilotCycle(fixture);
+    const wakeupId = `${activationScopedCliWakeupIdInternal(activation)}:${TASK_KEY}`;
+    const retainedWakeup = {
+      task_key: TASK_KEY,
+      observed_at: "2026-09-06T00:04:30.000Z",
+    };
+    mutateControllerStateInternal(fixture.stateDirectory, {
+      type: "test.blocked-pilot-wakeup",
+      taskKey: TASK_KEY,
+    }, (state) => {
+      state.wakeups[wakeupId] = structuredClone(retainedWakeup);
+      return { simulated: true };
+    });
+
+    const admitted = reservePilot(
+      fixture,
+      wakeupId,
+      activation,
+      new Date("2026-09-06T00:05:00.000Z"),
+    );
+    const state = readControllerStateInternal(fixture.stateDirectory);
+    assert.equal(admitted.acquired, true);
+    assert.equal(admitted.run.role_id, fixture.machineContract.owner_role);
+    assert.equal(admitted.run.one_time_pilot_activation_id, activation.activation_id);
+    assert.equal(state.runs[prior.run.run_id].status, "SUCCESS");
+    assert.deepEqual(state.tasks[TASK_KEY], {
+      status: fixture.machineContract.status,
+      phase: fixture.machineContract.phase,
+      current_run_id: admitted.run.run_id,
+      attempt: 2,
+      lease_id: admitted.lease.lease_id,
+      fencing_token: admitted.lease.fencing_token,
+      correction_count: 0,
+      reviewer_run_ids: [],
+      review_record: null,
+      approval_revision: 0,
+      owner_role: fixture.grant.owner_role,
+      reviewer_role: fixture.grant.reviewer_role,
+      review_target: null,
+      implementation_run_id: null,
+    });
+    assert.notDeepEqual(state.tasks[TASK_KEY].review_target, reviewTarget);
+    assert.deepEqual(state.wakeups[wakeupId], retainedWakeup);
+    assert.equal(state.pilot_activation.status, "CONSUMED");
+    assert.equal(state.pilot_activation.dispatch_attempts, 1);
+
+    const duplicate = reservePilot(
+      fixture,
+      wakeupId,
+      activation,
+      new Date("2026-09-06T00:05:01.000Z"),
+    );
+    assert.equal(duplicate.acquired, false);
+    assert.equal(duplicate.duplicate, true);
+    assert.equal(duplicate.reason, "duplicate-wakeup");
+  } finally {
+    cleanupFixture(fixture.stateDirectory);
+  }
+});
+
+test("PILOT-REACTIVATION-02 non-terminal prior run remains fail-closed", () => {
+  const fixture = pilotFixture();
+  try {
+    const { prior, activation } = preparePriorPilotCycle(fixture, "RUNNING");
+    const wakeupId = `${activationScopedCliWakeupIdInternal(activation)}:${TASK_KEY}`;
+    const blocked = reservePilot(
+      fixture,
+      wakeupId,
+      activation,
+      new Date("2026-09-06T00:05:00.000Z"),
+    );
+    const state = readControllerStateInternal(fixture.stateDirectory);
+    assert.equal(blocked.acquired, false);
+    assert.equal(blocked.reason, "pilot-prior-run-not-terminal");
+    assert.equal(state.runs[prior.run.run_id].status, "RUNNING");
+    assert.equal(state.pilot_activation.status, "READY");
+    assert.equal(state.pilot_activation.dispatch_attempts, 0);
+    assert.equal(Object.keys(state.runs).length, 1);
+    assert.deepEqual(Object.keys(state.leases), []);
+    assert.deepEqual(Object.keys(state.reservations), []);
+  } finally {
+    cleanupFixture(fixture.stateDirectory);
+  }
+});
+
+test("PILOT-REACTIVATION-03 missing prior run remains fail-closed", () => {
+  const fixture = pilotFixture();
+  try {
+    const { prior, activation } = preparePriorPilotCycle(fixture);
+    mutateControllerStateInternal(fixture.stateDirectory, {
+      type: "test.missing-prior-pilot-run",
+      taskKey: TASK_KEY,
+      runId: prior.run.run_id,
+    }, (state) => {
+      delete state.runs[prior.run.run_id];
+      return { simulated: true };
+    });
+    const blocked = reservePilot(
+      fixture,
+      `${activationScopedCliWakeupIdInternal(activation)}:${TASK_KEY}`,
+      activation,
+      new Date("2026-09-06T00:05:00.000Z"),
+    );
+    const state = readControllerStateInternal(fixture.stateDirectory);
+    assert.equal(blocked.acquired, false);
+    assert.equal(blocked.reason, "pilot-prior-run-missing");
+    assert.equal(state.pilot_activation.status, "READY");
+    assert.equal(state.pilot_activation.dispatch_attempts, 0);
+    assert.deepEqual(Object.keys(state.leases), []);
+    assert.deepEqual(Object.keys(state.reservations), []);
+  } finally {
+    cleanupFixture(fixture.stateDirectory);
+  }
+});
+
+test("PILOT-REACTIVATION-04 foreign wakeup ownership remains duplicate", () => {
+  const fixture = pilotFixture();
+  try {
+    const wakeupId = `${activationScopedCliWakeupIdInternal(fixture.activation)}:${TASK_KEY}`;
+    mutateControllerStateInternal(fixture.stateDirectory, {
+      type: "test.foreign-pilot-wakeup",
+      taskKey: TASK_KEY,
+    }, (state) => {
+      state.wakeups[wakeupId] = {
+        task_key: "foreign-task",
+        observed_at: "2026-09-06T00:01:30.000Z",
+      };
+      return { simulated: true };
+    });
+    const duplicate = reservePilot(fixture, wakeupId);
+    const state = readControllerStateInternal(fixture.stateDirectory);
+    assert.equal(duplicate.acquired, false);
+    assert.equal(duplicate.duplicate, true);
+    assert.equal(duplicate.reason, "duplicate-wakeup");
+    assert.equal(state.pilot_activation.status, "READY");
+    assert.equal(Object.keys(state.runs).length, 0);
+  } finally {
+    cleanupFixture(fixture.stateDirectory);
+  }
+});
+
+test("PILOT-REACTIVATION-05 arbitrary same-task wakeup cannot be recovered", () => {
+  const fixture = pilotFixture();
+  try {
+    const { activation } = preparePriorPilotCycle(fixture);
+    const wakeupId = "historical-same-task-wakeup";
+    mutateControllerStateInternal(fixture.stateDirectory, {
+      type: "test.arbitrary-pilot-wakeup",
+      taskKey: TASK_KEY,
+    }, (state) => {
+      state.wakeups[wakeupId] = {
+        task_key: TASK_KEY,
+        observed_at: "2026-09-06T00:04:30.000Z",
+      };
+      return { simulated: true };
+    });
+    const duplicate = reservePilot(
+      fixture,
+      wakeupId,
+      activation,
+      new Date("2026-09-06T00:05:00.000Z"),
+    );
+    const state = readControllerStateInternal(fixture.stateDirectory);
+    assert.equal(duplicate.acquired, false);
+    assert.equal(duplicate.duplicate, true);
+    assert.equal(duplicate.reason, "duplicate-wakeup");
+    assert.equal(state.pilot_activation.status, "READY");
+    assert.equal(state.pilot_activation.dispatch_attempts, 0);
+    assert.equal(Object.keys(state.runs).length, 1);
+    assert.deepEqual(Object.keys(state.leases), []);
+    assert.deepEqual(Object.keys(state.reservations), []);
   } finally {
     cleanupFixture(fixture.stateDirectory);
   }

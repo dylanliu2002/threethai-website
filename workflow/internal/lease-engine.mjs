@@ -70,6 +70,15 @@ function expectedRoleForPhase(phase, grant) {
   return grant.owner_role;
 }
 
+const TERMINAL_RUN_STATUSES = new Set([
+  "SUCCESS",
+  "FAILED",
+  "INVALID_OUTPUT",
+  "SCOPE_VIOLATION",
+  "VALIDATION_FAILED",
+  "STALE",
+]);
+
 function actualHead(repoRoot) {
   return execFileSync("git", ["rev-parse", "HEAD"], {
     cwd: repoRoot, encoding: "utf8", windowsHide: true,
@@ -145,9 +154,9 @@ export function reserveTaskDispatchInternal({
   }, (state) => {
     const { contract, grant } = validateGrant(engine, contractInput, grantInput, { verifyCard, now });
     expireStale(state, nowMs);
-    if (state.wakeups[wakeupId]) return { acquired: false, duplicate: true, reason: "duplicate-wakeup" };
-    state.wakeups[wakeupId] = { task_key: contract.task_key, observed_at: now.toISOString() };
     const pilotActivation = state.pilot_activation;
+    const activationRun = Object.values(state.runs)
+      .find((run) => run.one_time_pilot_activation_id === pilotActivationId);
     const oneTimePilotAuthorized = Boolean(pilotActivationId)
       && pilotActivation?.status === "READY"
       && pilotActivation.activation_id === pilotActivationId
@@ -165,10 +174,23 @@ export function reserveTaskDispatchInternal({
       && pilotActivation.network === grant.activation.synthetic_pilot_once?.network
       && !grant.activation.autonomous
       && grant.activation.worker_dispatch
-      && grant.permissions.worker_dispatch;
+      && grant.permissions.worker_dispatch
+      && !activationRun;
     const generalActivationAuthorized = state.activation.authorized
       && grant.activation.autonomous
       && grant.activation.worker_dispatch;
+    const existingWakeup = state.wakeups[wakeupId];
+    const expectedRecoverableWakeupId = `cli-tick:${pilotActivationId}:${contract.task_key}`;
+    const recoverablePreDispatchWakeup = Boolean(existingWakeup)
+      && existingWakeup.task_key === contract.task_key
+      && wakeupId === expectedRecoverableWakeupId
+      && oneTimePilotAuthorized;
+    if (existingWakeup && !recoverablePreDispatchWakeup) {
+      return { acquired: false, duplicate: true, reason: "duplicate-wakeup" };
+    }
+    if (!existingWakeup) {
+      state.wakeups[wakeupId] = { task_key: contract.task_key, observed_at: now.toISOString() };
+    }
     if (!oneTimePilotAuthorized && !generalActivationAuthorized) {
       return { acquired: false, duplicate: false, reason: "activation-disabled" };
     }
@@ -176,7 +198,16 @@ export function reserveTaskDispatchInternal({
     if (currentTask?.lease_id && state.leases[currentTask.lease_id]) {
       return { acquired: false, duplicate: false, reason: "task-already-leased" };
     }
-    const phase = currentTask?.phase ?? contract.phase;
+    const priorRun = currentTask?.current_run_id
+      ? state.runs[currentTask.current_run_id]
+      : null;
+    if (oneTimePilotAuthorized && currentTask?.current_run_id && !priorRun) {
+      return { acquired: false, duplicate: false, reason: "pilot-prior-run-missing" };
+    }
+    if (oneTimePilotAuthorized && priorRun && !TERMINAL_RUN_STATUSES.has(priorRun.status)) {
+      return { acquired: false, duplicate: false, reason: "pilot-prior-run-not-terminal" };
+    }
+    const phase = oneTimePilotAuthorized ? contract.phase : (currentTask?.phase ?? contract.phase);
     const expectedRole = expectedRoleForPhase(phase, grant);
     if (roleId !== expectedRole) {
       return { acquired: false, duplicate: false, reason: "role-not-authorized-for-phase" };
@@ -234,20 +265,24 @@ export function reserveTaskDispatchInternal({
     });
     state.runs[runId] = run;
     state.tasks[contract.task_key] = {
-      status: currentTask?.status ?? contract.status,
+      status: oneTimePilotAuthorized ? contract.status : (currentTask?.status ?? contract.status),
       phase,
       current_run_id: runId,
       attempt,
       lease_id: leaseId,
       fencing_token: lease.fencing_token,
-      correction_count: currentTask?.correction_count ?? 0,
-      reviewer_run_ids: currentTask?.reviewer_run_ids ?? [],
-      review_record: currentTask?.review_record ?? null,
-      approval_revision: currentTask?.approval_revision ?? 0,
+      correction_count: oneTimePilotAuthorized ? 0 : (currentTask?.correction_count ?? 0),
+      reviewer_run_ids: oneTimePilotAuthorized ? [] : (currentTask?.reviewer_run_ids ?? []),
+      review_record: oneTimePilotAuthorized ? null : (currentTask?.review_record ?? null),
+      approval_revision: oneTimePilotAuthorized ? 0 : (currentTask?.approval_revision ?? 0),
       owner_role: grant.owner_role,
       reviewer_role: grant.reviewer_role,
-      review_target: currentTask?.review_target ?? reviewTarget ?? null,
-      implementation_run_id: currentTask?.implementation_run_id ?? reviewTarget?.implementation_run_id ?? null,
+      review_target: oneTimePilotAuthorized
+        ? null
+        : (currentTask?.review_target ?? reviewTarget ?? null),
+      implementation_run_id: oneTimePilotAuthorized
+        ? null
+        : (currentTask?.implementation_run_id ?? reviewTarget?.implementation_run_id ?? null),
     };
     return { acquired: true, duplicate: false, lease: structuredClone(lease), run: structuredClone(run) };
   }).result;
