@@ -9,7 +9,7 @@
 - **Execution Profile:** `STANDARD`
 - **Executor Platform:** `Qwen Code`
 - **Priority:** `P1`
-- **Status:** `BLOCKED` — on the byte-budget guard in Coordination Item 1
+- **Status:** `REVIEW` — the byte-guard blocker was cleared by the owner on 2026-09-11 (see Coordination Item 1)
 - **Risk:** `MEDIUM`
 - **Branch:** `codex/62-knowledge-r1-r2-evidence`
 - **Worktree:** `worktrees/agent-62-knowledge-r1-r2-evidence`
@@ -72,6 +72,8 @@ translation. The body is `{ en, zh }` only, so depth was added there.
 src/content/article-body-patches.ts                     (new)
 src/content/articles.ts
 tests/intl-dees-001-es-de-localization.mjs
+tests/intl-dees-003b-server-client-boundary.mjs        (added by owner approval,
+                                                        2026-09-11 — see item 1)
 tasks/62-r1-r2-evidence-articles.md                     (this card)
 worklog/agent-62-r1-r2-evidence-articles.md
 ```
@@ -80,57 +82,91 @@ worklog/agent-62-r1-r2-evidence-articles.md
 
 `package.json`; all of `src/content/i18n/**`; `src/content/card-copy.ts`;
 `src/content/legacy-source.ts`; `src/app/**`; `src/components/**`;
-`tests/intl-dees-003b-server-client-boundary.mjs` (owned by INTL-DEES-003B — see
-the change request); `src/content/page-surfaces.ts`; sitemap, proxy, `next.config.ts`.
+`src/content/page-surfaces.ts`; sitemap, proxy, `next.config.ts`.
+`tests/intl-dees-003b-server-client-boundary.mjs` was added to the allowlist by the
+owner's approval of the request below; its INTL-DEES-003B author owns the file, so
+the independent reviewer should read that diff specifically.
 
 ## Validation
 
 ```bash
-npm ci
-npm run typecheck        # clean
-npm run lint             # exit 0
-npm run build            # 225 pages / 222 documents, unchanged route set
+npm ci                                  # real install; a node_modules junction breaks Turbopack
+npm run typecheck
+npm run lint
+npm run build
 REQUIRE_BUILD_OUTPUT=1 npm run test:seo
 ```
 
-Measured results on the delivered tree:
+Measured on the delivered tree (2026-09-11):
 
-- typecheck clean; lint clean; build clean, 225 pages, route set unchanged.
-- `test:seo`: **235 tests, 234 pass, 1 fail**. The single failure is
-  `intl-dees-003b:452` "documents did not grow to pay for the boundary" — see
-  Coordination Item 1. Every Task 61 and Task 62 guard passes, including the
-  negative control proving invented figures are rejected.
-- Growth is **concentrated, not systemic**: only 8 documents changed size at all
-  (2 slugs × 4 locales); the other 214 are byte-identical. The four EN/ZH article
-  documents account for 100 pct of EN/ZH growth (+76,660 B, mean +697 B across the
-  110 documents the guard averages).
-- Inline flight is ~70 pct of every document, on untouched pages too
-  (`about.html` 70 pct, product page 69 pct), so the increase is content, not a
-  duplication defect.
+- typecheck clean · `eslint .` exit 0 · build clean, 225 pages / 222 documents,
+  route set unchanged from `origin/main`.
+- `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` → **236 pass / 0 fail / 0 skipped**.
+  Sequence: 234 pass + 1 fail (byte guard) → guard changed under owner approval →
+  all green. `intl-dees-003b` alone: 14 pass / 0 fail, so the bundle-size bound and
+  the policy-string scan that this task did not touch are intact.
+- Rendered growth, per article: R1 394 → 1,207 words, R2 342 → 1,401 words; tables
+  1 each (caption present, `scope="col"` 3, `scope="row"` 5 and 6); ordered lists 1
+  and 2; definition lists 4 and 5 terms; inline links 4 and 3; **zero `<script>`
+  elements in the article region**.
+- The two articles outside this task differ by 0 bytes in all four locales.
+- Byte growth is concentrated: 8 of 222 documents changed size (2 slugs × 4 locales),
+  214 changed by 0 bytes, and the largest document in the build is unchanged.
+  Inline flight is ~70 pct of bytes on grown and untouched documents alike
+  (`about.html` 70 pct, a product page 69 pct), so the increase is content, not a
+  serialization defect introduced here.
 - Line endings and encoding sweep clean: `git diff --stat` equals
-  `git diff --stat --ignore-cr-at-eol`; no replacement characters.
+  `git diff --stat --ignore-cr-at-eol`; no replacement characters; the Chinese body
+  copy renders CJK in `/zh`.
+
+## Two defects found by my own tests during this task
+
+Recorded because both would have shipped silently if the tests had been weaker.
+
+1. The first figure-traceability check compared **substrings**, and the planted fake
+   strength `42.7 cN/tex` **passed** — because `42.7` is the tail of the unrelated
+   patent application number `ZL 2020 1 0227142.7`. Fixed by extracting whole numeric
+   tokens from prose and source alike, and the negative control now proves the
+   invented value is rejected.
+2. The fabricated-claim filter used a bare `/guarantee/i` and flagged the sentence
+   *"not a guarantee that removal completes…"* — copy that **denies** a guarantee
+   failed the ban on claiming one. Narrowed to affirmative promises.
+
+A third item belongs to Task 61's reporting rather than this code: the "1,431 B of
+headroom" figure given earlier was computed over 112 documents while the guard walks
+110, and the honest headroom on `origin/main` was **345 B**.
+
 
 ## Coordination Items
 
-1. **BLOCKER — the byte-budget guard cannot survive any article improvement, and
-   the honest fix is to the guard, not to the content.**
+1. **RESOLVED — the byte-budget guard was changed, with the owner's approval.**
    The ceiling is an average over 110 untranslated documents:
-   `averageUntouched < 76_800`, cited against a "76,384 B before" baseline — i.e.
-   416 B of design headroom. Measured on `origin/main` **before this task's
-   content**, using that test's own walk, the average is already **76,455 B**, so
-   only **345 B** of the ceiling remains, consumed by work merged after the
-   baseline was recorded. This task needs 697 B of mean, for growth the guard was
-   never written to allow: it exists to catch *the serialized dictionary or a
-   policy reaching every document*, and it cannot distinguish that from four
-   documents legitimately getting better.
-   Deliberately not done: the ceiling was not raised, `76,384` was not re-baselined,
-   and the content was not trimmed to slip under an average that is already 94 pct
-   spent. Trimming would make this task pass by undoing its purpose, and every
-   later article rewrite would hit the same wall.
-   Options for the owner and the independent reviewer, in order of preference:
-   (a) accept the change request below, so the guard measures leaks specifically;
-   (b) shorten R1/R2 back toward the current size, which forfeits the improvement;
-   (c) block R3–R8 permanently, since no article can grow under this metric.
+   `averageUntouched < 76_800`, cited against a "76,384 B before" baseline.
+   Measured with that test's own walk, `origin/main` already sat at **76,455 B**
+   before this task, leaving **345 B**; the two rewrites moved the mean to
+   **77,152 B** while 214 of 222 documents changed by 0 bytes. An average cannot
+   separate a systemic leak (every document grows) from content (four documents
+   grow), so it blocked the task's own purpose.
+   Owner chose: accept the change request and fix the guard. Implemented as a
+   change of statistic, not a deletion — the leak it was written for is still
+   caught, and more tightly:
+   - both ceilings now use the **median** of the same populations, pinned at
+     measured values with real headroom — EN/ZH median `< 70_200` (measured 69,641
+     before / 69,655 after), all-document median `< 71_500` (70,951 / 70,971);
+   - the means are reported in failure text, not asserted;
+   - a new test asserts the properties the substitution depends on: a uniform
+     +1,684 B leak moves the median by exactly 1,684 B, four documents gaining
+     20 KB move it by far less, and the mean still moves 727 B — which is the
+     recorded reason the mean could not stay the ceiling;
+   - every other assertion in the file is untouched: client-chunk policy-string
+     scan, INTL-DEES-002B bundle size, switcher path coverage, head alternates.
+   Residual risk for the reviewer: the median is insensitive to a leak confined to
+   a minority of documents. That is a narrower blind spot than the mean had, and it
+   is covered by the untouched bundle-size and policy-string guards; if the owner
+   wants it closed, the per-route "content-free routes must not grow" assertion
+   from the request is the follow-up.
+
+   Original request, kept as the record of what was approved:
 
 ```text
 SHARED FILE CHANGE REQUEST

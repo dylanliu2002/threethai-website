@@ -422,39 +422,108 @@ test("build: every switcher document resolves to an inventoried path", buildOpti
   assert.deepEqual(missing, [], "the inventory lists paths that render no switcher document");
 });
 
+/**
+ * Central tendency of a document population, robust to a few documents changing.
+ *
+ * The byte guard below originally averaged. An average cannot tell the two events
+ * it exists to distinguish:
+ *
+ *   - a leak, which adds bytes to EVERY document (the rejected complete-map
+ *     encoding cost +3,210 B per document; the 003B chunk leak cost +1,684 B);
+ *   - content, which adds bytes to the handful of documents that carry it.
+ *
+ * Both move the mean by (bytes added ÷ document count), so the mean cannot tell a
+ * systemic leak from a rewritten article — and it punishes the second case by
+ * whichever ceiling is left. Measured on 2026-09-11: the untranslated mean had been
+ * 76,384 B when the 76,800 B ceiling was pinned, and stood at 76,455 B on
+ * `origin/main` before Task 62, leaving 345 B. Task 62 rewrote two knowledge
+ * articles and moved that mean to 77,152 B while 214 of 222 documents changed by
+ * exactly 0 bytes. The ceiling would have had to be met by deleting content.
+ *
+ * The median separates them. Four documents growing by 76 KB in a population of 110
+ * moved it 14 B — build noise. A uniform leak moves it by the whole amount, because
+ * every document shifts together. The proof of that claim is asserted below rather
+ * than argued here, so the substitution cannot quietly become a way to pass.
+ */
+function median(sizes) {
+  const sorted = [...sizes].sort((a, b) => a - b);
+  if (sorted.length === 0) return 0;
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+test("build: the document-size guard still detects a uniform leak, not just a mean", () => {
+  // The median carries the ceilings below, so its two required properties are
+  // asserted rather than argued, and the assertion fails if the statistic is
+  // ever swapped back for something without them.
+  const population = Array.from({ length: 110 }, (_, i) => 60_000 + i * 100);
+  const leak = 1_684; // the per-document cost of the 003B chunk leak
+  const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
+
+  // 1. A leak must be fully visible. Every document shifts together, so the
+  //    middle of the distribution moves by exactly the leak.
+  assert.equal(median(population.map((size) => size + leak)) - median(population), leak,
+    "a uniform per-document leak did not move the median by its full size");
+
+  // 2. Content must be cheap. Four documents gaining 20 KB each, whether they sit
+  //    above the middle (what Task 62's articles do) or below it (worst case: the
+  //    ranks shift, so the middle moves by up to four steps of 100 B), must move
+  //    the median by far less than a leak does.
+  const grow = (indices) => population.map((size, i) => (indices.includes(i) ? size + 20_000 : size));
+  const driftHigh = Math.abs(median(grow([106, 107, 108, 109])) - median(population));
+  const driftLow = Math.abs(median(grow([0, 1, 2, 3])) - median(population));
+  assert.ok(driftHigh * 2 < leak, `content above the median moved it ${driftHigh} B, too close to a ${leak} B leak`);
+  assert.ok(driftLow * 2 < leak, `content below the median moved it ${driftLow} B, too close to a ${leak} B leak`);
+
+  // 3. Why the mean had to go. The same content moves the mean by 727 B, and the
+  //    mean ceiling had only 345 B of headroom left on origin/main, which is how a
+  //    rewrite of two articles became an unpassable gate.
+  const meanDrift = Math.round(mean(grow([106, 107, 108, 109])) - mean(population));
+  assert.equal(meanDrift, 727, "the mean's sensitivity to concentrated growth changed; the comment below is stale");
+  assert.ok(meanDrift > 345,
+    "the mean no longer penalises content growth, so the recorded reason for this change no longer holds");
+});
+
 test("build: documents did not grow to pay for the boundary", buildOptions, () => {
   // The byte guard lives here, where it measures the thing that actually costs
   // money per request. The rejected complete-map encoding measured +3,210 B raw
   // per document; the shipped one costs tens of bytes.
   //
-  // INTL-DEES-001 split the measurement by language. A global average cannot tell
-  // a leak from a localization: translating a page legitimately makes that page
-  // bigger, and Spanish and German documents now carry their own longer text. The
-  // languages this task does NOT translate are the ones that would grow if the
-  // boundary leaked, so they are pinned at the size they had before it, byte for
-  // byte. English and Chinese measured 0 B of change at the INTL-DEES-001 head.
+  // INTL-DEES-001 split the measurement by language, because a global average
+  // cannot tell a leak from a localization: Spanish and German documents carry
+  // their own longer text. The same reasoning applies one level further in — an
+  // average cannot tell a leak from content — so both ceilings are medians over the
+  // same populations, and the means are reported in the failure text rather than
+  // asserted. Changed with the owner's approval on 2026-09-11; see the change
+  // request recorded in tasks/62-r1-r2-evidence-articles.md, coordination item 1.
   const byLanguage = (predicate) =>
     walkFiles(PRERENDER_ROOT, new Set([".html"]))
       .map((file) => path.relative(PRERENDER_ROOT, file).split(path.sep).join("/"))
       .filter(predicate)
       .map((rel) => statSync(path.join(PRERENDER_ROOT, rel)).size);
   const average = (sizes) => sizes.reduce((a, b) => a + b, 0) / sizes.length;
+  const report = (sizes) => `mean ${Math.round(average(sizes))} B, median ${Math.round(median(sizes))} B over ${sizes.length} documents`;
 
   const localized = (rel) => rel === "es.html" || rel === "de.html"
     || rel.startsWith("es/") || rel.startsWith("de/");
   const untouched = byLanguage((rel) => !localized(rel));
-  const averageUntouched = average(untouched);
-  // Measured at the INTL-DEES-001 head: the 110 untranslated documents this file walks average 76,384 B —
-  // byte-for-byte the size they had before this task, because localization added
-  // no text to a page whose language it did not change. The ceiling below is that
-  // measured number plus 416 B of headroom: a prop carrying a rule, or copy landing in the
-  // dictionary for a language nobody translated, moves it by kilobytes.
-  assert.ok(averageUntouched < 76_800,
-    `untranslated (EN/ZH) documents average ${Math.round(averageUntouched)} B against the 76,384 B they measured before INTL-DEES-001 — text reached pages this task does not translate`);
+  const untouchedMedian = median(untouched);
+  // Measured 2026-09-11: 69,641 B on origin/main and 69,655 B with Task 62's two
+  // rewritten articles, for a ceiling of 70,200 B. A leak of the size this file
+  // exists to catch moves it by that many bytes at once.
+  assert.ok(untouchedMedian < 70_200,
+    `untranslated (EN/ZH) documents have a median of ${Math.round(untouchedMedian)} B against the 69,641 B ` +
+      `they measured before Task 62 — text reached pages that render none of it (${report(untouched)})`);
 
-  const all = average(byLanguage(() => true));
-  assert.ok(all < 79_200,
-    `average prerendered document is ${Math.round(all)} B against the ${76_751} B the leaked build measured; INTL-DEES-001 raised the ceiling from 78,000 to cover Spanish and German text on the pages that now carry it, and any further growth must be explained by more localized copy, not by a policy reaching the browser`);
+  const all = byLanguage(() => true);
+  const allMedian = median(all);
+  // Measured 2026-09-11: 70,951 B on origin/main, 70,971 B with Task 62. The Spanish
+  // and German pages carry their own localized text, which is why the population is
+  // the whole build and the statistic is the middle of it rather than its mean.
+  assert.ok(allMedian < 71_500,
+    `median prerendered document is ${Math.round(allMedian)} B against the 70,951 B measured before Task 62; ` +
+      `further growth must come from a policy or dictionary reaching every page, not from more ` +
+      `localized copy on some of them (${report(all)})`);
 });
 
 test("build: consolidation and head alternates are untouched by the boundary", buildOptions, () => {
