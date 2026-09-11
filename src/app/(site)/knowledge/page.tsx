@@ -6,7 +6,7 @@ import Reveal from "@/components/layout/reveal";
 import { articles } from "@/content/articles";
 import { en } from "@/content/i18n";
 import { pageMeta } from "@/content/site-copy";
-import { knowledgeBlocks } from "@/content/resources-groups";
+import { resourcesGroups } from "@/content/resources-groups";
 import { buildMetadata, breadcrumbSchema, jsonLd } from "@/lib/seo";
 
 /**
@@ -25,7 +25,7 @@ export const metadata: Metadata = buildMetadata({
 export default function KnowledgePage() {
   const dict = en;
   const t = dict.knowledgeIndex;
-  const blocks = knowledgeBlocks();
+  const blocks = resourcesGroups();
   const bySlug = new Map(articles.map((article) => [article.slug, article]));
   return (
     <>
@@ -64,53 +64,44 @@ export default function KnowledgePage() {
 
       <section className="py-14 sm:py-16">
         <div className="container-site">
-          {blocks.map((block, blockIndex) => {
-            // A labelled group takes `<h2>`, so its cards drop to `<h3>`. An
-            // unlabelled stretch has no heading above it, and dropping the card to
-            // `<h3>` there would skip a level under the page `<h1>` — so the cards
-            // stay `<h2>`, which is also exactly what this page renders today.
-            const CardTitle = block.label ? "h3" : "h2";
-            return (
-              <Fragment key={block.label ?? "all"}>
-                {block.label && (
-                  <h2
-                    className={`text-sm font-semibold uppercase tracking-[0.14em] text-gold-deep ${
-                      blockIndex === 0 ? "" : "mt-10"
-                    }`}
-                  >
-                    {block.label}
-                  </h2>
-                )}
-                <ul className={block.label ? "mt-4 grid gap-5 md:grid-cols-2" : "grid gap-5 md:grid-cols-2"}>
-                  {block.slugs.map((slug, index) => {
-                    const article = bySlug.get(slug);
-                    if (!article) return null;
-                    return (
-                      <Reveal as="li" key={article.slug} delay={index * 60} className="h-full">
-                        <Link
-                          href={`/knowledge/${article.slug}`}
-                          className="card-line group flex h-full flex-col p-6 transition-all duration-200 hover:border-primary/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                        >
-                          <div className="flex items-center gap-3">
-                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-deep">{article.category.en}</p>
-                            <time dateTime={article.dateModified} className="text-xs text-muted-foreground">
-                              {t.updated} {article.dateModified}
-                            </time>
-                          </div>
-                          <CardTitle className="mt-3 font-semibold leading-snug text-ink group-hover:text-primary">{article.title.en}</CardTitle>
-                          <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{article.intro.en}</p>
-                          <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
-                            {dict.actions.readArticle}
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="transition-transform group-hover:translate-x-0.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-                          </span>
-                        </Link>
-                      </Reveal>
-                    );
-                  })}
-                </ul>
-              </Fragment>
-            );
-          })}
+          {blocks.map((block, blockIndex) => (
+            <Fragment key={block.heading}>
+              <h2
+                className={`text-sm font-semibold uppercase tracking-[0.14em] text-gold-deep ${
+                  blockIndex === 0 ? "" : "mt-12"
+                }`}
+              >
+                {block.heading}
+              </h2>
+              <ul className="mt-4 grid gap-5 md:grid-cols-2">
+                {block.slugs.map((slug, index) => {
+                  const article = bySlug.get(slug);
+                  if (!article) return null;
+                  return (
+                    <Reveal as="li" key={article.slug} delay={index * 60} className="h-full">
+                      <Link
+                        href={`/knowledge/${article.slug}`}
+                        className="card-line group flex h-full flex-col p-6 transition-all duration-200 hover:border-primary/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      >
+                        {/* The category chip is gone from each card: the shelf heading
+                            above it is the same string, and repeating it per card made
+                            the grouping read as noise rather than structure. */}
+                        <time dateTime={article.dateModified} className="text-xs text-muted-foreground">
+                          {t.updated} {article.dateModified}
+                        </time>
+                        <h3 className="mt-3 font-semibold leading-snug text-ink group-hover:text-primary">{article.title.en}</h3>
+                        <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{article.intro.en}</p>
+                        <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+                          {dict.actions.readArticle}
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" className="transition-transform group-hover:translate-x-0.5" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                        </span>
+                      </Link>
+                    </Reveal>
+                  );
+                })}
+              </ul>
+            </Fragment>
+          ))}
 
           <Reveal delay={100}>
             <div className="mt-10 flex flex-wrap items-center justify-between gap-4 rounded-lg bg-secondary p-6">
