@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
 import { EventEmitter } from "node:events";
 import { MVP_CONFIG } from "../config.mjs";
@@ -17,6 +18,7 @@ const EPOCH = Date.parse("2026-09-11T00:00:00.000Z");
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "threethai-night-worker-"));
+  execFileSync("git", ["init", "--quiet", root], { stdio: "ignore" });
   const store = new RuntimeStore(path.join(root, "runtime", "state.json"));
   let now = EPOCH;
   const clock = { now: () => now };
@@ -51,8 +53,12 @@ function modelCatalog({ luna = ["max"], sol = ["medium", "high"] } = {}) {
 }
 
 class FakeBrokerClient {
-  constructor({ catalog = modelCatalog(), turnStart } = {}) {
+  constructor({ catalog = modelCatalog(), modelList, threadStart, threadResume, threadRead, turnStart } = {}) {
     this.catalog = catalog;
+    this.modelListImplementation = modelList;
+    this.threadStartImplementation = threadStart;
+    this.threadResumeImplementation = threadResume;
+    this.threadReadImplementation = threadRead;
     this.turnStartImplementation = turnStart;
     this.calls = [];
     this.threadNumber = 0;
@@ -61,17 +67,20 @@ class FakeBrokerClient {
 
   async modelList(params) {
     this.calls.push({ method: "model/list", params });
+    if (this.modelListImplementation) return this.modelListImplementation(params, this);
     return this.catalog;
   }
 
   async threadStart(params) {
     this.calls.push({ method: "thread/start", params });
+    if (this.threadStartImplementation) return this.threadStartImplementation(params, this);
     this.threadNumber += 1;
     return { thread: { id: `thread-${this.threadNumber}` } };
   }
 
   async threadResume(threadId, params) {
     this.calls.push({ method: "thread/resume", threadId, params });
+    if (this.threadResumeImplementation) return this.threadResumeImplementation(threadId, params, this);
     return { thread: { id: threadId } };
   }
 
@@ -84,6 +93,7 @@ class FakeBrokerClient {
 
   async threadRead(threadId, params) {
     this.calls.push({ method: "thread/read", threadId, params });
+    if (this.threadReadImplementation) return this.threadReadImplementation(threadId, params, this);
     return { thread: { id: threadId, turns: [] } };
   }
 }
@@ -100,6 +110,7 @@ test("valid submission is atomically durable, bounded, and submission-backed", (
     const reloaded = new RuntimeStore(f.store.filePath).load();
     assert.deepEqual(reloaded.batches[0], batch);
     assert.equal(reloaded.workers.length, 0);
+    assert.deepEqual(reloaded.reservations, []);
     assert.equal(fs.existsSync(`${f.store.filePath}.lock`), false);
   } finally {
     f.cleanup();
@@ -122,6 +133,33 @@ test("submission rejects empty, authority-bearing, secret-bearing, and oversized
     assert.equal(f.store.load().batches.length, 0);
   } finally {
     f.cleanup();
+  }
+});
+
+test("submission and broker reject non-Git roots, symlink escapes, and external CLI stores", async () => {
+  const f = fixture();
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "threethai-night-worker-outside-"));
+  const escaped = path.join(f.root, "escaped-worktree");
+  try {
+    assert.throws(
+      () => submitBatch({ repositoryRoot: outside, tasks: ["not a repository"] }, { store: f.store }),
+      /genuine Git worktree/,
+    );
+    execFileSync("git", ["init", "--quiet", outside], { stdio: "ignore" });
+    fs.symlinkSync(outside, escaped, "junction");
+    const batch = f.submit(["confined work"]);
+    const broker = new ThreadBroker({ client: new FakeBrokerClient(), store: f.store, clock: f.clock });
+    await assert.rejects(
+      broker.startImplementation({ batchId: batch.batch_id, taskId: batch.tasks[0].task_id, cwd: escaped, prompt: "escape" }),
+      /within the submitted repository root/,
+    );
+    await assert.rejects(
+      runCli(["status", "--repo", f.root, "--store", path.join(outside, "runtime.json")]),
+      /internal \.night-worker\/runtime\.json path/,
+    );
+  } finally {
+    f.cleanup();
+    fs.rmSync(outside, { recursive: true, force: true });
   }
 });
 
@@ -181,6 +219,53 @@ test("runtime store rejects corrupt and unsupported state and round-trips restar
   }
 });
 
+test("runtime lock publishes a complete owner record and releases only its owner", () => {
+  const f = fixture();
+  const store = new RuntimeStore(path.join(f.root, "runtime", "lock-state.json"), {
+    lockTimeoutMs: 25,
+    clock: f.clock,
+    lockOwnerTokenFactory: () => "owner-one",
+  });
+  try {
+    let observed;
+    store.mutate((state) => {
+      observed = JSON.parse(fs.readFileSync(path.join(store.lockPath, "owner.json"), "utf8"));
+      return state;
+    });
+    assert.equal(observed.owner_token, "owner-one");
+    assert.equal(observed.pid, process.pid);
+    assert.equal(typeof observed.created_at, "string");
+    assert.equal(fs.existsSync(store.lockPath), false);
+
+    fs.mkdirSync(store.lockPath);
+    fs.writeFileSync(path.join(store.lockPath, "owner.json"), JSON.stringify({
+      schema_version: 1,
+      owner_token: "stale-owner",
+      pid: process.pid,
+      host: "test-host",
+      created_at: "2000-01-01T00:00:00.000Z",
+    }), "utf8");
+    assert.throws(() => store.mutate((state) => state), /Runtime store is busy/);
+    assert.equal(fs.existsSync(store.lockPath), true);
+
+    fs.rmSync(store.lockPath, { recursive: true, force: true });
+    assert.throws(() => store.mutate((state) => {
+      fs.writeFileSync(path.join(store.lockPath, "owner.json"), JSON.stringify({
+        schema_version: 1,
+        owner_token: "different-owner",
+        pid: process.pid,
+        host: "test-host",
+        created_at: "2026-09-11T00:00:00.000Z",
+      }), "utf8");
+      return state;
+    }), /Runtime lock owner token does not match/);
+    assert.equal(fs.existsSync(store.lockPath), true);
+  } finally {
+    if (fs.existsSync(store.lockPath)) fs.rmSync(store.lockPath, { recursive: true, force: true });
+    f.cleanup();
+  }
+});
+
 test("service is passive while idle and processes one claimed batch through its injected handler", async () => {
   const f = fixture();
   try {
@@ -204,6 +289,62 @@ test("service is passive while idle and processes one claimed batch through its 
     assert.equal(result.batch.batch_id, submitted.batch_id);
     assert.equal(calls, 1);
     assert.equal(f.store.getBatch(submitted.batch_id).state, "COMPLETED");
+  } finally {
+    f.cleanup();
+  }
+});
+
+test("broker requires consistent exact model identifiers and consumes model/list pagination", async () => {
+  const f = fixture();
+  try {
+    const batch = f.submit(["catalog validation"]);
+    const mismatchClient = new FakeBrokerClient({
+      catalog: {
+        data: [
+          { id: "gpt-5.6-luna", model: "gpt-5.6-luna-alias", supportedReasoningEfforts: ["max"] },
+          { id: "gpt-5.6-sol", model: "gpt-5.6-sol", supportedReasoningEfforts: ["medium"] },
+        ],
+      },
+    });
+    const mismatchBroker = new ThreadBroker({ client: mismatchClient, store: f.store, clock: f.clock });
+    await assert.rejects(
+      mismatchBroker.startImplementation({ batchId: batch.batch_id, taskId: batch.tasks[0].task_id, cwd: f.root, prompt: "catalog" }),
+      /Required exact model is unavailable/,
+    );
+    assert.equal(mismatchClient.calls.some((call) => call.method === "thread/start"), false);
+
+    const pages = [
+      {
+        data: [{ id: "gpt-5.6-luna", model: "gpt-5.6-luna-wrong", supportedReasoningEfforts: ["max"] }],
+        nextCursor: "page-2",
+      },
+      {
+        data: [{ id: "gpt-5.6-luna", model: "gpt-5.6-luna", supportedReasoningEfforts: ["max"] }],
+        nextCursor: null,
+      },
+    ];
+    const paginatedClient = new FakeBrokerClient({
+      modelList: (params) => pages[params.cursor === "page-2" ? 1 : 0],
+    });
+    const paginatedBroker = new ThreadBroker({ client: paginatedClient, store: f.store, clock: f.clock });
+    const result = await paginatedBroker.startImplementation({
+      batchId: batch.batch_id,
+      taskId: batch.tasks[0].task_id,
+      cwd: f.root,
+      prompt: "catalog",
+    });
+    assert.equal(result.mapping.model, "gpt-5.6-luna");
+    const modelCalls = paginatedClient.calls.filter((call) => call.method === "model/list");
+    assert.equal(modelCalls.length, 2);
+    assert.equal(modelCalls[1].params.cursor, "page-2");
+
+    const missingClient = new FakeBrokerClient({ catalog: modelCatalog({ luna: [] }) });
+    const missingBroker = new ThreadBroker({ client: missingClient, store: f.store, clock: f.clock });
+    const secondBatch = f.submit(["missing model"]);
+    await assert.rejects(
+      missingBroker.startImplementation({ batchId: secondBatch.batch_id, taskId: secondBatch.tasks[0].task_id, cwd: f.root, prompt: "missing" }),
+      /reasoning effort is unavailable/,
+    );
   } finally {
     f.cleanup();
   }
@@ -248,6 +389,94 @@ test("broker enforces the fixed parallel implementation limit", async () => {
       /Maximum parallel implementation worker limit/,
     );
     assert.equal(client.calls.filter((call) => call.method === "thread/start").length, MVP_CONFIG.max_parallel_implementation_workers);
+  } finally {
+    f.cleanup();
+  }
+});
+
+test("broker deduplicates concurrent starts for one worker through an in-flight and durable reservation", async () => {
+  const f = fixture();
+  let releaseThreadStart;
+  const threadStartGate = new Promise((resolve) => { releaseThreadStart = resolve; });
+  try {
+    const batch = f.submit(["same worker"]);
+    const client = new FakeBrokerClient({
+      threadStart: async (_params, brokerClient) => {
+        await threadStartGate;
+        brokerClient.threadNumber += 1;
+        return { thread: { id: `thread-${brokerClient.threadNumber}` } };
+      },
+    });
+    const broker = new ThreadBroker({ client, store: f.store, clock: f.clock });
+    const options = { batchId: batch.batch_id, taskId: batch.tasks[0].task_id, cwd: f.root, prompt: "same worker" };
+    const first = broker.startImplementation(options);
+    while (client.calls.filter((call) => call.method === "thread/start").length < 1) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    const second = broker.startImplementation(options);
+    releaseThreadStart();
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+    assert.equal(firstResult.mapping.thread_id, secondResult.mapping.thread_id);
+    assert.equal(client.calls.filter((call) => call.method === "thread/start").length, 1);
+    assert.equal(client.calls.filter((call) => call.method === "turn/start").length, 1);
+    assert.equal(f.store.listWorkerReservations(batch.batch_id).length, 0);
+  } finally {
+    releaseThreadStart?.();
+    f.cleanup();
+  }
+});
+
+test("durable reservations enforce implementation capacity across broker instances", async () => {
+  const f = fixture();
+  let releaseThreadStarts;
+  const threadStartGate = new Promise((resolve) => { releaseThreadStarts = resolve; });
+  try {
+    const batch = f.submit(["one", "two", "three"]);
+    const client = new FakeBrokerClient({
+      threadStart: async (_params, brokerClient) => {
+        await threadStartGate;
+        brokerClient.threadNumber += 1;
+        return { thread: { id: `thread-${brokerClient.threadNumber}` } };
+      },
+    });
+    const brokers = [
+      new ThreadBroker({ client, store: f.store, clock: f.clock }),
+      new ThreadBroker({ client, store: f.store, clock: f.clock }),
+      new ThreadBroker({ client, store: f.store, clock: f.clock }),
+    ];
+    const makeOptions = (index) => ({
+      batchId: batch.batch_id,
+      taskId: batch.tasks[index].task_id,
+      cwd: f.root,
+      prompt: batch.tasks[index].description,
+    });
+    const first = brokers[0].startImplementation(makeOptions(0));
+    const second = brokers[1].startImplementation(makeOptions(1));
+    while (f.store.listWorkerReservations(batch.batch_id).length < 2) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    await assert.rejects(brokers[2].startImplementation(makeOptions(2)), /Maximum parallel implementation worker limit/);
+    assert.equal(client.calls.filter((call) => call.method === "thread/start").length, 2);
+    releaseThreadStarts();
+    await Promise.all([first, second]);
+    assert.equal(f.store.listWorkerMappings(batch.batch_id).length, 2);
+  } finally {
+    releaseThreadStarts?.();
+    f.cleanup();
+  }
+});
+
+test("runtime worker mappings cannot replace a durable thread identity", async () => {
+  const f = fixture();
+  try {
+    const batch = f.submit(["identity"]);
+    const broker = new ThreadBroker({ client: new FakeBrokerClient(), store: f.store, clock: f.clock });
+    const result = await broker.startImplementation({ batchId: batch.batch_id, taskId: batch.tasks[0].task_id, cwd: f.root, prompt: "identity" });
+    assert.throws(
+      () => f.store.putWorkerMapping({ ...result.mapping, thread_id: "sibling-thread" }),
+      /thread identity cannot change/,
+    );
+    assert.equal(f.store.getWorkerMapping(batch.batch_id, batch.tasks[0].task_id, "IMPLEMENTATION").thread_id, result.mapping.thread_id);
   } finally {
     f.cleanup();
   }
@@ -315,6 +544,7 @@ test("broker retries after durable thread persistence by resuming the same threa
       created_at: "2026-09-11T00:00:00.000Z",
       updated_at: "2026-09-11T00:00:00.000Z",
       submission_id: batch.submission_id,
+      client_user_message_id: `${batch.submission_id}:${batch.tasks[0].task_id}:IMPLEMENTATION`,
     });
     const retryClient = new FakeBrokerClient();
     const retryBroker = new ThreadBroker({ client: retryClient, store: f.store, clock: f.clock });
@@ -324,7 +554,57 @@ test("broker retries after durable thread persistence by resuming the same threa
     assert.equal(result.mapping.thread_id, "thread-1");
     assert.equal(retryClient.calls.some((call) => call.method === "thread/start"), false);
     assert.equal(retryClient.calls.find((call) => call.method === "thread/resume").threadId, "thread-1");
+    assert.equal(retryClient.calls.find((call) => call.method === "thread/resume").params.sandbox, "workspace-write");
     assert.equal(result.mapping.turn_id, "turn-1");
+  } finally {
+    f.cleanup();
+  }
+});
+
+test("broker reconciles a turn persisted by App Server after a crash before turn_id persistence", async () => {
+  const f = fixture();
+  try {
+    const batch = f.submit(["reconcile turn"]);
+    const originalPatch = f.store.patchWorkerMapping.bind(f.store);
+    let crashBeforePersistence = true;
+    f.store.patchWorkerMapping = (...args) => {
+      if (crashBeforePersistence) {
+        crashBeforePersistence = false;
+        throw new Error("simulated crash after turn response");
+      }
+      return originalPatch(...args);
+    };
+    const firstClient = new FakeBrokerClient();
+    const firstBroker = new ThreadBroker({ client: firstClient, store: f.store, clock: f.clock });
+    await assert.rejects(
+      firstBroker.startImplementation({ batchId: batch.batch_id, taskId: batch.tasks[0].task_id, cwd: f.root, prompt: "reconcile turn" }),
+      /simulated crash after turn response/,
+    );
+    assert.equal(f.store.getWorkerMapping(batch.batch_id, batch.tasks[0].task_id, "IMPLEMENTATION").turn_id, null);
+
+    const expectedClientMessageId = `${batch.submission_id}:${batch.tasks[0].task_id}:IMPLEMENTATION`;
+    const retryClient = new FakeBrokerClient({
+      threadRead: async (threadId) => ({
+        thread: {
+          id: threadId,
+          turns: [{ id: "turn-1", clientUserMessageId: expectedClientMessageId, status: "inProgress" }],
+        },
+      }),
+      turnStart: async () => { throw new Error("duplicate turn/start must not be sent"); },
+    });
+    const retryBroker = new ThreadBroker({ client: retryClient, store: f.store, clock: f.clock });
+    const recovered = await retryBroker.startImplementation({
+      batchId: batch.batch_id,
+      taskId: batch.tasks[0].task_id,
+      cwd: f.root,
+      prompt: "reconcile turn",
+    });
+    assert.equal(recovered.recovered, true);
+    assert.equal(recovered.mapping.turn_id, "turn-1");
+    assert.equal(retryClient.calls.filter((call) => call.method === "thread/read").length, 1);
+    assert.equal(retryClient.calls.some((call) => call.method === "thread/start"), false);
+    assert.equal(retryClient.calls.some((call) => call.method === "thread/resume"), false);
+    assert.equal(retryClient.calls.some((call) => call.method === "turn/start"), false);
   } finally {
     f.cleanup();
   }
@@ -434,9 +714,14 @@ test("App Server client rejects exec, ephemeral/fork paths, secrets, and fallbac
   assert.throws(() => client.threadStart({ fork: true }), /forbids fork/);
   assert.throws(() => client.threadStart({ allowProviderModelFallback: true }), /fallback/);
   assert.throws(() => client.request("exec", {}), /exec.*worker mechanism/);
+  assert.throws(() => client.request("thread/fork", {}), /validated typed client method/);
+  assert.throws(() => client.request("thread/start", {}), /validated typed client method/);
+  assert.throws(() => client.request("turn/start", {}), /validated typed client method/);
   assert.throws(() => client.threadStart({ model: "gpt-5.6-terra" }), /Forbidden model/);
+  assert.throws(() => client.threadStart({ sandbox: "workspaceWrite" }), /workspace-write or read-only/);
+  assert.throws(() => client.threadResume("thread-1", { sandbox: "readOnly" }), /workspace-write or read-only/);
   const fakeSecret = `sk-proj-${"x".repeat(32)}`;
-  assert.throws(() => client.request("turn/start", { input: [{ type: "text", text: fakeSecret }] }), /Possible secret/);
+  assert.throws(() => client.turnStart({ input: [{ type: "text", text: fakeSecret }] }), /Possible secret/);
 });
 
 test("CLI exposes only submit/status/serve and remains idle without explicit submissions", async () => {
@@ -454,6 +739,7 @@ test("CLI exposes only submit/status/serve and remains idle without explicit sub
         next_queue_sequence: 1,
         active_batch_id: null,
         batches: [],
+        reservations: [],
         workers: [],
       });
       const idle = await runServe({ store: f.store });

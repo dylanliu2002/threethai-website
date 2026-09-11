@@ -11,6 +11,10 @@ const DEFAULT_CLIENT_INFO = Object.freeze({
 
 const MAX_JSON_LINE_BYTES = 2 * 1024 * 1024;
 const MAX_DIAGNOSTIC_BYTES = 4_000;
+const TYPED_LIFECYCLE_METHODS = new Set([
+  "thread/start", "thread/fork", "thread/read", "thread/resume", "turn/start",
+]);
+const THREAD_SANDBOXES = new Set(["workspace-write", "read-only"]);
 
 function idKey(id) { return `${typeof id}:${String(id)}`; }
 
@@ -26,6 +30,12 @@ function safeText(value) {
 }
 
 function isStream(value) { return value && typeof value.on === "function"; }
+
+function assertThreadSandbox(value) {
+  if (value !== undefined && !THREAD_SANDBOXES.has(value)) {
+    throw new Error("Thread sandbox must be workspace-write or read-only.");
+  }
+}
 
 export class AppServerRpcError extends Error {
   constructor(message, { code, data } = {}) {
@@ -265,6 +275,13 @@ export class AppServerClient extends EventEmitter {
 
   request(method, params = {}) {
     if (typeof method !== "string" || method.length === 0) throw new Error("App Server method is required.");
+    if (TYPED_LIFECYCLE_METHODS.has(method)) {
+      throw new Error(`Use the validated typed client method for ${method}.`);
+    }
+    return this.#request(method, params);
+  }
+
+  #request(method, params = {}) {
     if (/(?:^|[\\/\s:_-])exec(?:$|[\\/\s:_-])/i.test(method)) {
       throw new Error("Codex exec is not an App Server worker mechanism.");
     }
@@ -276,28 +293,32 @@ export class AppServerClient extends EventEmitter {
     return this.#sendRequest(method, params);
   }
 
-  modelList(params = {}) { return this.request("model/list", params); }
+  modelList(params = {}) { return this.#request("model/list", params); }
 
   threadStart(params = {}) {
+    if (!params || typeof params !== "object" || Array.isArray(params)) throw new Error("thread/start parameters must be an object.");
     if (params.ephemeral !== undefined && params.ephemeral !== false) throw new Error("Night Worker threads cannot be ephemeral.");
     if (params.allowProviderModelFallback === true) throw new Error("Provider model fallback is forbidden.");
     for (const field of ["fork", "parentThreadId", "parent_thread_id", "subagent", "subagents"]) {
       if (params[field]) throw new Error(`Night Worker thread/start forbids ${field}.`);
     }
-    return this.request("thread/start", params);
+    assertThreadSandbox(params.sandbox);
+    return this.#request("thread/start", params);
   }
 
-  turnStart(params) { return this.request("turn/start", params); }
+  turnStart(params) { return this.#request("turn/start", params); }
 
   threadRead(threadId, options = {}) {
-    if (threadId && typeof threadId === "object") return this.request("thread/read", threadId);
+    if (threadId && typeof threadId === "object") return this.#request("thread/read", threadId);
     if (typeof threadId !== "string" || threadId.length === 0) throw new Error("threadId is required.");
-    return this.request("thread/read", { threadId, ...options });
+    return this.#request("thread/read", { threadId, ...options });
   }
 
   threadResume(threadId, params = {}) {
     if (typeof threadId !== "string" || threadId.length === 0) throw new Error("threadId is required.");
-    return this.request("thread/resume", { threadId, ...params });
+    if (!params || typeof params !== "object" || Array.isArray(params)) throw new Error("thread/resume parameters must be an object.");
+    assertThreadSandbox(params.sandbox);
+    return this.#request("thread/resume", { threadId, ...params });
   }
 
   #diagnostic(value) {

@@ -1,5 +1,13 @@
 import { articles as legacyArticles } from "./legacy-source";
 import type { ContentLocale } from "./company";
+import {
+  assertAlignedBody,
+  assertArticleBodyShape,
+  legacyTupleToBody,
+  type ArticleSections,
+  type LegacySectionTuple,
+} from "./article-blocks";
+import { assertArticleRelated, relatedFor, type ArticleRelated } from "./article-related";
 
 /**
  * Technical knowledge articles — English copy migrated verbatim from the
@@ -15,7 +23,13 @@ export type Article = {
   title: Record<ContentLocale, string>;
   metaDescription: Record<ContentLocale, string>;
   intro: Record<ContentLocale, string>;
-  sections: Record<ContentLocale, readonly (readonly [string, string])[]>;
+  /**
+   * A typed body, but still one `{ en, zh }` record at this level: see the note in
+   * `article-blocks.ts` on why promotion depends on the field, not the block.
+   */
+  sections: ArticleSections;
+  /** This article's own navigation, replacing the template's "all products, other articles". */
+  related: ArticleRelated;
 };
 
 const legacy = Object.fromEntries(legacyArticles.map((a) => [a.slug, a]));
@@ -25,7 +39,11 @@ type ArticlePatch = {
   title: string;
   metaDescription: string;
   intro: string;
-  sections: readonly (readonly [string, string])[];
+  /**
+   * Still the legacy tuple list, so none of the Chinese copy below changes for a
+   * structural upgrade. `build()` folds it into blocks.
+   */
+  sections: readonly LegacySectionTuple[];
 };
 
 const zhPatches: Record<string, ArticlePatch> = {
@@ -101,7 +119,7 @@ function build(slug: string): Article {
   const zh = zhPatches[slug];
   if (!src) throw new Error(`Unknown legacy article: ${slug}`);
   if (!zh) throw new Error(`Missing zh patch for article: ${slug}`);
-  return {
+  const article: Article = {
     slug,
     datePublished: src.datePublished,
     dateModified: src.dateModified,
@@ -109,10 +127,20 @@ function build(slug: string): Article {
     title: { en: src.title, zh: zh.title },
     metaDescription: { en: src.metaDescription, zh: zh.metaDescription },
     intro: { en: src.intro, zh: zh.intro },
-    sections: { en: src.sections, zh: zh.sections },
+    // Each legacy tuple becomes one section holding one paragraph, so the four
+    // shipped articles still render exactly the markup they rendered before.
+    sections: { en: legacyTupleToBody(src.sections), zh: legacyTupleToBody(zh.sections) },
+    related: relatedFor(slug),
   };
+  assertArticleBodyShape(slug, article.sections);
+  assertAlignedBody(slug, article.sections);
+  return article;
 }
 
 export const articles: readonly Article[] = legacyArticles.map((a) => build(a.slug));
+
+// Every declared related edge is checked against the live content arrays here, so a
+// retired slug fails at load with the offending pair named.
+assertArticleRelated(articles.map((article) => article.slug));
 
 export const articleBySlug = (slug: string) => articles.find((a) => a.slug === slug);

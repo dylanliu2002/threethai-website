@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Breadcrumbs from "@/components/layout/breadcrumbs";
+import ArticleBodyView from "@/components/knowledge/article-body";
+import ArticleRelatedView, { type RelatedLinkGroup } from "@/components/knowledge/article-related";
 import { articles, articleBySlug } from "@/content/articles";
-import { products } from "@/content/products";
 import { buildMetadata, articleSchema, breadcrumbSchema, jsonLd } from "@/lib/seo";
 import { localePath } from "@/content/company";
-import { articleCard, productCard } from "@/content/card-copy";
+import { answerCard, applicationCard, articleCard, productCard } from "@/content/card-copy";
 import { DISPLAY_PAGES, pageCopyFor } from "@/content/translation-availability";
 import { langParams, resolveLang } from "../../_lang";
 
@@ -47,7 +48,47 @@ export default async function LangArticlePage({ params }: Props) {
   const { dict, locale } = await resolveLang(params, notFound);
   const { entity: article, contentLocale } = pageCopyFor(`/knowledge/${slug}`, locale, record, DISPLAY_PAGES);
   const lp = (p: string) => localePath(p, locale);
-  const others = articles.filter((a) => a.slug !== article.slug).slice(0, 3);
+
+  // This article's own navigation, resolved to strings. Labels come from card-copy so
+  // the links follow the reader's language; `related` carries slugs only, so no
+  // promotion is ever asked to translate a relationship.
+  const groups: RelatedLinkGroup[] = [
+    {
+      heading: dict.actions.exploreProducts,
+      variant: "pill",
+      items: article.related.products.map((slug) => ({
+        label: productCard(slug, locale).name,
+        href: lp(`/products/${slug}`),
+      })),
+    },
+    {
+      heading: dict.nav.applications,
+      variant: "pill",
+      items: article.related.applications.map((slug) => ({
+        label: applicationCard(slug, locale).name,
+        href: lp(`/applications/${slug}`),
+      })),
+    },
+    {
+      heading: dict.answersIndex.title,
+      variant: "line",
+      items: article.related.answers.map((slug) => ({
+        label: answerCard(slug, locale).question,
+        href: lp(`/answers/${slug}`),
+      })),
+    },
+    {
+      heading: dict.actions.allArticles,
+      variant: "line",
+      items: article.related.articles.map((slug) => ({
+        label: articleCard(slug, locale).title,
+        href: lp(`/knowledge/${slug}`),
+      })),
+      // Kept as a trailing row so the answers index stays reachable from every
+      // article, as it was before this block became per-article.
+      trailing: { label: `${dict.actions.allAnswers} (${dict.answersIndex.count})`, href: lp("/answers") },
+    },
+  ];
 
   return (
     <>
@@ -77,7 +118,10 @@ export default async function LangArticlePage({ params }: Props) {
         ]}
       />
       <article>
-        <p className="eyebrow mt-8">{article.category[contentLocale]} · PVA knowledge</p>
+        {/* The eyebrow used to end in a hardcoded English section name, so /zh, /es
+            and /de articles carried an English suffix. `nav.knowledge` is the
+            section's approved name in all four locales. Guarded by task 61. */}
+        <p className="eyebrow mt-8">{article.category[contentLocale]} · {dict.nav.knowledge}</p>
         <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl">{article.title[contentLocale]}</h1>
         <p className="mt-4 text-sm text-muted-foreground">
           <time dateTime={article.datePublished}>{dict.knowledgeIndex.published} {article.datePublished}</time>
@@ -86,12 +130,7 @@ export default async function LangArticlePage({ params }: Props) {
         </p>
         <p className="mt-6 border-l-2 border-gold pl-5 text-lg leading-relaxed text-foreground/90">{article.intro[contentLocale]}</p>
 
-        {article.sections[contentLocale].map((section) => (
-          <section key={section[0]} className="mt-8">
-            <h2 className="text-xl font-semibold tracking-tight text-ink">{section[0]}</h2>
-            <p className="mt-3 text-base leading-relaxed text-muted-foreground">{section[1]}</p>
-          </section>
-        ))}
+        <ArticleBodyView body={article.sections[contentLocale]} locale={locale} />
 
         <aside className="mt-10 rounded-lg bg-primary p-7 text-primary-foreground">
           <h2 className="text-lg font-semibold text-white">{dict.productsIndex.ctaTitle}</h2>
@@ -103,33 +142,7 @@ export default async function LangArticlePage({ params }: Props) {
         </aside>
       </article>
 
-      <section className="hairline mt-12 pt-8">
-        <h2 className="display-3">{dict.actions.exploreProducts}</h2>
-        <ul className="mt-4 flex flex-wrap gap-2">
-          {products.map((p) => (
-            <li key={p.slug}>
-              <Link href={lp(`/products/${p.slug}`)} className="inline-block rounded-full border border-input px-4 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:border-primary hover:text-primary">
-                {productCard(p.slug, locale).name}
-              </Link>
-            </li>
-          ))}
-        </ul>
-        <h2 className="display-3 mt-8">{dict.actions.allArticles}</h2>
-        <ul className="mt-4 space-y-2">
-          {others.map((a) => (
-            <li key={a.slug}>
-              <Link href={lp(`/knowledge/${a.slug}`)} className="text-sm font-medium text-primary hover:underline">
-                {articleCard(a.slug, locale).title}
-              </Link>
-            </li>
-          ))}
-          <li>
-            <Link href={lp("/answers")} className="text-sm text-muted-foreground hover:text-primary">
-              {dict.actions.allAnswers} ({dict.answersIndex.count})
-            </Link>
-          </li>
-        </ul>
-      </section>
+      <ArticleRelatedView groups={groups} />
       </div>
     </>
   );

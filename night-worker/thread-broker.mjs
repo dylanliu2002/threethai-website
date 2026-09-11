@@ -1,4 +1,4 @@
-import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { assertNoSecretsDeep, sanitizeForLog } from "../workflow/secrets.mjs";
 import {
@@ -14,10 +14,12 @@ import {
   timestampFrom,
 } from "./config.mjs";
 import { AppServerClient } from "./app-server-client.mjs";
+import { assertGitWorktree, canonicalDirectory } from "./submission.mjs";
 
 const ROLE_IMPLEMENTATION = "IMPLEMENTATION";
 const ROLE_REVIEW = "REVIEW";
 const SUPPORTED_ROLES = new Set([ROLE_IMPLEMENTATION, ROLE_REVIEW]);
+const MAX_MODEL_PAGES = 100;
 
 function clone(value) {
   return typeof structuredClone === "function"
@@ -33,14 +35,7 @@ function assertText(value, label) {
 function assertAbsoluteDirectory(cwd) {
   const value = assertText(cwd, "cwd");
   if (!path.isAbsolute(value)) throw new Error("Worker cwd must be an absolute isolated worktree path.");
-  if (value.includes("\0")) throw new Error("Worker cwd cannot contain NUL bytes.");
-  try {
-    if (!fs.statSync(value).isDirectory()) throw new Error("Worker cwd must be a directory.");
-  } catch (error) {
-    if (error instanceof Error && error.message === "Worker cwd must be a directory.") throw error;
-    throw new Error("Worker cwd must be an existing isolated worktree directory.");
-  }
-  return path.normalize(value);
+  return assertGitWorktree(canonicalDirectory(value, "Worker cwd"), "Worker cwd");
 }
 
 function taskFromBatch(store, batchId, taskId) {
@@ -84,13 +79,21 @@ function findAvailableModel(payload, expectedModel, expectedEffort) {
   assertExactModel(expectedModel);
   const entries = modelEntries(payload);
   const entry = entries.find((candidate) => candidate && typeof candidate === "object"
-    && (candidate.model === expectedModel || candidate.id === expectedModel));
+    && candidate.id === expectedModel
+    && candidate.model === expectedModel);
   if (!entry) throw new Error(`Required exact model is unavailable: ${expectedModel}`);
   const efforts = effortsFor(entry);
   if (!efforts.includes(expectedEffort)) {
     throw new Error(`Required reasoning effort is unavailable for ${expectedModel}: ${expectedEffort}`);
   }
   return { model: expectedModel, effort: expectedEffort, entry: clone(entry) };
+}
+
+function nextModelCursor(payload) {
+  const cursor = payload?.nextCursor ?? payload?.next_cursor ?? null;
+  if (cursor === null || cursor === undefined || cursor === "") return null;
+  if (typeof cursor !== "string") throw new Error("App Server model/list returned an invalid pagination cursor.");
+  return cursor;
 }
 
 function normalizeInput(prompt, input) {
@@ -117,8 +120,44 @@ function assertNoAuthorityOverrides(options, allowed = new Set()) {
 
 function workerKey({ batchId, taskId, role }) { return `${batchId}\0${taskId}\0${role}`; }
 
+function clientMessageId(batch, task, role) {
+  return `${batch.submission_id}:${task.task_id}:${role}`;
+}
+
+function turnsFromRead(response) {
+  const turns = response?.thread?.turns ?? response?.turns ?? [];
+  if (!Array.isArray(turns)) throw new Error("App Server thread/read returned invalid turns.");
+  return turns;
+}
+
+function turnClientMessageId(turn) {
+  if (!turn || typeof turn !== "object") return null;
+  return turn.clientUserMessageId
+    ?? turn.client_user_message_id
+    ?? turn.clientRequestId
+    ?? turn.client_request_id
+    ?? null;
+}
+
+function reconcileTurnId(response, expectedClientMessageId) {
+  const turns = turnsFromRead(response);
+  const correlated = turns.filter((turn) => turnClientMessageId(turn) === expectedClientMessageId);
+  if (correlated.length > 0) {
+    const turn = correlated.at(-1);
+    if (typeof turn.id !== "string" || turn.id.length === 0) {
+      throw new Error("App Server thread/read returned a correlated turn without a durable id.");
+    }
+    return turn.id;
+  }
+  if (turns.length === 0) return null;
+  if (turns.length === 1 && typeof turns[0]?.id === "string" && turns[0].id.length > 0) return turns[0].id;
+  throw new Error("App Server thread/read could not unambiguously reconcile the durable turn.");
+}
+
 function isWithinRoot(root, candidate) {
-  const relative = path.relative(path.resolve(root), path.resolve(candidate));
+  const canonicalRoot = assertGitWorktree(canonicalDirectory(root, "submitted repository root"), "submitted repository root");
+  const canonicalCandidate = canonicalDirectory(candidate, "Worker cwd");
+  const relative = path.relative(path.resolve(canonicalRoot), path.resolve(canonicalCandidate));
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
@@ -154,12 +193,15 @@ export class ThreadBroker {
     if (!(client instanceof AppServerClient) && (!client || typeof client.modelList !== "function")) {
       throw new Error("Thread Broker requires an App Server client.");
     }
-    if (!store || typeof store.getWorkerMapping !== "function" || typeof store.putWorkerMapping !== "function") {
+    if (!store || typeof store.getWorkerMapping !== "function" || typeof store.putWorkerMapping !== "function"
+      || typeof store.reserveWorker !== "function" || typeof store.releaseWorkerReservation !== "function") {
       throw new Error("Thread Broker requires a RuntimeStore.");
     }
     this.client = client;
     this.store = store;
     this.clock = clock;
+    this.inflight = new Map();
+    this.reservation_tokens = new Map();
   }
 
   async #validatePolicy(model, effort) {
@@ -168,11 +210,25 @@ export class ThreadBroker {
     if (!ALLOWED_REVIEW_EFFORTS.includes(effort) && model === REVIEW_MODEL_NAME) {
       throw new Error(`Unsupported review effort: ${effort}`);
     }
-    const listed = await this.client.modelList({ includeHidden: true });
-    return findAvailableModel(listed, model, effort);
+    const pages = [];
+    const seenCursors = new Set();
+    let cursor = null;
+    do {
+      const params = { includeHidden: true };
+      if (cursor) params.cursor = cursor;
+      const page = await this.client.modelList(params);
+      pages.push(...modelEntries(page));
+      cursor = nextModelCursor(page);
+      if (cursor) {
+        if (seenCursors.has(cursor)) throw new Error("App Server model/list pagination cursor repeated.");
+        seenCursors.add(cursor);
+        if (seenCursors.size >= MAX_MODEL_PAGES) throw new Error("App Server model/list pagination exceeded its limit.");
+      }
+    } while (cursor);
+    return findAvailableModel({ data: pages }, model, effort);
   }
 
-  #validateStartOptions(options, role) {
+  #validateStartOptions(options = {}, role) {
     assertNoAuthorityOverrides(options);
     if (!SUPPORTED_ROLES.has(role)) throw new Error(`Unsupported worker role: ${role}`);
     const batchId = options.batchId ?? options.batch_id;
@@ -185,8 +241,23 @@ export class ThreadBroker {
     return { batchId, taskId, cwd, input, metadata: options.metadata === undefined ? null : sanitizeForLog(options.metadata) };
   }
 
-  async #start(options, role) {
+  async #start(options = {}, role) {
     const normalized = this.#validateStartOptions(options, role);
+    const key = workerKey({ batchId: normalized.batchId, taskId: normalized.taskId, role });
+    const signature = JSON.stringify({ cwd: normalized.cwd, input: normalized.input });
+    const existing = this.inflight.get(key);
+    if (existing) {
+      if (existing.signature !== signature) throw new Error("Concurrent worker starts for one durable worker must agree on cwd and input.");
+      return existing.promise;
+    }
+    const promise = this.#startOnce(options, role, normalized).finally(() => {
+      if (this.inflight.get(key)?.promise === promise) this.inflight.delete(key);
+    });
+    this.inflight.set(key, { signature, promise });
+    return promise;
+  }
+
+  async #startOnce(options, role, normalized) {
     if (role === ROLE_IMPLEMENTATION && options.difficulty !== undefined) {
       throw new Error("Implementation starts do not accept review difficulty.");
     }
@@ -202,6 +273,8 @@ export class ThreadBroker {
       ? IMPLEMENTATION_REASONING_EFFORT
       : reviewEffortForDifficulty(difficulty);
     const available = await this.#validatePolicy(model, effort);
+    const key = workerKey({ batchId: normalized.batchId, taskId: normalized.taskId, role });
+    const clientUserMessageId = clientMessageId(batch, task, role);
     let mapping = this.store.getWorkerMapping(normalized.batchId, normalized.taskId, role);
     if (mapping) {
       if (mapping.model !== model || mapping.effort !== effort || mapping.cwd !== normalized.cwd) {
@@ -210,25 +283,32 @@ export class ThreadBroker {
       if (!mapping.thread_id) throw new Error("Existing worker mapping is missing its durable thread id.");
       if (["COMPLETED", "FAILED"].includes(mapping.lifecycle_state)) return mapping;
       if (mapping.turn_id) return mapping;
-      const resumed = await this.client.threadResume(mapping.thread_id, {
-        model,
-        modelProvider: MVP_CONFIG.model_provider,
-        config: { model_reasoning_effort: effort },
-        cwd: normalized.cwd,
-        approvalPolicy: "never",
-        sandbox: role === ROLE_IMPLEMENTATION ? "workspace-write" : "read-only",
-        allowProviderModelFallback: false,
-      });
-      assertReturnedPolicy(resumed, model, effort);
-      assertReturnedThreadIdentity(resumed, mapping.thread_id);
+    }
+    const ownerToken = this.reservation_tokens.get(key) ?? `reservation_${crypto.randomUUID()}`;
+    const reservationResult = this.store.reserveWorker({
+      batchId: batch.batch_id,
+      taskId: task.task_id,
+      role,
+      model,
+      effort,
+      cwd: normalized.cwd,
+      clientUserMessageId,
+      ownerToken,
+      clock: this.clock,
+    });
+    if (reservationResult.status === "BUSY") {
+      throw new Error("Durable worker start is already reserved by another owner.");
+    }
+    if (reservationResult.status === "MAPPED") {
+      mapping = reservationResult.mapping;
+      if (mapping.lifecycle_state === "COMPLETED" || mapping.lifecycle_state === "FAILED" || mapping.turn_id) return mapping;
     } else {
-      const activeImplementations = this.store.listWorkerMappings(normalized.batchId)
-        .filter((worker) => worker.role === ROLE_IMPLEMENTATION
-          && !["COMPLETED", "FAILED"].includes(worker.lifecycle_state));
-      if (role === ROLE_IMPLEMENTATION
-        && activeImplementations.length >= MVP_CONFIG.max_parallel_implementation_workers) {
-        throw new Error("Maximum parallel implementation worker limit reached.");
-      }
+      this.reservation_tokens.set(key, ownerToken);
+      if (reservationResult.mapping) mapping = reservationResult.mapping;
+    }
+    const reservationHeld = reservationResult.status === "RESERVED";
+    try {
+      if (!mapping) {
       const started = await this.client.threadStart({
         model,
         modelProvider: MVP_CONFIG.model_provider,
@@ -258,32 +338,76 @@ export class ThreadBroker {
         created_at: timestampFrom(this.clock),
         updated_at: timestampFrom(this.clock),
         submission_id: batch.submission_id,
+        client_user_message_id: clientUserMessageId,
       };
       // This write is deliberately separate and precedes the first turn/start.
-      mapping = this.store.putWorkerMapping(mapping);
+      mapping = this.store.putWorkerMapping(mapping, { reservationToken: ownerToken });
+      } else if (!mapping.turn_id) {
+      const read = await this.client.threadRead(mapping.thread_id, { includeTurns: true });
+      const recoveredTurnId = reconcileTurnId(read, mapping.client_user_message_id ?? clientUserMessageId);
+      if (recoveredTurnId) {
+        const updated = this.store.patchWorkerMapping(mapping.batch_id, mapping.task_id, mapping.role, {
+          client_user_message_id: mapping.client_user_message_id ?? clientUserMessageId,
+          turn_id: recoveredTurnId,
+          lifecycle_state: "TURN_STARTED",
+          updated_at: timestampFrom(this.clock),
+        }, { reservationToken: ownerToken });
+        this.reservation_tokens.delete(key);
+        return {
+          mapping: updated,
+          turn: { id: recoveredTurnId },
+          model: available.model,
+          effort: available.effort,
+          recovered: true,
+        };
+      }
+      const resumed = await this.client.threadResume(mapping.thread_id, {
+        model,
+        modelProvider: MVP_CONFIG.model_provider,
+        config: { model_reasoning_effort: effort },
+        cwd: normalized.cwd,
+        approvalPolicy: "never",
+        sandbox: role === ROLE_IMPLEMENTATION ? "workspace-write" : "read-only",
+        allowProviderModelFallback: false,
+      });
+      assertReturnedPolicy(resumed, model, effort);
+      assertReturnedThreadIdentity(resumed, mapping.thread_id);
     }
-    const turnResponse = await this.client.turnStart({
-      threadId: mapping.thread_id,
-      input: normalized.input,
-      model,
-      effort,
-      cwd: normalized.cwd,
-      sandboxPolicy: role === ROLE_IMPLEMENTATION
-        ? { type: "workspaceWrite" }
-        : { type: "readOnly" },
-      clientUserMessageId: `${batch.submission_id}:${task.task_id}:${role}`,
-    });
-    assertReturnedPolicy(turnResponse, model, effort);
-    const turnId = turnResponse?.turn?.id;
-    if (typeof turnId !== "string" || turnId.length === 0) {
-      throw new Error("App Server turn/start did not return a durable turn id.");
+      const turnResponse = await this.client.turnStart({
+        threadId: mapping.thread_id,
+        input: normalized.input,
+        model,
+        effort,
+        cwd: normalized.cwd,
+        sandboxPolicy: role === ROLE_IMPLEMENTATION
+          ? { type: "workspaceWrite" }
+          : { type: "readOnly" },
+        clientUserMessageId: mapping.client_user_message_id ?? clientUserMessageId,
+      });
+      assertReturnedPolicy(turnResponse, model, effort);
+      const turnId = turnResponse?.turn?.id;
+      if (typeof turnId !== "string" || turnId.length === 0) {
+        throw new Error("App Server turn/start did not return a durable turn id.");
+      }
+      const updated = this.store.patchWorkerMapping(mapping.batch_id, mapping.task_id, mapping.role, {
+        turn_id: turnId,
+        client_user_message_id: mapping.client_user_message_id ?? clientUserMessageId,
+        lifecycle_state: "TURN_STARTED",
+        updated_at: timestampFrom(this.clock),
+      }, { reservationToken: ownerToken });
+      this.reservation_tokens.delete(key);
+      return { mapping: updated, turn: sanitizeForLog(turnResponse.turn), model: available.model, effort: available.effort };
+    } catch (error) {
+      if (reservationHeld) {
+        try {
+          this.store.releaseWorkerReservation(batch.batch_id, task.task_id, role, ownerToken);
+        } catch (releaseError) {
+          error.reservationError = releaseError;
+        }
+        this.reservation_tokens.delete(key);
+      }
+      throw error;
     }
-    const updated = this.store.patchWorkerMapping(mapping.batch_id, mapping.task_id, mapping.role, {
-      turn_id: turnId,
-      lifecycle_state: "TURN_STARTED",
-      updated_at: timestampFrom(this.clock),
-    });
-    return { mapping: updated, turn: sanitizeForLog(turnResponse.turn), model: available.model, effort: available.effort };
   }
 
   startImplementation(options) { return this.#start(options, ROLE_IMPLEMENTATION); }

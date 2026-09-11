@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { assertNoSecretsDeep, sanitizeForLog } from "../workflow/secrets.mjs";
 import {
   MVP_CONFIG,
@@ -51,19 +52,58 @@ function assertSubmissionFields(input) {
   }
 }
 
-function normalizeRepositoryRoot(value, { requireExisting = true } = {}) {
+function samePath(left, right) {
+  const relative = path.relative(path.resolve(left), path.resolve(right));
+  return relative === "";
+}
+
+export function canonicalDirectory(value, label = "directory") {
   if (typeof value !== "string" || value.trim().length === 0 || value.includes("\0")) {
-    throw new Error("repository root must be a non-empty path without NUL bytes.");
+    throw new Error(`${label} must be a non-empty path without NUL bytes.`);
   }
   const candidate = value.trim();
-  if (!path.isAbsolute(candidate)) throw new Error("repository root must be absolute.");
+  if (!path.isAbsolute(candidate)) throw new Error(`${label} must be absolute.`);
   const normalized = path.normalize(candidate);
-  if (requireExisting) {
-    let stat;
-    try { stat = fs.statSync(normalized); } catch { throw new Error("repository root must exist."); }
-    if (!stat.isDirectory()) throw new Error("repository root must be a directory.");
+  let stat;
+  try { stat = fs.statSync(normalized); } catch { throw new Error(`${label} must exist.`); }
+  if (!stat.isDirectory()) throw new Error(`${label} must be a directory.`);
+  try { return fs.realpathSync(normalized); } catch { throw new Error(`${label} must resolve canonically.`); }
+}
+
+export function assertGitWorktree(directory, label = "repository root") {
+  const canonical = canonicalDirectory(directory, label);
+  let insideWorktree;
+  let topLevel;
+  try {
+    insideWorktree = execFileSync("git", ["-C", canonical, "rev-parse", "--is-inside-work-tree"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      maxBuffer: 8_000,
+    }).trim();
+    topLevel = execFileSync("git", ["-C", canonical, "rev-parse", "--show-toplevel"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      maxBuffer: 8_000,
+    }).trim();
+  } catch {
+    throw new Error(`${label} must be a genuine Git worktree.`);
   }
-  return normalized;
+  if (insideWorktree !== "true" || !topLevel || !samePath(fs.realpathSync(topLevel), canonical)) {
+    throw new Error(`${label} must be a genuine Git worktree.`);
+  }
+  return canonical;
+}
+
+function normalizeRepositoryRoot(value, { requireExisting = true, requireGitRepository = true } = {}) {
+  if (!requireExisting) {
+    if (typeof value !== "string" || value.trim().length === 0 || value.includes("\0")) {
+      throw new Error("repository root must be a non-empty path without NUL bytes.");
+    }
+    if (!path.isAbsolute(value.trim())) throw new Error("repository root must be absolute.");
+    return path.normalize(value.trim());
+  }
+  const canonical = canonicalDirectory(value, "repository root");
+  return requireGitRepository ? assertGitWorktree(canonical, "repository root") : canonical;
 }
 
 function normalizeDescriptions(value) {
@@ -114,7 +154,7 @@ function assertNoAuthorityMetadata(value, currentPath = "reply metadata") {
   }
 }
 
-export function normalizeSubmission(input, { requireExistingRepositoryRoot = true } = {}) {
+export function normalizeSubmission(input, { requireExistingRepositoryRoot = true, requireGitRepository = true } = {}) {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     throw new Error("Submission must be an object.");
   }
@@ -127,7 +167,10 @@ export function normalizeSubmission(input, { requireExistingRepositoryRoot = tru
   const secretInput = { task_descriptions: descriptions, reply_metadata: metadata };
   assertNoSecretsDeep(secretInput, "submission");
   return {
-    repository_root: normalizeRepositoryRoot(repositoryRoot, { requireExisting: requireExistingRepositoryRoot }),
+    repository_root: normalizeRepositoryRoot(repositoryRoot, {
+      requireExisting: requireExistingRepositoryRoot,
+      requireGitRepository,
+    }),
     task_descriptions: descriptions,
     reply_metadata: metadata,
   };
@@ -137,8 +180,9 @@ export function createBatch(input, {
   clock = Date,
   idFactory,
   requireExistingRepositoryRoot = true,
+  requireGitRepository = true,
 } = {}) {
-  const normalized = normalizeSubmission(input, { requireExistingRepositoryRoot });
+  const normalized = normalizeSubmission(input, { requireExistingRepositoryRoot, requireGitRepository });
   const submittedEpoch = clockEpoch(clock);
   const submittedAt = new Date(submittedEpoch).toISOString();
   const expiresAt = new Date(submittedEpoch + MVP_CONFIG.batch_expiry_ms).toISOString();
@@ -176,8 +220,9 @@ export function submitBatch(input, {
   clock = Date,
   idFactory,
   requireExistingRepositoryRoot = true,
+  requireGitRepository = true,
 } = {}) {
-  const batch = createBatch(input, { clock, idFactory, requireExistingRepositoryRoot });
+  const batch = createBatch(input, { clock, idFactory, requireExistingRepositoryRoot, requireGitRepository });
   const runtimeStore = store ?? new RuntimeStore(
     storePath ?? path.join(batch.repository_root, ".night-worker", "runtime.json"),
     { clock },
@@ -190,5 +235,5 @@ export const submit = submitBatch;
 export const acceptSubmission = submitBatch;
 
 export function defaultRuntimeStorePath(repositoryRoot) {
-  return path.join(normalizeRepositoryRoot(repositoryRoot), ".night-worker", "runtime.json");
+  return path.join(assertGitWorktree(repositoryRoot, "repository root"), ".night-worker", "runtime.json");
 }

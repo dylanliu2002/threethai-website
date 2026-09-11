@@ -17,7 +17,7 @@ export const RUNTIME_SCHEMA_VERSION = 1;
 
 const BATCH_STATES = new Set(["QUEUED", "CLAIMED", "RUNNING", "COMPLETED", "FAILED", "EXPIRED"]);
 const WORKER_STATES = new Set(["PENDING", "THREAD_STARTED", "TURN_STARTED", "COMPLETED", "FAILED"]);
-const STATE_FIELDS = new Set(["schema_version", "revision", "updated_at", "next_queue_sequence", "active_batch_id", "batches", "workers"]);
+const STATE_FIELDS = new Set(["schema_version", "revision", "updated_at", "next_queue_sequence", "active_batch_id", "batches", "workers", "reservations"]);
 const BATCH_FIELDS = new Set([
   "schema_version", "batch_id", "submission_id", "repository_root", "submitted_at", "expires_at",
   "state", "claim", "queue_sequence", "tasks", "reply_metadata", "correction_cycles", "last_error",
@@ -26,8 +26,13 @@ const TASK_FIELDS = new Set(["task_id", "position", "description"]);
 const CLAIM_FIELDS = new Set(["owner_token", "claimed_at", "heartbeat_at", "lease_expires_at"]);
 const WORKER_FIELDS = new Set([
   "schema_version", "batch_id", "task_id", "role", "model", "effort", "cwd", "thread_id", "turn_id",
-  "lifecycle_state", "created_at", "updated_at", "submission_id",
+  "lifecycle_state", "created_at", "updated_at", "submission_id", "client_user_message_id",
 ]);
+const RESERVATION_FIELDS = new Set([
+  "schema_version", "batch_id", "task_id", "role", "model", "effort", "cwd", "client_user_message_id", "submission_id",
+  "owner_token", "owner_pid", "created_at", "lease_expires_at",
+]);
+const RESERVATION_LEASE_MS = MVP_CONFIG.claim_lease_ms;
 
 function assertKnownFields(value, allowed, label) {
   for (const key of Object.keys(value)) {
@@ -55,6 +60,7 @@ function emptyState() {
     active_batch_id: null,
     batches: [],
     workers: [],
+    reservations: [],
   };
 }
 
@@ -147,6 +153,38 @@ function validateWorker(worker) {
     && (!worker.thread_id || !worker.turn_id)) {
     throw new Error("Turn-active worker must have thread_id and turn_id.");
   }
+  if (worker.client_user_message_id !== undefined
+    && (typeof worker.client_user_message_id !== "string" || worker.client_user_message_id.length === 0)) {
+    throw new Error("Worker client_user_message_id must be a non-empty string.");
+  }
+}
+
+function validateReservation(reservation) {
+  assertPlainObject(reservation, "worker reservation");
+  assertKnownFields(reservation, RESERVATION_FIELDS, "worker reservation");
+  if (reservation.schema_version !== RUNTIME_SCHEMA_VERSION) {
+    throw new Error(`Unsupported reservation schema version: ${String(reservation.schema_version)}`);
+  }
+  for (const field of ["batch_id", "task_id", "role", "model", "effort", "cwd", "client_user_message_id", "submission_id", "owner_token", "created_at", "lease_expires_at"]) {
+    if (typeof reservation[field] !== "string" || reservation[field].length === 0) {
+      throw new Error(`Worker reservation ${field} is required.`);
+    }
+  }
+  if (!Number.isInteger(reservation.owner_pid) || reservation.owner_pid <= 0) {
+    throw new Error("Worker reservation owner_pid is invalid.");
+  }
+  if (!["IMPLEMENTATION", "REVIEW"].includes(reservation.role)) {
+    throw new Error(`Unsupported worker reservation role: ${String(reservation.role)}`);
+  }
+  if (reservation.role === "IMPLEMENTATION"
+    && (reservation.model !== IMPLEMENTATION_MODEL_NAME || reservation.effort !== IMPLEMENTATION_REASONING_EFFORT)) {
+    throw new Error("Implementation reservation policy is not exact.");
+  }
+  if (reservation.role === "REVIEW"
+    && (reservation.model !== REVIEW_MODEL_NAME || !ALLOWED_REVIEW_EFFORTS.includes(reservation.effort))) {
+    throw new Error("Review reservation policy is not supported.");
+  }
+  if (!path.isAbsolute(reservation.cwd)) throw new Error("Worker reservation cwd must be absolute.");
 }
 
 function validateState(state) {
@@ -165,8 +203,12 @@ function validateState(state) {
   if (!Array.isArray(state.batches) || !Array.isArray(state.workers)) {
     throw new Error("Runtime batches and workers must be arrays.");
   }
+  if (state.reservations !== undefined && !Array.isArray(state.reservations)) {
+    throw new Error("Runtime reservations must be an array.");
+  }
   for (const batch of state.batches) validateBatch(batch);
   for (const worker of state.workers) validateWorker(worker);
+  for (const reservation of state.reservations ?? []) validateReservation(reservation);
   const activeBatches = state.batches.filter((batch) => ["CLAIMED", "RUNNING"].includes(batch.state));
   if (activeBatches.length > 1) throw new Error("Runtime state cannot contain multiple active batches.");
   for (const batch of state.batches) {
@@ -199,6 +241,22 @@ function validateState(state) {
     if (workerKeys.has(key)) throw new Error(`Duplicate worker mapping: ${key}`);
     workerKeys.add(key);
   }
+  const reservationKeys = new Set();
+  for (const reservation of state.reservations ?? []) {
+    if (!batchIds.has(reservation.batch_id)) {
+      throw new Error(`Reservation references unknown batch: ${reservation.batch_id}`);
+    }
+    const batch = state.batches.find((item) => item.batch_id === reservation.batch_id);
+    if (!batch.tasks.some((task) => task.task_id === reservation.task_id)) {
+      throw new Error(`Reservation references unknown task: ${reservation.batch_id}/${reservation.task_id}`);
+    }
+    if (reservation.submission_id !== undefined && reservation.submission_id !== batch.submission_id) {
+      throw new Error("Worker reservation submission trace does not match its batch.");
+    }
+    const key = `${reservation.batch_id}\0${reservation.task_id}\0${reservation.role}`;
+    if (reservationKeys.has(key)) throw new Error(`Duplicate worker reservation: ${key}`);
+    reservationKeys.add(key);
+  }
   if (state.active_batch_id && !batchIds.has(state.active_batch_id)) {
     throw new Error(`Active batch does not exist: ${state.active_batch_id}`);
   }
@@ -224,19 +282,6 @@ function validateState(state) {
   return true;
 }
 
-function lockIsOwnedByLiveProcess(lockPath) {
-  try {
-    const raw = fs.readFileSync(lockPath, "utf8");
-    const lock = JSON.parse(raw);
-    if (!Number.isInteger(lock.pid) || lock.pid <= 0) return false;
-    process.kill(lock.pid, 0);
-    return true;
-  } catch (error) {
-    if (error?.code === "ESRCH") return false;
-    return false;
-  }
-}
-
 function sleepSynchronous(milliseconds) {
   const buffer = new SharedArrayBuffer(4);
   Atomics.wait(new Int32Array(buffer), 0, 0, milliseconds);
@@ -246,8 +291,41 @@ function makeId(prefix) {
   return `${prefix}_${crypto.randomUUID()}`;
 }
 
+function workerKey(value) {
+  return `${value.batch_id}\0${value.task_id}\0${value.role}`;
+}
+
+function isTerminalWorker(worker) {
+  return ["COMPLETED", "FAILED"].includes(worker.lifecycle_state);
+}
+
+function processIsAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code !== "ESRCH";
+  }
+}
+
+function assertWorkerIdentityUnchanged(existing, next) {
+  for (const field of ["batch_id", "task_id", "role", "model", "effort", "cwd"]) {
+    if (existing[field] !== next[field]) throw new Error(`Worker identity cannot change: ${field}`);
+  }
+  if (existing.thread_id && existing.thread_id !== next.thread_id) {
+    throw new Error("Worker thread identity cannot change.");
+  }
+  if (existing.turn_id && existing.turn_id !== next.turn_id) {
+    throw new Error("Worker turn identity cannot change.");
+  }
+  if (existing.client_user_message_id
+    && existing.client_user_message_id !== next.client_user_message_id) {
+    throw new Error("Worker client message identity cannot change.");
+  }
+}
+
 export class RuntimeStore {
-  constructor(filePath, { lockTimeoutMs = 5_000, clock = Date } = {}) {
+  constructor(filePath, { lockTimeoutMs = 5_000, clock = Date, lockOwnerTokenFactory = () => makeId("lock") } = {}) {
     if (typeof filePath !== "string" || filePath.length === 0 || filePath.includes("\0")) {
       throw new Error("Runtime store path must be a non-empty string without NUL bytes.");
     }
@@ -255,9 +333,11 @@ export class RuntimeStore {
     this.lock_path = `${this.file_path}.lock`;
     this.lock_timeout_ms = lockTimeoutMs;
     this.clock = clock;
+    this.lock_owner_token_factory = lockOwnerTokenFactory;
   }
 
   get filePath() { return this.file_path; }
+  get lockPath() { return this.lock_path; }
 
   exists() { return fs.existsSync(this.file_path); }
 
@@ -270,6 +350,7 @@ export class RuntimeStore {
       throw new Error(`Runtime state is corrupt: ${error instanceof Error ? error.message : String(error)}`);
     }
     validateState(parsed);
+    if (parsed.reservations === undefined) parsed.reservations = [];
     return clone(parsed);
   }
 
@@ -355,19 +436,142 @@ export class RuntimeStore {
       .map(clone);
   }
 
-  putWorkerMapping(mapping) {
+  getWorkerReservation(batchId, taskId, role) {
+    const reservation = (this.load().reservations ?? []).find((item) => item.batch_id === batchId
+      && item.task_id === taskId && item.role === role);
+    return reservation ? clone(reservation) : null;
+  }
+
+  listWorkerReservations(batchId = null) {
+    return (this.load().reservations ?? [])
+      .filter((reservation) => batchId === null || reservation.batch_id === batchId)
+      .map(clone);
+  }
+
+  reserveWorker({
+    batchId,
+    taskId,
+    role,
+    model,
+    effort,
+    cwd,
+    clientUserMessageId,
+    ownerToken = makeId("reservation"),
+    leaseMs = RESERVATION_LEASE_MS,
+    clock = this.clock,
+  } = {}) {
+    for (const [field, value] of Object.entries({
+      batchId, taskId, role, model, effort, cwd, clientUserMessageId, ownerToken,
+    })) {
+      if (typeof value !== "string" || value.length === 0) throw new Error(`Worker reservation ${field} is required.`);
+    }
+    if (!Number.isInteger(leaseMs) || leaseMs <= 0) throw new Error("Worker reservation lease must be positive.");
+    const now = clockEpoch(clock);
+    return this.mutate((state) => {
+      state.reservations ??= [];
+      const batch = state.batches.find((item) => item.batch_id === batchId);
+      if (!batch) throw new Error(`Unknown batch for worker reservation: ${batchId}`);
+      const task = batch.tasks.find((item) => item.task_id === taskId);
+      if (!task) throw new Error(`Unknown task for worker reservation: ${batchId}/${taskId}`);
+      if (!["QUEUED", "CLAIMED", "RUNNING"].includes(batch.state)) {
+        throw new Error(`Batch is not eligible for a worker reservation: ${batch.state}`);
+      }
+      const existingMapping = state.workers.find((worker) => workerKey(worker) === `${batchId}\0${taskId}\0${role}`);
+      if (existingMapping) {
+        for (const field of ["model", "effort", "cwd"]) {
+          if (existingMapping[field] !== { model, effort, cwd }[field]) {
+            throw new Error(`Existing worker mapping policy or cwd does not match: ${field}`);
+          }
+        }
+        if (existingMapping.client_user_message_id
+          && existingMapping.client_user_message_id !== clientUserMessageId) {
+          throw new Error("Existing worker client message identity does not match.");
+        }
+        if (existingMapping.turn_id) return { status: "MAPPED", mapping: clone(existingMapping) };
+      }
+      const key = `${batchId}\0${taskId}\0${role}`;
+      const reservationIndex = state.reservations.findIndex((item) => workerKey(item) === key);
+      if (reservationIndex >= 0) {
+        const existingReservation = state.reservations[reservationIndex];
+        const expired = now >= Date.parse(existingReservation.lease_expires_at);
+        const ownerDead = !processIsAlive(existingReservation.owner_pid);
+        if (!expired && existingReservation.owner_token === ownerToken) return {
+          status: "RESERVED",
+          reservation: clone(existingReservation),
+        };
+        if (!expired && !ownerDead) return {
+          status: "BUSY",
+          reservation: clone(existingReservation),
+        };
+        state.reservations.splice(reservationIndex, 1);
+      }
+      if (role === "IMPLEMENTATION") {
+        const activeKeys = new Set(state.workers.filter((worker) => !isTerminalWorker(worker)).map(workerKey));
+        const reservedImplementationCount = state.reservations.filter((reservation) => reservation.role === "IMPLEMENTATION"
+          && !activeKeys.has(workerKey(reservation))).length;
+        const activeImplementationCount = [...activeKeys].filter((keyValue) => keyValue.endsWith("\0IMPLEMENTATION")).length;
+        if (activeImplementationCount + reservedImplementationCount >= MVP_CONFIG.max_parallel_implementation_workers) {
+          throw new Error("Maximum parallel implementation worker limit reached.");
+        }
+      }
+      const reservation = {
+        schema_version: RUNTIME_SCHEMA_VERSION,
+        batch_id: batchId,
+        task_id: taskId,
+        role,
+        model,
+        effort,
+        cwd,
+        client_user_message_id: clientUserMessageId,
+        submission_id: batch.submission_id,
+        owner_token: ownerToken,
+        owner_pid: process.pid,
+        created_at: new Date(now).toISOString(),
+        lease_expires_at: new Date(now + leaseMs).toISOString(),
+      };
+      validateReservation(reservation);
+      state.reservations.push(reservation);
+      return { status: "RESERVED", reservation: clone(reservation), mapping: existingMapping ? clone(existingMapping) : null };
+    });
+  }
+
+  releaseWorkerReservation(batchId, taskId, role, ownerToken) {
+    if (typeof ownerToken !== "string" || ownerToken.length === 0) throw new Error("Reservation owner token is required.");
+    return this.mutate((state) => {
+      state.reservations ??= [];
+      const index = state.reservations.findIndex((item) => item.batch_id === batchId
+        && item.task_id === taskId && item.role === role);
+      if (index < 0) return { status: "ABSENT" };
+      if (state.reservations[index].owner_token !== ownerToken) {
+        throw new Error("Worker reservation owner token does not match.");
+      }
+      const [released] = state.reservations.splice(index, 1);
+      return { status: "RELEASED", reservation: released };
+    });
+  }
+
+  putWorkerMapping(mapping, { reservationToken } = {}) {
     return this.mutate((state) => {
       validateWorker(mapping);
-      if (!state.batches.some((batch) => batch.batch_id === mapping.batch_id)) {
+      const batch = state.batches.find((item) => item.batch_id === mapping.batch_id);
+      if (!batch) {
         throw new Error(`Unknown batch for worker mapping: ${mapping.batch_id}`);
+      }
+      if (!batch.tasks.some((task) => task.task_id === mapping.task_id)) {
+        throw new Error(`Unknown task for worker mapping: ${mapping.batch_id}/${mapping.task_id}`);
+      }
+      const reservations = state.reservations ?? [];
+      if (reservationToken !== undefined) {
+        const reservation = reservations.find((item) => workerKey(item) === workerKey(mapping));
+        if (!reservation || reservation.owner_token !== reservationToken) {
+          throw new Error("Worker mapping reservation owner token does not match.");
+        }
       }
       const index = state.workers.findIndex((worker) => worker.batch_id === mapping.batch_id
         && worker.task_id === mapping.task_id && worker.role === mapping.role);
       if (index >= 0) {
         const existing = state.workers[index];
-        for (const field of ["batch_id", "task_id", "role", "model", "effort", "cwd"]) {
-          if (existing[field] !== mapping[field]) throw new Error(`Worker identity cannot change: ${field}`);
-        }
+        assertWorkerIdentityUnchanged(existing, mapping);
         state.workers[index] = clone(mapping);
       } else {
         state.workers.push(clone(mapping));
@@ -385,8 +589,18 @@ export class RuntimeStore {
       const updated = updater(current, state);
       const next = updated === undefined ? current : updated;
       validateWorker(next);
-      for (const field of ["batch_id", "task_id", "role", "model", "effort", "cwd"]) {
-        if (next[field] !== current[field]) throw new Error(`Worker identity cannot change: ${field}`);
+      assertWorkerIdentityUnchanged(current, next);
+      const reservationToken = options?.reservationToken;
+      if (reservationToken !== undefined) {
+        const reservations = state.reservations ?? [];
+        const reservation = reservations.find((item) => workerKey(item) === workerKey(next));
+        if (!reservation || reservation.owner_token !== reservationToken) {
+          throw new Error("Worker mapping reservation owner token does not match.");
+        }
+        if (next.turn_id) {
+          state.reservations = reservations.filter((item) => !(workerKey(item) === workerKey(next)
+            && item.owner_token === reservationToken));
+        }
       }
       state.workers[index] = clone(next);
       return next;
@@ -401,18 +615,36 @@ export class RuntimeStore {
     const directory = path.dirname(this.file_path);
     fs.mkdirSync(directory, { recursive: true });
     const started = Date.now();
-    let descriptor;
-    while (descriptor === undefined) {
+    let owner;
+    while (!owner) {
+      const ownerToken = this.lock_owner_token_factory();
+      if (typeof ownerToken !== "string" || ownerToken.length === 0) throw new Error("Runtime lock owner token is invalid.");
+      const temporaryDirectory = `${this.lock_path}.${process.pid}.${crypto.randomUUID()}.tmp`;
+      const ownerPath = path.join(temporaryDirectory, "owner.json");
       try {
-        descriptor = fs.openSync(this.lock_path, "wx");
-        fs.writeFileSync(descriptor, JSON.stringify({ pid: process.pid, host: os.hostname() }));
+        fs.mkdirSync(temporaryDirectory, { recursive: false });
+        const record = {
+          schema_version: RUNTIME_SCHEMA_VERSION,
+          owner_token: ownerToken,
+          pid: process.pid,
+          host: os.hostname(),
+          created_at: timestampFrom(this.clock),
+        };
+        const descriptor = fs.openSync(ownerPath, "wx");
+        try {
+          fs.writeFileSync(descriptor, JSON.stringify(record), "utf8");
+          fs.fsyncSync(descriptor);
+        } finally {
+          fs.closeSync(descriptor);
+        }
+        fs.renameSync(temporaryDirectory, this.lock_path);
+        owner = { owner_token: ownerToken };
       } catch (error) {
-        if (error?.code !== "EEXIST") throw error;
-        if (!lockIsOwnedByLiveProcess(this.lock_path)) {
-          try { fs.unlinkSync(this.lock_path); } catch (unlinkError) {
-            if (unlinkError?.code !== "ENOENT") throw unlinkError;
-          }
-        } else if (Date.now() - started >= this.lock_timeout_ms) {
+        try {
+          if (fs.existsSync(temporaryDirectory)) fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+        } catch {}
+        if (!['EEXIST', 'ENOTEMPTY', 'EISDIR', 'EPERM'].includes(error?.code)) throw error;
+        if (Date.now() - started >= this.lock_timeout_ms) {
           throw new Error("Runtime store is busy.");
         } else {
           sleepSynchronous(10);
@@ -422,10 +654,18 @@ export class RuntimeStore {
     try {
       return callback();
     } finally {
-      try { fs.closeSync(descriptor); } catch {}
-      try { fs.unlinkSync(this.lock_path); } catch (error) {
-        if (error?.code !== "ENOENT") throw error;
+      const ownerPath = path.join(this.lock_path, "owner.json");
+      let record;
+      try {
+        record = JSON.parse(fs.readFileSync(ownerPath, "utf8"));
+      } catch (error) {
+        throw new Error(`Runtime lock ownership could not be verified: ${error instanceof Error ? error.message : String(error)}`);
       }
+      if (!record || record.owner_token !== owner.owner_token) {
+        throw new Error("Runtime lock owner token does not match.");
+      }
+      fs.unlinkSync(ownerPath);
+      fs.rmdirSync(this.lock_path);
     }
   }
 

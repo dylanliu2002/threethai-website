@@ -237,7 +237,8 @@ export const zh: Dictionary = {
     englishNote: "由技术内容团队维护——排名与声明均经验证，而非简单转载。",
   },
   knowledgeIndex: {
-    title: "技术文章",
+    // 与本词典 nav.knowledge (zh.ts:22) 一致；见 en.ts 的说明。不是新译文。
+    title: "技术资源",
     lead: "来自 PVA 工程内容团队的选型指南、测试框架与规格清单。",
     published: "发布于",
     updated: "更新于",

@@ -645,3 +645,327 @@ test("REQ 4 · the shipped HTML shows localized cards over unpromoted pages", bu
     }
   }
 });
+
+/**
+ * ============================================================================
+ * Task 61 · CONTENT-QUALITY-001B — the knowledge article body model
+ *
+ * Appended here rather than into a new file because `package.json` lists every
+ * `test:seo` suite by name and that file is shared, and because this suite already
+ * reads the article cards, the promotion seam and the built documents.
+ *
+ * An article used to be `(heading, body)[]`, which both renderers printed as one
+ * `<h2>` plus one `<p>` — no list, no table, no inline link was expressible. The
+ * model now carries typed blocks. What makes that safe, in order of how badly each
+ * failure would arrive silently:
+ *
+ *   1. `sections` must STILL be a single `{ en, zh }` field. `translation-availability.ts`
+ *      recognises body copy by counting an object's keys, so a model that moved the
+ *      locale pair inside each block would stop being recognised, and a future ES/DE
+ *      approval would publish a self-canonical URL over an English body. Nothing
+ *      errors; that is GSC-INDEX-002 arriving again.
+ *   2. The four shipped articles must render the text they shipped with. This task
+ *      changes what an article CAN hold, not what these four say.
+ *   3. Related reading must be the article's own, and every declared slug must resolve.
+ *   4. Each guard is proved able to fail by a planted bad value, as elsewhere here.
+ */
+
+const {
+  assertArticleBodyShape, assertAlignedBody, assertInternalHref, bodySignature, legacyTupleToBody,
+} = await importSource("src/content/article-blocks.ts");
+const { articlesForProduct, assertArticleRelated, relatedFor } = await importSource("src/content/article-related.ts");
+const {
+  knowledgeBlocks, resourcesGroups, MIN_GROUP_SIZE, RESOURCES_CATEGORY_ORDER,
+} = await importSource("src/content/resources-groups.ts");
+const { articles: legacyArticleEntries } = await importSource("src/content/legacy-source.ts");
+const { buyerAnswers } = await importSource("src/content/answers.ts");
+const { answerCard } = await importSource("src/content/card-copy.ts");
+
+test("TASK 61 · a block body is still one { en, zh } record, so the seam can widen it", () => {
+  for (const article of articles) {
+    assert.deepEqual(Object.keys(article.sections).sort(), ["en", "zh"],
+      `${article.slug}: sections must hold exactly en and zh. translation-availability.ts ` +
+      `identifies body copy by its key set, and a body it cannot recognise is a body that ` +
+      `stays English under a localized canonical`);
+    assert.equal(Array.isArray(article.sections), false,
+      `${article.slug}: sections became an array — the one shape the seam skips`);
+  }
+});
+
+test("TASK 61 · the four shipped articles keep every heading and paragraph they had", () => {
+  const legacy = new Map(legacyArticleEntries.map((entry) => [entry.slug, entry]));
+  for (const article of articles) {
+    const before = legacy.get(article.slug);
+    assert.ok(before, `${article.slug} is no longer in legacy-source.ts`);
+    assert.equal(article.sections.en.length, before.sections.length, `${article.slug}: section count changed`);
+    assert.equal(article.sections.zh.length, before.sections.length, `${article.slug}: zh section count changed`);
+    before.sections.forEach(([heading, body], index) => {
+      const section = article.sections.en[index];
+      assert.equal(section.heading, heading, `${article.slug}: section ${index + 1} heading drifted`);
+      assert.equal(section.blocks.length, 1,
+        `${article.slug}: section ${index + 1} gained structure — this task adds a model, not content`);
+      assert.equal(section.blocks[0].type, "paragraph", `${article.slug}: section ${index + 1} is no longer a paragraph`);
+      assert.equal(section.blocks[0].text, body, `${article.slug}: section ${index + 1} text drifted`);
+    });
+    article.sections.zh.forEach((section, index) => {
+      assert.equal(section.blocks.length, 1, `${article.slug}: zh section ${index + 1} gained structure`);
+      assert.match(section.blocks[0].text, /[㐀-鿿]/, `${article.slug}: zh section ${index + 1} is not Chinese`);
+    });
+  }
+});
+
+test("TASK 61 · the legacy fold adds no text and loses none", () => {
+  assert.deepEqual(legacyTupleToBody([["Heading A", "Body A"], ["Heading B", "Body B"]]), [
+    { heading: "Heading A", blocks: [{ type: "paragraph", text: "Body A" }] },
+    { heading: "Heading B", blocks: [{ type: "paragraph", text: "Body B" }] },
+  ]);
+  assert.deepEqual(legacyTupleToBody([]), [], "an empty body should fold to empty, not throw");
+});
+
+test("TASK 61 · the model carries what the old one could not", () => {
+  const body = [{
+    heading: "A procedure",
+    blocks: [
+      { type: "heading", text: "Before you start" },
+      { type: "prose", spans: [
+        { kind: "text", text: "Record partial softening separately from " },
+        { kind: "link", text: "complete removal", href: "/knowledge/pva-batch-dissolution-consistency" },
+        { kind: "text", text: "." },
+      ] },
+      { type: "list", ordered: true, items: [
+        [{ kind: "text", text: "Condition the specimen." }],
+        [{ kind: "text", text: "Hold the bath within tolerance." }],
+      ] },
+      { type: "definitionList", items: [
+        { term: "Endpoint", detail: [{ kind: "text", text: "The stage that matters to the process." }] },
+      ] },
+      { type: "table", caption: "Grades this site describes", rowHeader: true,
+        columns: ["Label", "Intended use"], rows: [["20°C", "Cool bath"], ["90°C", "Hot bath"]] },
+      { type: "callout", label: "Note", tone: "note", text: "A label is not a pass condition." },
+    ],
+  }];
+  const signature = bodySignature(body);
+  assert.ok(signature.includes("table:2x2+rh"), `the fingerprint lost the table shape: ${signature}`);
+  assert.ok(signature.includes("ol["), `the fingerprint lost the ordered list: ${signature}`);
+  assertArticleBodyShape("fixture", { en: body, zh: body });
+  assertAlignedBody("fixture", { en: body, zh: body });
+});
+
+test("TASK 61 · every guard refuses the mistake it exists for", () => {
+  const ok = { type: "paragraph", text: "x" };
+  const pair = (extra) => {
+    const sections = [{ heading: "H", blocks: [ok, ...extra] }];
+    return { en: sections, zh: sections };
+  };
+
+  assert.throws(() => assertArticleBodyShape("t", pair(
+    [{ type: "table", caption: "c", columns: ["A", "B"], rows: [["1"]], rowHeader: false }]),
+  ), /row 1 has 1 cells against 2 columns/, "a ragged table was accepted");
+
+  assert.throws(() => assertArticleBodyShape("t", pair(
+    [{ type: "table", caption: "  ", columns: ["A", "B"], rows: [["1", "2"]], rowHeader: false }]),
+  ), /has no caption/, "a table with a blank caption was accepted");
+
+  assert.throws(() => assertArticleBodyShape("t", pair(
+    [{ type: "table", caption: "c", columns: ["A", "B", "C", "D", "E"], rows: [["1", "2", "3", "4", "5"]], rowHeader: false }]),
+  ), /over the limit/, "a five-column table was accepted");
+
+  assert.throws(() => assertInternalHref("t", "/es/knowledge/x"), /prefix-free/, "a locale-prefixed href was accepted");
+  assert.throws(() => assertInternalHref("t", "/knowledge/x#frag"), /prefix-free/, "a fragment href was accepted");
+  assert.throws(() => assertInternalHref("t", "https://example.com/x"), /prefix-free/, "an absolute URL was accepted");
+  assert.throws(() => assertInternalHref("t", "/knowledge/x/"), /prefix-free/, "a trailing-slash href was accepted");
+  assert.doesNotThrow(() => assertInternalHref("t", "/request-sample?application=towel-weaving"),
+    "a query link, which the sample flow uses, was rejected");
+
+  // Promotion replaces the whole field, so both locales must share one shape.
+  assert.throws(() => assertAlignedBody("t", {
+    en: [{ heading: "H", blocks: [ok, ok] }],
+    zh: [{ heading: "H", blocks: [ok] }],
+  }), /not the same shape/, "a mis-aligned zh body was accepted");
+
+  assert.throws(() => assertArticleBodyShape("t", {
+    en: [{ heading: "H", blocks: [] }],
+    zh: [{ heading: "H", blocks: [] }],
+  }), /has no blocks/, "a heading with nothing under it was accepted");
+
+  assert.throws(() => resourcesGroups([{ slug: "x", category: { en: "Weather" } }]),
+    /no Resources category claims/, "an article filed under an undeclared category was accepted");
+
+  assert.throws(() => relatedFor("not-an-article"), /has no related set/,
+    "an article with no declared related set was silently accepted");
+  // A retired article must fail loudly, not render a dead card.
+  assert.throws(() => assertArticleRelated(["pva-yarn-dissolution-temperature-guide"]),
+    /no longer exists/, "assertArticleRelated accepted an edge it cannot resolve");
+});
+
+test("TASK 61 · related content is declared, resolves, and never points at itself", () => {
+  const knownProducts = new Set(products.map((entry) => entry.slug));
+  const knownApplications = new Set(applications.map((entry) => entry.slug));
+  const knownAnswers = new Set(buyerAnswers.map((entry) => entry.slug));
+  const knownArticles = new Set(articles.map((entry) => entry.slug));
+
+  for (const article of articles) {
+    const set = relatedFor(article.slug);
+    assert.equal(new Set(set.products).size, set.products.length, `${article.slug}: repeated product edge`);
+    for (const slug of set.products) assert.ok(knownProducts.has(slug), `${article.slug}: unknown product ${slug}`);
+    for (const slug of set.applications) assert.ok(knownApplications.has(slug), `${article.slug}: unknown application ${slug}`);
+    for (const slug of set.answers) assert.ok(knownAnswers.has(slug), `${article.slug}: unknown answer ${slug}`);
+    for (const slug of set.articles) {
+      assert.ok(knownArticles.has(slug), `${article.slug}: unknown article ${slug}`);
+      assert.notEqual(slug, article.slug, `${article.slug}: lists itself as related reading`);
+    }
+    // Every edge needs a label in all four locales; the card accessors throw without one.
+    for (const locale of locales) {
+      for (const slug of set.products) productCard(slug, locale);
+      for (const slug of set.answers) answerCard(slug, locale);
+      for (const slug of set.articles) articleCard(slug, locale);
+    }
+  }
+  for (const product of products) {
+    for (const slug of articlesForProduct(product.slug)) {
+      assert.ok(knownArticles.has(slug), `${product.slug}: recommends unknown article ${slug}`);
+    }
+  }
+});
+
+test("TASK 61 · the hub groups by category and stays unlabelled until a label is honest", () => {
+  assert.ok(MIN_GROUP_SIZE >= 2, "a group of one is not a category — it adds a heading and no information");
+
+  const shown = knowledgeBlocks();
+  const slugs = shown.flatMap((block) => [...block.slugs]).sort();
+  assert.deepEqual(slugs, articles.map((article) => article.slug).sort(),
+    "grouping must show every article exactly once");
+  assert.equal(new Set(slugs).size, slugs.length, "an article is rendered in two groups");
+  for (const block of shown) {
+    if (block.label === null) continue;
+    const shared = new Set(block.slugs.map((slug) => articleCard(slug, "en").category));
+    assert.equal(shared.size, 1, `labelled block "${block.label}" spans several categories`);
+    assert.ok(shared.has(block.label), `label "${block.label}" is not a category its members use`);
+  }
+
+  // Prove the machinery works without waiting for more copy: agreement earns a
+  // heading, disagreement must not invent one.
+  const twin = resourcesGroups([
+    { slug: "a", category: { en: "Material selection" } },
+    { slug: "b", category: { en: "Material selection" } },
+  ]);
+  assert.equal(twin.length, 1);
+  assert.equal(twin[0].label, "Material selection", "a genuine two-article group earned no heading");
+  const split = resourcesGroups([
+    { slug: "a", category: { en: "Material selection" } },
+    { slug: "b", category: { en: "Technical guide" } },
+  ]);
+  assert.equal(split[0].label, null,
+    "two articles with different approved labels were given a heading neither one uses");
+
+  assert.deepEqual(RESOURCES_CATEGORY_ORDER,
+    ["product-selection", "applications", "testing-evidence", "manufacturing-capability", "troubleshooting", "buyer-guides"],
+    "the six-category model changed shape");
+});
+
+test("TASK 61 · the section answers to one name in every locale", () => {
+  for (const locale of locales) {
+    const dict = getDictionary(locale);
+    assert.equal(dict.knowledgeIndex.title, dict.nav.knowledge,
+      `${locale}: the H1 and the navigation give this section different names`);
+    assert.equal(dict.breadcrumbs.knowledge, dict.nav.knowledge,
+      `${locale}: the breadcrumb disagrees with the navigation`);
+    assert.ok(dict.knowledgeIndex.title.trim().length > 0, `${locale}: the section has no name`);
+  }
+  const indexRoute = read("src/app/(site)/knowledge/page.tsx");
+  assert.match(indexRoute, /pageMeta\.en\.knowledge\.title/, "the EN route went back to its own <title> literal");
+  assert.doesNotMatch(indexRoute, /title: "Technical Resources/, "a duplicated EN <title> literal is back");
+  for (const route of ["src/app/(site)/knowledge/[slug]/page.tsx", "src/app/[lang]/knowledge/[slug]/page.tsx"]) {
+    assert.doesNotMatch(read(route), /PVA knowledge/, `${route} prints an English section name again`);
+  }
+  assert.doesNotMatch(read("src/app/(site)/knowledge/[slug]/page.tsx"), /answersIndex\.aboutHeading/,
+    "the article byline is pointing at answer wording again");
+});
+
+/** Visible text of the related block: after `</article>`, before the site footer. */
+function relatedFootline(rel) {
+  const html = readFileSync(path.join(PRERENDER_ROOT, rel), "utf8")
+    .replace(/<script[\s\S]*?<\/script>/g, " ");
+  const start = html.indexOf("</article>");
+  const end = html.indexOf("<footer");
+  if (start < 0) return "";
+  return visibleText(end > start ? html.slice(start, end) : html.slice(start));
+}
+
+const articleDoc = (locale, slug) => (locale === "en" ? `knowledge/${slug}.html` : `${locale}/knowledge/${slug}.html`);
+
+test("TASK 61 · the shipped HTML renders the model and keeps each article's own prose", buildOptions, () => {
+  for (const article of articles) {
+    for (const locale of locales) {
+      const rel = articleDoc(locale, article.slug);
+      if (!existsSync(path.join(PRERENDER_ROOT, rel))) throw new Error(`missing prerendered document: ${rel}`);
+      const html = readFileSync(path.join(PRERENDER_ROOT, rel), "utf8");
+      const body = visibleText(html);
+      const sections = locale === "zh" ? article.sections.zh : article.sections.en;
+
+      let cursor = 0;
+      for (const section of sections) {
+        const at = body.indexOf(section.heading, cursor);
+        assert.ok(at >= 0, `${rel}: lost the heading "${section.heading}"`);
+        for (const block of section.blocks) {
+          if (block.type !== "paragraph") continue;
+          const found = body.indexOf(block.text, at);
+          assert.ok(found >= 0, `${rel}: lost the body of "${section.heading}"`);
+          cursor = found + block.text.length;
+        }
+      }
+
+      const articleRegion = html.slice(html.indexOf("<article"), html.indexOf("</article>"))
+        .replace(/<script[\s\S]*?<\/script>/g, " ");
+      const declared = sections.some((section) => section.blocks.some((block) => block.type !== "paragraph"));
+      assert.equal(/<(ul|ol|dl|table|figure)[\s>]/.test(articleRegion), declared,
+        `${rel}: shows list or table markup the article body never asked for`);
+      assert.equal(articleRegion.includes("PVA knowledge"), false, `${rel}: still prints the old English suffix`);
+      assert.equal(articleRegion.includes("About this answer"), false, `${rel}: still prints the orphan answer label`);
+    }
+  }
+
+  // Related reading is the article's own, not the whole catalogue.
+  for (const article of articles) {
+    const footline = relatedFootline(articleDoc("en", article.slug));
+    const declared = article.related.products.map((slug) => productCard(slug, "en").name);
+    const undeclared = products.map((product) => productCard(product.slug, "en").name)
+      .filter((name) => !declared.includes(name));
+    for (const name of declared) {
+      assert.ok(footline.includes(name), `${article.slug}: declares "${name}" but does not link it`);
+    }
+    for (const name of undeclared) {
+      assert.equal(footline.includes(name), false,
+        `${article.slug}: still advertises "${name}", which it does not declare`);
+    }
+    for (const slug of article.related.answers) {
+      assert.ok(footline.includes(answerCard(slug, "en").question), `${article.slug}: lost related answer "${slug}"`);
+    }
+  }
+});
+
+test("TASK 61 · the body renderer stays server-only and keeps the route's pins", () => {
+  for (const [name, source] of [
+    ["article-body.tsx", read("src/components/knowledge/article-body.tsx")],
+    ["article-related.tsx", read("src/components/knowledge/article-related.tsx")],
+  ]) {
+    assert.doesNotMatch(source, /^\s*"use client";/m, `${name} became a client component`);
+    assert.doesNotMatch(source, /\buse(State|Effect|Memo|Callback|Ref)\b/, `${name} gained client state`);
+    assert.doesNotMatch(source, /pageCopyFor\(/,
+      `${name} resolves its own copy: locale resolution belongs to the route, and a second ` +
+      `seam here would be one no evidence record was ever reviewed against`);
+  }
+  const bodyView = read("src/components/knowledge/article-body.tsx");
+  assert.match(bodyView, /<caption/, "a table could render with no caption again");
+  assert.match(bodyView, /scope="col"/, "column headers lost their scope");
+  assert.match(bodyView, /scope="row"/, "row headers lost their scope");
+  assert.match(bodyView, /scroll-thin/, "the table no longer scrolls on a phone");
+  assert.match(bodyView, /table-spec/, "the table left the shared spec-table style");
+
+  const langRoute = read("src/app/[lang]/knowledge/[slug]/page.tsx");
+  assert.match(langRoute, /pageCopyFor\(/, "the localized route stopped resolving copy");
+  assert.match(langRoute, /contentLocale/);
+  assert.match(langRoute, /section: "knowledge",\s*\n\s*locale,/);
+  assert.match(langRoute, /from ["']@\/content\/card-copy["']/,
+    "the route stopped resolving card labels, so related links would go English");
+});

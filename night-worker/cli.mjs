@@ -74,10 +74,18 @@ function requireRepositoryRoot(options) {
 
 function storeFor(options, { requireRepo = true } = {}) {
   const repositoryRoot = requireRepo ? requireRepositoryRoot(options) : options.repositoryRoot;
-  const filePath = options.storePath
-    ? path.resolve(options.storePath)
-    : defaultRuntimeStorePath(repositoryRoot);
-  return new RuntimeStore(filePath);
+  const internalPath = defaultRuntimeStorePath(repositoryRoot);
+  const filePath = options.storePath ? path.resolve(options.storePath) : internalPath;
+  const relative = path.relative(internalPath, filePath);
+  if (relative !== "") throw new Error("--store must use the repository's internal .night-worker/runtime.json path.");
+  const internalDirectory = path.dirname(internalPath);
+  if (fs.existsSync(internalDirectory) && path.relative(internalDirectory, fs.realpathSync(internalDirectory)) !== "") {
+    throw new Error("Internal runtime directory resolves outside the repository.");
+  }
+  if (fs.existsSync(filePath) && fs.lstatSync(filePath).isSymbolicLink()) {
+    throw new Error("Internal runtime state cannot be a symbolic link.");
+  }
+  return new RuntimeStore(internalPath);
 }
 
 export function usage() {

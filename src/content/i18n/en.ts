@@ -230,7 +230,11 @@ const dict = {
     englishNote: "Maintained by our technical content team — rankings and claims are verified, not repeated.",
   },
   knowledgeIndex: {
-    title: "Technical articles",
+    // One public name for the section. `nav.knowledge` and `breadcrumbs.knowledge`
+    // already said "Resources" while this H1 said "Technical articles" and the
+    // page <title> said "Technical Resources". Copied from this dictionary's own
+    // `nav.knowledge` rather than authored here.
+    title: "Resources",
     lead: "Selection guides, testing frameworks and specification checklists from our PVA engineering content team.",
     published: "Published",
     updated: "Updated",

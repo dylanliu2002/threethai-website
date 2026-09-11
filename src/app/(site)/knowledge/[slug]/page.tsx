@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import Breadcrumbs from "@/components/layout/breadcrumbs";
+import ArticleBodyView from "@/components/knowledge/article-body";
+import ArticleRelatedView, { type RelatedLinkGroup } from "@/components/knowledge/article-related";
 import { articles, articleBySlug } from "@/content/articles";
-import { products } from "@/content/products";
 import { en } from "@/content/i18n";
+import { answerCard, applicationCard, articleCard, productCard } from "@/content/card-copy";
 import { buildMetadata, articleSchema, breadcrumbSchema, jsonLd } from "@/lib/seo";
 
 type ArticlePageProps = { params: Promise<{ slug: string }> };
@@ -33,7 +35,46 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   const article = articleBySlug(slug);
   if (!article) notFound();
   const dict = en;
-  const others = articles.filter((a) => a.slug !== article.slug).slice(0, 3);
+
+  // This article's own navigation. `card-copy` at "en" returns the entity's own
+  // English (the module asserts the pair is equal and throws if it drifts), so the
+  // labels are byte-identical to the direct `p.name.en` reads this block replaces —
+  // and both article routes now resolve related content the same one way.
+  const groups: RelatedLinkGroup[] = [
+    {
+      heading: dict.actions.exploreProducts,
+      variant: "pill",
+      items: article.related.products.map((slug) => ({
+        label: productCard(slug, "en").name,
+        href: `/products/${slug}`,
+      })),
+    },
+    {
+      heading: dict.nav.applications,
+      variant: "pill",
+      items: article.related.applications.map((slug) => ({
+        label: applicationCard(slug, "en").name,
+        href: `/applications/${slug}`,
+      })),
+    },
+    {
+      heading: dict.answersIndex.title,
+      variant: "line",
+      items: article.related.answers.map((slug) => ({
+        label: answerCard(slug, "en").question,
+        href: `/answers/${slug}`,
+      })),
+    },
+    {
+      heading: dict.actions.allArticles,
+      variant: "line",
+      items: article.related.articles.map((slug) => ({
+        label: articleCard(slug, "en").title,
+        href: `/knowledge/${slug}`,
+      })),
+      trailing: { label: `${dict.actions.allAnswers} (${dict.answersIndex.count})`, href: "/answers" },
+    },
+  ];
 
   return (
     <>
@@ -62,23 +103,23 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           ]}
         />
         <article>
-          <p className="eyebrow mt-8">{article.category.en} · PVA knowledge</p>
+          <p className="eyebrow mt-8">{article.category.en} · {dict.nav.knowledge}</p>
           <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-tight text-ink sm:text-4xl">{article.title.en}</h1>
+          {/*
+            This byline used to end in an "About this answer" label — the answer
+            section's heading key printed on an article page, an orphan with no
+            answer box behind it and the wrong noun for the page it was on. The
+            localized route never had it, so this is a removal from one page rather
+            than a label added to twelve. Guarded by task 61.
+          */}
           <p className="mt-4 text-sm text-muted-foreground">
             <time dateTime={article.datePublished}>{dict.knowledgeIndex.published} {article.datePublished}</time>
             <span aria-hidden="true"> · </span>
             <time dateTime={article.dateModified}>{dict.knowledgeIndex.updated} {article.dateModified}</time>
-            <span aria-hidden="true"> · </span>
-            <span>{dict.answersIndex.aboutHeading}</span>
           </p>
           <p className="mt-6 border-l-2 border-gold pl-5 text-lg leading-relaxed text-foreground/90">{article.intro.en}</p>
 
-          {article.sections.en.map(([heading, body]: readonly [string, string]) => (
-            <section key={heading} className="mt-8">
-              <h2 className="text-xl font-semibold tracking-tight text-ink">{heading}</h2>
-              <p className="mt-3 text-base leading-relaxed text-muted-foreground">{body}</p>
-            </section>
-          ))}
+          <ArticleBodyView body={article.sections.en} locale="en" />
 
           <aside className="mt-10 rounded-lg bg-primary p-7 text-primary-foreground">
             <h2 className="text-lg font-semibold text-white">{dict.productsIndex.ctaTitle}</h2>
@@ -90,33 +131,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           </aside>
         </article>
 
-        <section className="hairline mt-12 pt-8">
-          <h2 className="display-3">{dict.actions.exploreProducts}</h2>
-          <ul className="mt-4 flex flex-wrap gap-2">
-            {products.map((p) => (
-              <li key={p.slug}>
-                <Link href={`/products/${p.slug}`} className="inline-block rounded-full border border-input px-4 py-1.5 text-sm font-medium text-foreground/80 transition-colors hover:border-primary hover:text-primary">
-                  {p.name.en}
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <h2 className="display-3 mt-8">{dict.actions.allArticles}</h2>
-          <ul className="mt-4 space-y-2">
-            {others.map((a) => (
-              <li key={a.slug}>
-                <Link href={`/knowledge/${a.slug}`} className="text-sm font-medium text-primary hover:underline">
-                  {a.title.en}
-                </Link>
-              </li>
-            ))}
-            <li>
-              <Link href="/answers" className="text-sm text-muted-foreground hover:text-primary">
-                {dict.actions.allAnswers} ({dict.answersIndex.count})
-              </Link>
-            </li>
-          </ul>
-        </section>
+        <ArticleRelatedView groups={groups} />
       </div>
     </>
   );

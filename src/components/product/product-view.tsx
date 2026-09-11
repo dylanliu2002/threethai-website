@@ -7,7 +7,7 @@ import { products as allProducts } from "@/content/products";
 import { applications } from "@/content/applications";
 import { temperatureCatalog, temperatureNote } from "@/content/catalog";
 import { buyerAnswers } from "@/content/answers";
-import { articles } from "@/content/articles";
+import { articlesForProduct } from "@/content/article-related";
 import type { Dictionary } from "@/content/i18n";
 import type { Locale } from "@/content/company";
 import { localePath } from "@/content/company";
@@ -49,9 +49,14 @@ export default function ProductView({ product, locale, dict }: { product: Produc
   // prose. The answer bodies and article bodies behind them are deferred content,
   // so a label may be Spanish while the page it links to still renders English —
   // that page is where a record would have to land, not this list.
-  const relatedArticles = articles.slice(0, 2).map((article) => ({
-    slug: article.slug,
-    title: articleCard(article.slug, locale).title,
+  //
+  // This used to be `articles.slice(0, 2)`, which put the yarn dissolution guide
+  // and the yarn specification checklist on the sewing-thread page and both fibre
+  // pages too. The set now comes from `article-related.ts`, where each edge is
+  // declared; a format with no article written about it shows none.
+  const relatedArticles = articlesForProduct(product.slug).map((slug) => ({
+    slug,
+    title: articleCard(slug, locale).title,
   }));
   const relatedAnswers = buyerAnswers
     .filter((a) => a.relatedProduct === product.slug)
