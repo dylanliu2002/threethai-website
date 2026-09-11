@@ -13,7 +13,7 @@
 - **Current Model Family:** `gpt-5.6-luna`
 - **Execution Assignment Recorded:** Yes
 - **Priority:** `P0`
-- **Status:** `IN_PROGRESS`
+- **Status:** `REVIEW`
 - **Risk:** `MEDIUM`
 - **Branch:** `codex/61-night-worker-runtime`
 - **Worktree:** `worktrees/agent-61-night-worker-runtime`
@@ -164,17 +164,17 @@ git log -1 --format='%an <%ae>'
 ```
 
 - [x] Diff scope reviewed: implementation changes are limited to the Task 61 allowlist plus this card and its task-owned worklog; package files, shared files, `workflow/**`, and SYS-AUTO-007 are not Task 61 changes.
-- [x] Validation recorded below; final committed-diff and latest-commit identity gates remain part of delivery verification.
+- [x] Validation recorded below; the correction implementation has been rebuilt on the current `origin/main` tip and remains pending independent SOL review.
 
 Validation results so far:
 
 - `node --test night-worker/tests/*.test.mjs` — PASS (22/22), including the correction-cycle crash-window, reservation/concurrency, raw-lifecycle, exact-model pagination, path-confinement, and lock-ownership tests.
 - `npm run lint` — PASS.
 - `npm run build` — BLOCKED by the restricted validation environment: Next.js 16.1.3/Turbopack could not fetch the Google Geist and Geist Mono font CSS, ending with `Failed to fetch Geist from Google Fonts`. No shared layout/font file was changed.
-- `git diff --check origin/main...<new-tip>` — pending rebased delivery tip.
-- `git diff --name-only origin/main...<new-tip>` — pending rebased delivery tip.
-- `git diff --exit-code origin/main...<new-tip> -- workflow` — pending rebased delivery tip; no workflow changes observed locally.
-- Required Git identity configuration — PASS for `dylanliu2002 <dylanliu2002@gmail.com>`; latest-commit verification remains a delivery gate for the rebased tip.
+- `git diff --check origin/main...1995092a797c3711c2a4e8cad7efb0867f0c3d9b` — PASS.
+- `git diff --name-only origin/main...1995092a797c3711c2a4e8cad7efb0867f0c3d9b` — PASS; only the Task 61 allowlist plus this card and its task-owned worklog are present.
+- `git diff --exit-code origin/main...1995092a797c3711c2a4e8cad7efb0867f0c3d9b -- workflow` — PASS; no workflow changes.
+- Required Git identity configuration — the shared worktree config could not be locked in this environment; the alternate commit path set and verified `dylanliu2002 <dylanliu2002@gmail.com>` on the rebased tip.
 
 ## Coordination Items
 
@@ -184,17 +184,17 @@ Validation results so far:
 
 ## Review Status
 
-- Outcome: Pending
+- Outcome: Pending independent SOL review
 - Independent reviewer evidence:
 
 ## Completion Record
 
-- Commit: `db45f231afedf62059a0f454fdc40419c1fc1fa7` (implementation commit; delivery-record follow-up is preserved locally below)
-- Base / rebase commit: `3d01f21df361b6dc72149c46740e5ce197f9f557`
+- Commit: `1995092a797c3711c2a4e8cad7efb0867f0c3d9b` (correction implementation tip, linearly based on current `origin/main`; a delivery-record descendant preserves the final card/worklog state)
+- Base / rebase commit: `aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4`
 - Changed files: `night-worker/app-server-client.mjs`, `night-worker/cli.mjs`, `night-worker/config.mjs`, `night-worker/queue.mjs`, `night-worker/runtime-store.mjs`, `night-worker/service.mjs`, `night-worker/submission.mjs`, `night-worker/tests/runtime.test.mjs`, `night-worker/thread-broker.mjs`, `tasks/61-night-worker-runtime.md`, `worklog/agent-61-night-worker-runtime.md`.
-- Validation results: focused tests PASS (15/15); `npm run lint` PASS; `npm run build` PASS; `git diff --check origin/main...db45f231afedf62059a0f454fdc40419c1fc1fa7` PASS; committed paths are allowlist-only; `git diff --exit-code origin/main...db45f231afedf62059a0f454fdc40419c1fc1fa7 -- workflow` PASS; `git log -1 --format='%an <%ae>' db45f231afedf62059a0f454fdc40419c1fc1fa7` is exactly `dylanliu2002 <dylanliu2002@gmail.com>`.
+- Validation results: focused tests PASS (22/22); `npm run lint` PASS; `npm run build` is blocked because the restricted environment cannot fetch Google Geist and Geist Mono from Google Fonts; `git diff --check origin/main...1995092a797c3711c2a4e8cad7efb0867f0c3d9b` PASS; committed paths are allowlist-only; `git diff --exit-code origin/main...1995092a797c3711c2a4e8cad7efb0867f0c3d9b -- workflow` PASS; `git log -1 --format='%an <%ae>' 1995092a797c3711c2a4e8cad7efb0867f0c3d9b` is exactly `dylanliu2002 <dylanliu2002@gmail.com>`.
 - Worklog: `worklog/agent-61-night-worker-runtime.md`
-- Remaining risks: independent SOL review is pending. Push and PR delivery are blocked by the environment: SSH host-key verification cannot read `C:\Users\dylan\.ssh\known_hosts` (`Permission denied`), HTTPS has no credentials (`SEC_E_NO_CREDENTIALS`), and `gh auth status` reports the stored GitHub token invalid. No host-verification bypass or credential expansion was attempted. The local implementation and delivery-record commit objects are preserved; the normal worktree Git ref/index is read-only in this environment.
+- Remaining risks: independent SOL review is pending; the required production build remains environment-blocked by Google Fonts network access. The normal shared Git metadata is read-only, so the rebased tip and its delivery-record descendant are preserved through the alternate object/index path. Push/PR outcome is recorded in the append-only worklog and final handoff.
 
 ## Rollback
 

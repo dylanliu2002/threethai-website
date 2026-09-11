@@ -24,3 +24,10 @@
 - Correction validation: `node --test night-worker/tests/*.test.mjs` PASS (22/22); `npm run lint` PASS.
 - `npm run build` was attempted and is blocked by the restricted environment because Next.js could not fetch Google Geist and Geist Mono from Google Fonts (`Failed to fetch Geist from Google Fonts`). Shared layout/font files were not modified.
 - Current rebase target is `origin/main` at `aa5c2bc7f3f52cb291e516b3ff1a473316c38aa`; the prior reviewed tip `d4d1178e4150de8c4f7c815eacdccd1e0f3c8e4b` is preserved and the correction will be rebuilt as a new linear tip on the current target without force-push.
+
+## 2026-09-11 — correction rebase record
+
+- Rebuilt the scoped correction as linear commit `1995092a797c3711c2a4e8cad7efb0867f0c3d9b`, with parent `aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4` (`origin/main`).
+- The rebased commit author was verified as exactly `dylanliu2002 <dylanliu2002@gmail.com>` using the alternate Git object/index path after the shared worktree config lock failed with `Permission denied`.
+- Hash-qualified scope checks pass for the rebased commit: `git diff --check`, allowlist-only `git diff --name-only`, and `git diff --exit-code ... -- workflow`.
+- The task is now staged for independent SOL review. A delivery-record descendant will carry this card’s final push/PR outcome.
