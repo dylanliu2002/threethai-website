@@ -1,0 +1,887 @@
+{
+  "$note": "Per-document byte budget, regenerated deliberately by the task that changed a route.",
+  "$baseCommit": "9d8ccc114c243fafbc4ec83e61d021e0ccfff026",
+  "$toleranceBytes": 64,
+  "documents": {
+    "about.html": {
+      "bytes": 83620,
+      "scriptBytes": 58773
+    },
+    "answers.html": {
+      "bytes": 136888,
+      "scriptBytes": 94431
+    },
+    "answers/20c-cold-water-soluble-pva-yarn-bulk-supplier.html": {
+      "bytes": 70404,
+      "scriptBytes": 52346
+    },
+    "answers/20c-vs-90c-pva-yarn-difference.html": {
+      "bytes": 69694,
+      "scriptBytes": 51806
+    },
+    "answers/40s-pva-water-soluble-yarn-price-per-kg.html": {
+      "bytes": 69589,
+      "scriptBytes": 51748
+    },
+    "answers/best-pva-water-soluble-yarn-manufacturers-china.html": {
+      "bytes": 94250,
+      "scriptBytes": 67288
+    },
+    "answers/biodegradable-water-soluble-thread-fashion.html": {
+      "bytes": 69704,
+      "scriptBytes": 51781
+    },
+    "answers/china-pva-filament-yarn-factory-export.html": {
+      "bytes": 69734,
+      "scriptBytes": 51831
+    },
+    "answers/compare-water-soluble-pva-yarn-supplier-prices.html": {
+      "bytes": 69808,
+      "scriptBytes": 51877
+    },
+    "answers/custom-soluble-swimwear-fabric-china-factory.html": {
+      "bytes": 70200,
+      "scriptBytes": 52169
+    },
+    "answers/documents-request-pva-yarn-supplier.html": {
+      "bytes": 68824,
+      "scriptBytes": 51170
+    },
+    "answers/factory-audit-checklist-water-soluble-yarn-mill.html": {
+      "bytes": 69952,
+      "scriptBytes": 52014
+    },
+    "answers/high-tenacity-pva-fiber-industrial-use.html": {
+      "bytes": 69620,
+      "scriptBytes": 51782
+    },
+    "answers/iso-certified-pva-yarn-manufacturer-shandong.html": {
+      "bytes": 69531,
+      "scriptBytes": 51708
+    },
+    "answers/minimum-order-quantity-pva-water-soluble-thread.html": {
+      "bytes": 69908,
+      "scriptBytes": 51966
+    },
+    "answers/oeko-tex-pva-yarn-supplier-china.html": {
+      "bytes": 69742,
+      "scriptBytes": 51812
+    },
+    "answers/pva-fiber-for-papermaking-supplier.html": {
+      "bytes": 69145,
+      "scriptBytes": 51409
+    },
+    "answers/pva-fiber-supplier-knitwear.html": {
+      "bytes": 68978,
+      "scriptBytes": 51325
+    },
+    "answers/pva-sewing-thread-temporary-stitching-garments.html": {
+      "bytes": 69648,
+      "scriptBytes": 51753
+    },
+    "answers/pva-staple-fiber-vs-filament-yarn-difference.html": {
+      "bytes": 70109,
+      "scriptBytes": 52086
+    },
+    "answers/pva-water-soluble-fiber-nonwoven-production.html": {
+      "bytes": 69601,
+      "scriptBytes": 51742
+    },
+    "answers/pva-water-soluble-yarn-embroidery-lace.html": {
+      "bytes": 69535,
+      "scriptBytes": 51690
+    },
+    "answers/pva-water-soluble-yarn-fishing-net-applications.html": {
+      "bytes": 70007,
+      "scriptBytes": 52045
+    },
+    "answers/pva-yarn-20s-to-100s-china-factory.html": {
+      "bytes": 69434,
+      "scriptBytes": 51666
+    },
+    "answers/pva-yarn-factory-export-india-pakistan.html": {
+      "bytes": 69662,
+      "scriptBytes": 51795
+    },
+    "answers/reliable-oem-pva-water-soluble-sewing-thread-factory.html": {
+      "bytes": 70273,
+      "scriptBytes": 52156
+    },
+    "answers/sample-order-process-pva-water-soluble-yarn.html": {
+      "bytes": 70308,
+      "scriptBytes": 52175
+    },
+    "answers/shandong-vs-guangdong-pva-yarn-manufacturer.html": {
+      "bytes": 69245,
+      "scriptBytes": 51498
+    },
+    "answers/source-water-soluble-yarn-zero-twist-towels.html": {
+      "bytes": 69634,
+      "scriptBytes": 51781
+    },
+    "answers/test-pva-yarn-dissolution-temperature.html": {
+      "bytes": 69446,
+      "scriptBytes": 51626
+    },
+    "answers/top-water-soluble-pva-yarn-exporters-china-2026.html": {
+      "bytes": 70734,
+      "scriptBytes": 52533
+    },
+    "answers/verify-chinese-pva-yarn-factory.html": {
+      "bytes": 69328,
+      "scriptBytes": 51611
+    },
+    "applications.html": {
+      "bytes": 74884,
+      "scriptBytes": 53259
+    },
+    "applications/embroidery-sewing.html": {
+      "bytes": 80831,
+      "scriptBytes": 54928
+    },
+    "applications/knitting.html": {
+      "bytes": 80450,
+      "scriptBytes": 54739
+    },
+    "applications/papermaking.html": {
+      "bytes": 77369,
+      "scriptBytes": 53658
+    },
+    "applications/technical-textiles.html": {
+      "bytes": 84049,
+      "scriptBytes": 56079
+    },
+    "applications/towel-weaving.html": {
+      "bytes": 81008,
+      "scriptBytes": 55038
+    },
+    "contact.html": {
+      "bytes": 62034,
+      "scriptBytes": 45642
+    },
+    "de.html": {
+      "bytes": 135605,
+      "scriptBytes": 82893
+    },
+    "de/about.html": {
+      "bytes": 84221,
+      "scriptBytes": 59171
+    },
+    "de/answers.html": {
+      "bytes": 138751,
+      "scriptBytes": 95935
+    },
+    "de/answers/20c-cold-water-soluble-pva-yarn-bulk-supplier.html": {
+      "bytes": 71156,
+      "scriptBytes": 53186
+    },
+    "de/answers/20c-vs-90c-pva-yarn-difference.html": {
+      "bytes": 70448,
+      "scriptBytes": 52603
+    },
+    "de/answers/40s-pva-water-soluble-yarn-price-per-kg.html": {
+      "bytes": 70279,
+      "scriptBytes": 52508
+    },
+    "de/answers/best-pva-water-soluble-yarn-manufacturers-china.html": {
+      "bytes": 91479,
+      "scriptBytes": 65883
+    },
+    "de/answers/biodegradable-water-soluble-thread-fashion.html": {
+      "bytes": 70328,
+      "scriptBytes": 52484
+    },
+    "de/answers/china-pva-filament-yarn-factory-export.html": {
+      "bytes": 70428,
+      "scriptBytes": 52592
+    },
+    "de/answers/compare-water-soluble-pva-yarn-supplier-prices.html": {
+      "bytes": 70438,
+      "scriptBytes": 52598
+    },
+    "de/answers/custom-soluble-swimwear-fabric-china-factory.html": {
+      "bytes": 70939,
+      "scriptBytes": 52993
+    },
+    "de/answers/documents-request-pva-yarn-supplier.html": {
+      "bytes": 69409,
+      "scriptBytes": 51816
+    },
+    "de/answers/factory-audit-checklist-water-soluble-yarn-mill.html": {
+      "bytes": 70636,
+      "scriptBytes": 52795
+    },
+    "de/answers/high-tenacity-pva-fiber-industrial-use.html": {
+      "bytes": 70330,
+      "scriptBytes": 52559
+    },
+    "de/answers/iso-certified-pva-yarn-manufacturer-shandong.html": {
+      "bytes": 70240,
+      "scriptBytes": 52505
+    },
+    "de/answers/minimum-order-quantity-pva-water-soluble-thread.html": {
+      "bytes": 70572,
+      "scriptBytes": 52724
+    },
+    "de/answers/oeko-tex-pva-yarn-supplier-china.html": {
+      "bytes": 70426,
+      "scriptBytes": 52545
+    },
+    "de/answers/pva-fiber-for-papermaking-supplier.html": {
+      "bytes": 69767,
+      "scriptBytes": 52086
+    },
+    "de/answers/pva-fiber-supplier-knitwear.html": {
+      "bytes": 69663,
+      "scriptBytes": 52044
+    },
+    "de/answers/pva-sewing-thread-temporary-stitching-garments.html": {
+      "bytes": 70250,
+      "scriptBytes": 52446
+    },
+    "de/answers/pva-staple-fiber-vs-filament-yarn-difference.html": {
+      "bytes": 70836,
+      "scriptBytes": 52898
+    },
+    "de/answers/pva-water-soluble-fiber-nonwoven-production.html": {
+      "bytes": 70223,
+      "scriptBytes": 52446
+    },
+    "de/answers/pva-water-soluble-yarn-embroidery-lace.html": {
+      "bytes": 70179,
+      "scriptBytes": 52401
+    },
+    "de/answers/pva-water-soluble-yarn-fishing-net-applications.html": {
+      "bytes": 70708,
+      "scriptBytes": 52840
+    },
+    "de/answers/pva-yarn-20s-to-100s-china-factory.html": {
+      "bytes": 70170,
+      "scriptBytes": 52457
+    },
+    "de/answers/pva-yarn-factory-export-india-pakistan.html": {
+      "bytes": 70364,
+      "scriptBytes": 52564
+    },
+    "de/answers/reliable-oem-pva-water-soluble-sewing-thread-factory.html": {
+      "bytes": 70887,
+      "scriptBytes": 52879
+    },
+    "de/answers/sample-order-process-pva-water-soluble-yarn.html": {
+      "bytes": 70966,
+      "scriptBytes": 52915
+    },
+    "de/answers/shandong-vs-guangdong-pva-yarn-manufacturer.html": {
+      "bytes": 69889,
+      "scriptBytes": 52227
+    },
+    "de/answers/source-water-soluble-yarn-zero-twist-towels.html": {
+      "bytes": 70302,
+      "scriptBytes": 52531
+    },
+    "de/answers/test-pva-yarn-dissolution-temperature.html": {
+      "bytes": 70088,
+      "scriptBytes": 52332
+    },
+    "de/answers/top-water-soluble-pva-yarn-exporters-china-2026.html": {
+      "bytes": 71520,
+      "scriptBytes": 53413
+    },
+    "de/answers/verify-chinese-pva-yarn-factory.html": {
+      "bytes": 70045,
+      "scriptBytes": 52377
+    },
+    "de/applications.html": {
+      "bytes": 75177,
+      "scriptBytes": 53476
+    },
+    "de/applications/embroidery-sewing.html": {
+      "bytes": 81798,
+      "scriptBytes": 55544
+    },
+    "de/applications/knitting.html": {
+      "bytes": 81570,
+      "scriptBytes": 55434
+    },
+    "de/applications/papermaking.html": {
+      "bytes": 78528,
+      "scriptBytes": 54351
+    },
+    "de/applications/technical-textiles.html": {
+      "bytes": 84934,
+      "scriptBytes": 56623
+    },
+    "de/applications/towel-weaving.html": {
+      "bytes": 82063,
+      "scriptBytes": 55692
+    },
+    "de/contact.html": {
+      "bytes": 79636,
+      "scriptBytes": 63143
+    },
+    "de/knowledge.html": {
+      "bytes": 72212,
+      "scriptBytes": 52514
+    },
+    "de/knowledge/pva-batch-dissolution-consistency.html": {
+      "bytes": 95215,
+      "scriptBytes": 66214
+    },
+    "de/knowledge/pva-staple-fiber-vs-filament-yarn.html": {
+      "bytes": 72618,
+      "scriptBytes": 53111
+    },
+    "de/knowledge/pva-yarn-buyer-specification-checklist.html": {
+      "bytes": 73321,
+      "scriptBytes": 53546
+    },
+    "de/knowledge/pva-yarn-dissolution-temperature-guide.html": {
+      "bytes": 92504,
+      "scriptBytes": 64760
+    },
+    "de/manufacturing.html": {
+      "bytes": 87905,
+      "scriptBytes": 56940
+    },
+    "de/product-finder.html": {
+      "bytes": 79814,
+      "scriptBytes": 61990
+    },
+    "de/products.html": {
+      "bytes": 87114,
+      "scriptBytes": 59082
+    },
+    "de/products/pva-filament-yarn.html": {
+      "bytes": 102998,
+      "scriptBytes": 71535
+    },
+    "de/products/pva-staple-fiber.html": {
+      "bytes": 106149,
+      "scriptBytes": 73453
+    },
+    "de/products/water-soluble-pva-sewing-thread.html": {
+      "bytes": 104945,
+      "scriptBytes": 72814
+    },
+    "de/products/water-soluble-pva-yarn.html": {
+      "bytes": 109494,
+      "scriptBytes": 75441
+    },
+    "de/quality.html": {
+      "bytes": 177836,
+      "scriptBytes": 110163
+    },
+    "de/request-quote.html": {
+      "bytes": 78021,
+      "scriptBytes": 62273
+    },
+    "de/request-sample.html": {
+      "bytes": 76153,
+      "scriptBytes": 61183
+    },
+    "es.html": {
+      "bytes": 136508,
+      "scriptBytes": 83570
+    },
+    "es/about.html": {
+      "bytes": 85078,
+      "scriptBytes": 59834
+    },
+    "es/answers.html": {
+      "bytes": 140041,
+      "scriptBytes": 96903
+    },
+    "es/answers/20c-cold-water-soluble-pva-yarn-bulk-supplier.html": {
+      "bytes": 71804,
+      "scriptBytes": 53742
+    },
+    "es/answers/20c-vs-90c-pva-yarn-difference.html": {
+      "bytes": 71096,
+      "scriptBytes": 53159
+    },
+    "es/answers/40s-pva-water-soluble-yarn-price-per-kg.html": {
+      "bytes": 70927,
+      "scriptBytes": 53064
+    },
+    "es/answers/best-pva-water-soluble-yarn-manufacturers-china.html": {
+      "bytes": 92111,
+      "scriptBytes": 66431
+    },
+    "es/answers/biodegradable-water-soluble-thread-fashion.html": {
+      "bytes": 70976,
+      "scriptBytes": 53040
+    },
+    "es/answers/china-pva-filament-yarn-factory-export.html": {
+      "bytes": 71089,
+      "scriptBytes": 53161
+    },
+    "es/answers/compare-water-soluble-pva-yarn-supplier-prices.html": {
+      "bytes": 71099,
+      "scriptBytes": 53167
+    },
+    "es/answers/custom-soluble-swimwear-fabric-china-factory.html": {
+      "bytes": 71587,
+      "scriptBytes": 53549
+    },
+    "es/answers/documents-request-pva-yarn-supplier.html": {
+      "bytes": 70057,
+      "scriptBytes": 52372
+    },
+    "es/answers/factory-audit-checklist-water-soluble-yarn-mill.html": {
+      "bytes": 71279,
+      "scriptBytes": 53346
+    },
+    "es/answers/high-tenacity-pva-fiber-industrial-use.html": {
+      "bytes": 70991,
+      "scriptBytes": 53128
+    },
+    "es/answers/iso-certified-pva-yarn-manufacturer-shandong.html": {
+      "bytes": 70888,
+      "scriptBytes": 53061
+    },
+    "es/answers/minimum-order-quantity-pva-water-soluble-thread.html": {
+      "bytes": 71220,
+      "scriptBytes": 53280
+    },
+    "es/answers/oeko-tex-pva-yarn-supplier-china.html": {
+      "bytes": 71074,
+      "scriptBytes": 53101
+    },
+    "es/answers/pva-fiber-for-papermaking-supplier.html": {
+      "bytes": 70428,
+      "scriptBytes": 52655
+    },
+    "es/answers/pva-fiber-supplier-knitwear.html": {
+      "bytes": 70311,
+      "scriptBytes": 52600
+    },
+    "es/answers/pva-sewing-thread-temporary-stitching-garments.html": {
+      "bytes": 70898,
+      "scriptBytes": 53002
+    },
+    "es/answers/pva-staple-fiber-vs-filament-yarn-difference.html": {
+      "bytes": 71492,
+      "scriptBytes": 53462
+    },
+    "es/answers/pva-water-soluble-fiber-nonwoven-production.html": {
+      "bytes": 70871,
+      "scriptBytes": 53002
+    },
+    "es/answers/pva-water-soluble-yarn-embroidery-lace.html": {
+      "bytes": 70827,
+      "scriptBytes": 52957
+    },
+    "es/answers/pva-water-soluble-yarn-fishing-net-applications.html": {
+      "bytes": 71356,
+      "scriptBytes": 53396
+    },
+    "es/answers/pva-yarn-20s-to-100s-china-factory.html": {
+      "bytes": 70818,
+      "scriptBytes": 53013
+    },
+    "es/answers/pva-yarn-factory-export-india-pakistan.html": {
+      "bytes": 71025,
+      "scriptBytes": 53133
+    },
+    "es/answers/reliable-oem-pva-water-soluble-sewing-thread-factory.html": {
+      "bytes": 71548,
+      "scriptBytes": 53448
+    },
+    "es/answers/sample-order-process-pva-water-soluble-yarn.html": {
+      "bytes": 71627,
+      "scriptBytes": 53484
+    },
+    "es/answers/shandong-vs-guangdong-pva-yarn-manufacturer.html": {
+      "bytes": 70537,
+      "scriptBytes": 52783
+    },
+    "es/answers/source-water-soluble-yarn-zero-twist-towels.html": {
+      "bytes": 70963,
+      "scriptBytes": 53100
+    },
+    "es/answers/test-pva-yarn-dissolution-temperature.html": {
+      "bytes": 70736,
+      "scriptBytes": 52888
+    },
+    "es/answers/top-water-soluble-pva-yarn-exporters-china-2026.html": {
+      "bytes": 72181,
+      "scriptBytes": 53982
+    },
+    "es/answers/verify-chinese-pva-yarn-factory.html": {
+      "bytes": 70693,
+      "scriptBytes": 52933
+    },
+    "es/applications.html": {
+      "bytes": 75868,
+      "scriptBytes": 54045
+    },
+    "es/applications/embroidery-sewing.html": {
+      "bytes": 82388,
+      "scriptBytes": 56080
+    },
+    "es/applications/knitting.html": {
+      "bytes": 82011,
+      "scriptBytes": 55887
+    },
+    "es/applications/papermaking.html": {
+      "bytes": 79145,
+      "scriptBytes": 54896
+    },
+    "es/applications/technical-textiles.html": {
+      "bytes": 85351,
+      "scriptBytes": 57069
+    },
+    "es/applications/towel-weaving.html": {
+      "bytes": 82776,
+      "scriptBytes": 56307
+    },
+    "es/contact.html": {
+      "bytes": 80561,
+      "scriptBytes": 64014
+    },
+    "es/knowledge.html": {
+      "bytes": 73000,
+      "scriptBytes": 53113
+    },
+    "es/knowledge/pva-batch-dissolution-consistency.html": {
+      "bytes": 95748,
+      "scriptBytes": 66711
+    },
+    "es/knowledge/pva-staple-fiber-vs-filament-yarn.html": {
+      "bytes": 73201,
+      "scriptBytes": 53633
+    },
+    "es/knowledge/pva-yarn-buyer-specification-checklist.html": {
+      "bytes": 73876,
+      "scriptBytes": 54054
+    },
+    "es/knowledge/pva-yarn-dissolution-temperature-guide.html": {
+      "bytes": 93091,
+      "scriptBytes": 65284
+    },
+    "es/manufacturing.html": {
+      "bytes": 88871,
+      "scriptBytes": 57655
+    },
+    "es/product-finder.html": {
+      "bytes": 80970,
+      "scriptBytes": 62980
+    },
+    "es/products.html": {
+      "bytes": 87952,
+      "scriptBytes": 59731
+    },
+    "es/products/pva-filament-yarn.html": {
+      "bytes": 103914,
+      "scriptBytes": 72199
+    },
+    "es/products/pva-staple-fiber.html": {
+      "bytes": 106866,
+      "scriptBytes": 74037
+    },
+    "es/products/water-soluble-pva-sewing-thread.html": {
+      "bytes": 106234,
+      "scriptBytes": 73717
+    },
+    "es/products/water-soluble-pva-yarn.html": {
+      "bytes": 110338,
+      "scriptBytes": 76103
+    },
+    "es/quality.html": {
+      "bytes": 179034,
+      "scriptBytes": 110981
+    },
+    "es/request-quote.html": {
+      "bytes": 78964,
+      "scriptBytes": 63160
+    },
+    "es/request-sample.html": {
+      "bytes": 77035,
+      "scriptBytes": 62038
+    },
+    "index.html": {
+      "bytes": 133726,
+      "scriptBytes": 81856
+    },
+    "knowledge.html": {
+      "bytes": 71680,
+      "scriptBytes": 52084
+    },
+    "knowledge/pva-batch-dissolution-consistency.html": {
+      "bytes": 95115,
+      "scriptBytes": 66083
+    },
+    "knowledge/pva-staple-fiber-vs-filament-yarn.html": {
+      "bytes": 72654,
+      "scriptBytes": 53052
+    },
+    "knowledge/pva-yarn-buyer-specification-checklist.html": {
+      "bytes": 73354,
+      "scriptBytes": 53481
+    },
+    "knowledge/pva-yarn-dissolution-temperature-guide.html": {
+      "bytes": 92372,
+      "scriptBytes": 64609
+    },
+    "manufacturing.html": {
+      "bytes": 87107,
+      "scriptBytes": 56500
+    },
+    "product-finder.html": {
+      "bytes": 63283,
+      "scriptBytes": 45049
+    },
+    "products.html": {
+      "bytes": 87134,
+      "scriptBytes": 59085
+    },
+    "products/pva-filament-yarn.html": {
+      "bytes": 101251,
+      "scriptBytes": 70428
+    },
+    "products/pva-staple-fiber.html": {
+      "bytes": 103964,
+      "scriptBytes": 72086
+    },
+    "products/water-soluble-pva-sewing-thread.html": {
+      "bytes": 103146,
+      "scriptBytes": 71638
+    },
+    "products/water-soluble-pva-yarn.html": {
+      "bytes": 107197,
+      "scriptBytes": 74019
+    },
+    "quality.html": {
+      "bytes": 174802,
+      "scriptBytes": 108550
+    },
+    "request-quote.html": {
+      "bytes": 60931,
+      "scriptBytes": 45004
+    },
+    "request-sample.html": {
+      "bytes": 62345,
+      "scriptBytes": 45933
+    },
+    "zh.html": {
+      "bytes": 118296,
+      "scriptBytes": 71478
+    },
+    "zh/about.html": {
+      "bytes": 78063,
+      "scriptBytes": 54072
+    },
+    "zh/answers.html": {
+      "bytes": 129380,
+      "scriptBytes": 88626
+    },
+    "zh/answers/20c-cold-water-soluble-pva-yarn-bulk-supplier.html": {
+      "bytes": 67372,
+      "scriptBytes": 49262
+    },
+    "zh/answers/20c-vs-90c-pva-yarn-difference.html": {
+      "bytes": 66248,
+      "scriptBytes": 48494
+    },
+    "zh/answers/40s-pva-water-soluble-yarn-price-per-kg.html": {
+      "bytes": 66468,
+      "scriptBytes": 48666
+    },
+    "zh/answers/best-pva-water-soluble-yarn-manufacturers-china.html": {
+      "bytes": 85733,
+      "scriptBytes": 60989
+    },
+    "zh/answers/biodegradable-water-soluble-thread-fashion.html": {
+      "bytes": 66240,
+      "scriptBytes": 48474
+    },
+    "zh/answers/china-pva-filament-yarn-factory-export.html": {
+      "bytes": 66068,
+      "scriptBytes": 48376
+    },
+    "zh/answers/compare-water-soluble-pva-yarn-supplier-prices.html": {
+      "bytes": 66793,
+      "scriptBytes": 48868
+    },
+    "zh/answers/custom-soluble-swimwear-fabric-china-factory.html": {
+      "bytes": 66608,
+      "scriptBytes": 48749
+    },
+    "zh/answers/documents-request-pva-yarn-supplier.html": {
+      "bytes": 65273,
+      "scriptBytes": 47832
+    },
+    "zh/answers/factory-audit-checklist-water-soluble-yarn-mill.html": {
+      "bytes": 66520,
+      "scriptBytes": 48710
+    },
+    "zh/answers/high-tenacity-pva-fiber-industrial-use.html": {
+      "bytes": 66321,
+      "scriptBytes": 48561
+    },
+    "zh/answers/iso-certified-pva-yarn-manufacturer-shandong.html": {
+      "bytes": 66099,
+      "scriptBytes": 48424
+    },
+    "zh/answers/minimum-order-quantity-pva-water-soluble-thread.html": {
+      "bytes": 66702,
+      "scriptBytes": 48803
+    },
+    "zh/answers/oeko-tex-pva-yarn-supplier-china.html": {
+      "bytes": 66374,
+      "scriptBytes": 48581
+    },
+    "zh/answers/pva-fiber-for-papermaking-supplier.html": {
+      "bytes": 65808,
+      "scriptBytes": 48184
+    },
+    "zh/answers/pva-fiber-supplier-knitwear.html": {
+      "bytes": 65316,
+      "scriptBytes": 47863
+    },
+    "zh/answers/pva-sewing-thread-temporary-stitching-garments.html": {
+      "bytes": 66220,
+      "scriptBytes": 48465
+    },
+    "zh/answers/pva-staple-fiber-vs-filament-yarn-difference.html": {
+      "bytes": 66386,
+      "scriptBytes": 48578
+    },
+    "zh/answers/pva-water-soluble-fiber-nonwoven-production.html": {
+      "bytes": 66025,
+      "scriptBytes": 48334
+    },
+    "zh/answers/pva-water-soluble-yarn-embroidery-lace.html": {
+      "bytes": 65947,
+      "scriptBytes": 48295
+    },
+    "zh/answers/pva-water-soluble-yarn-fishing-net-applications.html": {
+      "bytes": 66269,
+      "scriptBytes": 48504
+    },
+    "zh/answers/pva-yarn-20s-to-100s-china-factory.html": {
+      "bytes": 66323,
+      "scriptBytes": 48572
+    },
+    "zh/answers/pva-yarn-factory-export-india-pakistan.html": {
+      "bytes": 66549,
+      "scriptBytes": 48708
+    },
+    "zh/answers/reliable-oem-pva-water-soluble-sewing-thread-factory.html": {
+      "bytes": 66544,
+      "scriptBytes": 48651
+    },
+    "zh/answers/sample-order-process-pva-water-soluble-yarn.html": {
+      "bytes": 66754,
+      "scriptBytes": 48783
+    },
+    "zh/answers/shandong-vs-guangdong-pva-yarn-manufacturer.html": {
+      "bytes": 65841,
+      "scriptBytes": 48247
+    },
+    "zh/answers/source-water-soluble-yarn-zero-twist-towels.html": {
+      "bytes": 66435,
+      "scriptBytes": 48623
+    },
+    "zh/answers/test-pva-yarn-dissolution-temperature.html": {
+      "bytes": 65672,
+      "scriptBytes": 48083
+    },
+    "zh/answers/top-water-soluble-pva-yarn-exporters-china-2026.html": {
+      "bytes": 68087,
+      "scriptBytes": 49766
+    },
+    "zh/answers/verify-chinese-pva-yarn-factory.html": {
+      "bytes": 65950,
+      "scriptBytes": 48341
+    },
+    "zh/applications.html": {
+      "bytes": 65872,
+      "scriptBytes": 46445
+    },
+    "zh/applications/embroidery-sewing.html": {
+      "bytes": 76105,
+      "scriptBytes": 50842
+    },
+    "zh/applications/knitting.html": {
+      "bytes": 75714,
+      "scriptBytes": 50633
+    },
+    "zh/applications/papermaking.html": {
+      "bytes": 73066,
+      "scriptBytes": 49785
+    },
+    "zh/applications/technical-textiles.html": {
+      "bytes": 79079,
+      "scriptBytes": 51838
+    },
+    "zh/applications/towel-weaving.html": {
+      "bytes": 76329,
+      "scriptBytes": 50964
+    },
+    "zh/contact.html": {
+      "bytes": 58266,
+      "scriptBytes": 42006
+    },
+    "zh/knowledge.html": {
+      "bytes": 68048,
+      "scriptBytes": 48597
+    },
+    "zh/knowledge/pva-batch-dissolution-consistency.html": {
+      "bytes": 89787,
+      "scriptBytes": 61670
+    },
+    "zh/knowledge/pva-staple-fiber-vs-filament-yarn.html": {
+      "bytes": 67885,
+      "scriptBytes": 48963
+    },
+    "zh/knowledge/pva-yarn-buyer-specification-checklist.html": {
+      "bytes": 69187,
+      "scriptBytes": 49728
+    },
+    "zh/knowledge/pva-yarn-dissolution-temperature-guide.html": {
+      "bytes": 86935,
+      "scriptBytes": 60211
+    },
+    "zh/manufacturing.html": {
+      "bytes": 82780,
+      "scriptBytes": 52599
+    },
+    "zh/product-finder.html": {
+      "bytes": 59239,
+      "scriptBytes": 41280
+    },
+    "zh/products.html": {
+      "bytes": 82044,
+      "scriptBytes": 54831
+    },
+    "zh/products/pva-filament-yarn.html": {
+      "bytes": 95264,
+      "scriptBytes": 65508
+    },
+    "zh/products/pva-staple-fiber.html": {
+      "bytes": 97963,
+      "scriptBytes": 67172
+    },
+    "zh/products/water-soluble-pva-sewing-thread.html": {
+      "bytes": 97352,
+      "scriptBytes": 66823
+    },
+    "zh/products/water-soluble-pva-yarn.html": {
+      "bytes": 101016,
+      "scriptBytes": 68935
+    },
+    "zh/quality.html": {
+      "bytes": 170887,
+      "scriptBytes": 104826
+    },
+    "zh/request-quote.html": {
+      "bytes": 56586,
+      "scriptBytes": 40868
+    },
+    "zh/request-sample.html": {
+      "bytes": 55401,
+      "scriptBytes": 40384
+    }
+  }
+}

@@ -1,8 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { gzipSync } from "node:zlib";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { NOISE_TOLERANCE_BYTES, baselineFixture, budgetReport, measureDocuments } from "./support/document-budget.mjs";
+
+/** Per-document byte baseline; regenerate only via `UPDATE_DOCUMENT_BUDGET=1`. */
+const BASELINE_FILE = "tests/intl-dees-003b.document-baseline.json";
 
 /**
  * INTL-DEES-003B — server/client boundary for translation availability.
@@ -389,6 +395,20 @@ test("build: the client bundle returns to its INTL-DEES-002B size", buildOptions
     + `baseline (tolerance ${TOLERANCE} B + ${CLIENT_LABELS_001} B labels + ${LOCALE_NOTICE} B notice)`);
   assert.ok(total > BASE_002B_TOTAL - 20_000,
     `the bundle lost far more than this task can explain: ${total} B vs ${BASE_002B_TOTAL} B baseline`);
+
+  // The leak this file was written against cost 1,684 B raw but 586 B gzip, and
+  // gzip is what a buyer over a slow connection waits for. The raw ceiling above
+  // could be satisfied by code that compresses badly; the transfer actually sent
+  // cannot, so the compressed total is pinned as well. Measured at the committed
+  // state: 833,313 B raw / 264,793 B gzip across 15 chunks, with zero page-level
+  // chunks under `chunks/app/` — every knowledge and product page is server-only,
+  // so article prose cannot enter either number at all.
+  const BASE_GZIP_TOTAL = 264_793;
+  const gzipped = walkFiles(chunksRoot, new Set([".js"]))
+    .reduce((sum, file) => sum + gzipSync(readFileSync(file)).length, 0);
+  assert.ok(gzipped <= BASE_GZIP_TOTAL + TOLERANCE,
+    `client bundle is ${gzipped} B gzipped against the ${BASE_GZIP_TOTAL} B pinned total `
+    + `(tolerance ${TOLERANCE} B); the raw ceiling alone cannot see code that compresses poorly`);
 });
 
 test("build: every switcher document resolves to an inventoried path", buildOptions, () => {
@@ -423,107 +443,142 @@ test("build: every switcher document resolves to an inventoried path", buildOpti
 });
 
 /**
- * Central tendency of a document population, robust to a few documents changing.
+ * The byte budget is a per-route regression guard, so its value is entirely in what
+ * it rejects. Each case below drives the real `budgetReport` with synthetic
+ * documents — the only way to show a guard bites without mutating a build, and
+ * without deleting the content growth it is supposed to permit.
  *
- * The byte guard below originally averaged. An average cannot tell the two events
- * it exists to distinguish:
- *
- *   - a leak, which adds bytes to EVERY document (the rejected complete-map
- *     encoding cost +3,210 B per document; the 003B chunk leak cost +1,684 B);
- *   - content, which adds bytes to the handful of documents that carry it.
- *
- * Both move the mean by (bytes added ÷ document count), so the mean cannot tell a
- * systemic leak from a rewritten article — and it punishes the second case by
- * whichever ceiling is left. Measured on 2026-09-11: the untranslated mean had been
- * 76,384 B when the 76,800 B ceiling was pinned, and stood at 76,455 B on
- * `origin/main` before Task 62, leaving 345 B. Task 62 rewrote two knowledge
- * articles and moved that mean to 77,152 B while 214 of 222 documents changed by
- * exactly 0 bytes. The ceiling would have had to be met by deleting content.
- *
- * The median separates them. Four documents growing by 76 KB in a population of 110
- * moved it 14 B — build noise. A uniform leak moves it by the whole amount, because
- * every document shifts together. The proof of that claim is asserted below rather
- * than argued here, so the substitution cannot quietly become a way to pass.
+ * Why a population ceiling could not stay. An aggregate cannot answer the question
+ * the guard exists to answer, because two different events move it the same way: a
+ * **leak**, which adds bytes to every page (the rejected complete-map encoding cost
+ * +3,210 B per document; the 003B policy leak cost +1,684 B raw / +586 B gzip on a
+ * chunk loaded by 220 of 222 pages), and **content**, which adds bytes to the few
+ * documents that carry it. Measured on 2026-09-11: nine planned Resources articles
+ * would have left 142 B of margin on a median whose build-to-build movement is
+ * itself tens of bytes — so the only ways to pass would have been to delete the
+ * content or to raise the number, and neither is a guard.
  */
-function median(sizes) {
-  const sorted = [...sizes].sort((a, b) => a - b);
-  if (sorted.length === 0) return 0;
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-}
 
-test("build: the document-size guard still detects a uniform leak, not just a mean", () => {
-  // The median carries the ceilings below, so its two required properties are
-  // asserted rather than argued, and the assertion fails if the statistic is
-  // ever swapped back for something without them.
-  const population = Array.from({ length: 110 }, (_, i) => 60_000 + i * 100);
-  const leak = 1_684; // the per-document cost of the 003B chunk leak
-  const mean = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
+const budgetFixture = (count = 40) => {
+  const documents = Array.from({ length: count }, (_, i) => ({
+    rel: `answers/a${i}.html`,
+    bytes: 60_000 + i * 37,
+    scriptBytes: 55_000,
+  }));
+  const baseline = Object.fromEntries(
+    documents.map(({ rel, bytes, scriptBytes }) => [rel, { bytes, scriptBytes }]),
+  );
+  return { documents, baseline };
+};
 
-  // 1. A leak must be fully visible. Every document shifts together, so the
-  //    middle of the distribution moves by exactly the leak.
-  assert.equal(median(population.map((size) => size + leak)) - median(population), leak,
-    "a uniform per-document leak did not move the median by its full size");
+const budgetOf = ({ documents, baseline }, allowedGrowth = []) =>
+  budgetReport({ entries: documents, baseline, allowedGrowth, toleranceBytes: NOISE_TOLERANCE_BYTES });
 
-  // 2. Content must be cheap. Four documents gaining 20 KB each, whether they sit
-  //    above the middle (what Task 62's articles do) or below it (worst case: the
-  //    ranks shift, so the middle moves by up to four steps of 100 B), must move
-  //    the median by far less than a leak does.
-  const grow = (indices) => population.map((size, i) => (indices.includes(i) ? size + 20_000 : size));
-  const driftHigh = Math.abs(median(grow([106, 107, 108, 109])) - median(population));
-  const driftLow = Math.abs(median(grow([0, 1, 2, 3])) - median(population));
-  assert.ok(driftHigh * 2 < leak, `content above the median moved it ${driftHigh} B, too close to a ${leak} B leak`);
-  assert.ok(driftLow * 2 < leak, `content below the median moved it ${driftLow} B, too close to a ${leak} B leak`);
+test(`byte budget: movement within the measured ${NOISE_TOLERANCE_BYTES} B tolerance is not a failure`, () => {
+  const fixture = budgetFixture();
+  const bump = (rel, bytes, scriptBytes) => {
+    const doc = fixture.documents.find((d) => d.rel === rel);
+    doc.bytes += bytes;
+    doc.scriptBytes += scriptBytes;
+  };
+  bump("answers/a1.html", 40, 20);
+  bump("answers/a2.html", NOISE_TOLERANCE_BYTES, NOISE_TOLERANCE_BYTES);
+  assert.deepEqual(budgetOf(fixture).violations, [],
+    "a document may move by up to the tolerance; anything tighter makes the guard flaky");
+});
 
-  // 3. Why the mean had to go. The same content moves the mean by 727 B, and the
-  //    mean ceiling had only 345 B of headroom left on origin/main, which is how a
-  //    rewrite of two articles became an unpassable gate.
-  const meanDrift = Math.round(mean(grow([106, 107, 108, 109])) - mean(population));
-  assert.equal(meanDrift, 727, "the mean's sensitivity to concentrated growth changed; the comment below is stale");
-  assert.ok(meanDrift > 345,
-    "the mean no longer penalises content growth, so the recorded reason for this change no longer holds");
+test("byte budget: a long article may grow without failing the guard", () => {
+  const fixture = budgetFixture();
+  const grown = "/knowledge/pva-yarn-dissolution-temperature-guide";
+  for (const rel of ["knowledge/pva-yarn-dissolution-temperature-guide.html", "zh/knowledge/pva-yarn-dissolution-temperature-guide.html"]) {
+    fixture.documents.push({ rel, bytes: 300_000, scriptBytes: 55_000 });
+    fixture.baseline[rel] = { bytes: 95_000, scriptBytes: 55_000 };
+  }
+  const report = budgetOf(fixture, [grown]);
+  assert.deepEqual(report.violations, [], "a 205 KB article on an allowed route must not be a regression");
+  assert.equal(report.grew.length, 2, "both locales of the allowed route should be recognised as grown");
+});
+
+test("byte budget: an allowance is only valid on a knowledge route that renders a document", () => {
+  const fixture = budgetFixture();
+  assert.ok(budgetOf(fixture, ["/answers/a0"]).violations.some((v) => v.kind === "allowlist-not-knowledge"),
+    "a non-knowledge route must not be able to buy itself an exemption");
+  assert.ok(budgetOf(fixture, ["/knowledge/never-rendered"]).violations.some((v) => v.kind === "allowlist-stale"),
+    "an allowance naming a route with no document must fail, or the list rots into a wildcard");
+});
+
+test("byte budget: one unrelated route growing is a failure", () => {
+  const fixture = budgetFixture();
+  fixture.documents.find((d) => d.rel === "answers/a7.html").bytes += 3_000;
+  const hit = budgetOf(fixture).violations.find((v) => v.kind === "unchanged-route-grew");
+  assert.ok(hit, "a 3 KB surprise on one pinned page is exactly what this guard exists to catch");
+  assert.equal(hit.route, "/answers/a7");
+});
+
+test("byte budget: shared inline payload reaching every page is a failure", () => {
+  // The dictionary and the flight data ride in on every document. Growing them
+  // 1,500 B site-wide is the INTL-DEES-003B leak, and it must be caught even
+  // though no single document's total moves at all.
+  const fixture = budgetFixture();
+  for (const doc of fixture.documents) doc.scriptBytes += 1_500;
+  const report = budgetOf(fixture);
+  assert.equal(report.violations.filter((v) => v.kind === "shared-payload-grew").length, fixture.documents.length,
+    "every document must report shared payload growth, not just the largest one");
+  assert.equal(report.medianSharedDelta, 1_500);
+});
+
+test("byte budget: a new document cannot arrive unbudgeted", () => {
+  const fixture = budgetFixture();
+  fixture.documents.push({ rel: "sneaky.html", bytes: 70_000, scriptBytes: 55_000 });
+  assert.ok(budgetOf(fixture).violations.some((v) => v.kind === "unbaselined-document"),
+    "a document with no baseline and no allowance must be explained, not ignored");
 });
 
 test("build: documents did not grow to pay for the boundary", buildOptions, () => {
-  // The byte guard lives here, where it measures the thing that actually costs
-  // money per request. The rejected complete-map encoding measured +3,210 B raw
-  // per document; the shipped one costs tens of bytes.
+  // The per-route byte budget, replacing the population ceiling. See
+  // tests/support/document-budget.mjs for why an aggregate could not stay.
   //
-  // INTL-DEES-001 split the measurement by language, because a global average
-  // cannot tell a leak from a localization: Spanish and German documents carry
-  // their own longer text. The same reasoning applies one level further in — an
-  // average cannot tell a leak from content — so both ceilings are medians over the
-  // same populations, and the means are reported in the failure text rather than
-  // asserted. Changed with the owner's approval on 2026-09-11; see the change
-  // request recorded in tasks/62-r1-r2-evidence-articles.md, coordination item 1.
-  const byLanguage = (predicate) =>
-    walkFiles(PRERENDER_ROOT, new Set([".html"]))
-      .map((file) => path.relative(PRERENDER_ROOT, file).split(path.sep).join("/"))
-      .filter(predicate)
-      .map((rel) => statSync(path.join(PRERENDER_ROOT, rel)).size);
-  const average = (sizes) => sizes.reduce((a, b) => a + b, 0) / sizes.length;
-  const report = (sizes) => `mean ${Math.round(average(sizes))} B, median ${Math.round(median(sizes))} B over ${sizes.length} documents`;
+  // Routes this task is allowed to grow. Explicit, narrow, and knowledge-only:
+  // budgetReport refuses any other shape, and refuses an entry that renders no
+  // document, so the list cannot quietly rot into a wildcard. It is empty now
+  // because the guard is being landed before the content batch that needs it;
+  // Tasks 62/63 add entries here as they rewrite articles.
+  const CONTENT_GROWTH = [];
 
-  const localized = (rel) => rel === "es.html" || rel === "de.html"
-    || rel.startsWith("es/") || rel.startsWith("de/");
-  const untouched = byLanguage((rel) => !localized(rel));
-  const untouchedMedian = median(untouched);
-  // Measured 2026-09-11: 69,641 B on origin/main and 69,655 B with Task 62's two
-  // rewritten articles, for a ceiling of 70,200 B. A leak of the size this file
-  // exists to catch moves it by that many bytes at once.
-  assert.ok(untouchedMedian < 70_200,
-    `untranslated (EN/ZH) documents have a median of ${Math.round(untouchedMedian)} B against the 69,641 B ` +
-      `they measured before Task 62 — text reached pages that render none of it (${report(untouched)})`);
+  const entries = measureDocuments(PRERENDER_ROOT);
 
-  const all = byLanguage(() => true);
-  const allMedian = median(all);
-  // Measured 2026-09-11: 70,951 B on origin/main, 70,971 B with Task 62. The Spanish
-  // and German pages carry their own localized text, which is why the population is
-  // the whole build and the statistic is the middle of it rather than its mean.
-  assert.ok(allMedian < 71_500,
-    `median prerendered document is ${Math.round(allMedian)} B against the 70,951 B measured before Task 62; ` +
-      `further growth must come from a policy or dictionary reaching every page, not from more ` +
-      `localized copy on some of them (${report(all)})`);
+  // Regenerate deliberately, never silently: a task that legitimately changes a
+  // route re-runs this with the flag, and the resulting fixture diff is what the
+  // reviewer reads. Nothing here rewrites a number to get to green.
+  if (process.env.UPDATE_DOCUMENT_BUDGET === "1") {
+    writeFileSync(path.join(repoRoot, BASELINE_FILE), baselineFixture(entries, {
+      baseCommit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8" }).trim(),
+      toleranceBytes: NOISE_TOLERANCE_BYTES,
+    }));
+    console.log(`  byte budget: baseline rewritten from ${entries.length} documents`);
+    return;
+  }
+
+  const baseline = JSON.parse(read(BASELINE_FILE)).documents;
+  const report = budgetReport({
+    entries,
+    baseline,
+    allowedGrowth: CONTENT_GROWTH,
+    toleranceBytes: NOISE_TOLERANCE_BYTES,
+  });
+
+  assert.deepEqual(report.violations, [],
+    `document byte budget failed:\n${report.violations
+      .map((v) => `  [${v.kind}] ${v.detail}`).join("\n")}`);
+
+  // A passing run still reports what it measured, so a growth that only *almost*
+  // fits cannot pass unnoticed into a review.
+  console.log(
+    `  byte budget: ${report.unchangedDocuments} pinned documents, unchanged-route ` +
+    `median Δ${report.medianUnchangedDelta} B max Δ${report.maxUnchangedDelta} B; inline payload ` +
+    `median Δ${report.medianSharedDelta} B max Δ${report.maxSharedDelta} B ` +
+    `(mean ${report.meanSharedPayload} B/document); ${report.grew.length} growth-allowed documents`,
+  );
 });
 
 test("build: consolidation and head alternates are untouched by the boundary", buildOptions, () => {
