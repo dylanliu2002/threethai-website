@@ -38,3 +38,6 @@
 - Non-force SSH push of `3f2e5a9bbddafcdac18113df54b9af6cb1870490` to `codex/61-night-worker-runtime` failed before repository authorization: `ssh: connect to host github.com port 22: Permission denied`.
 - The same exact tip was retried over the repository’s HTTPS URL and failed before authentication: `Failed to connect to github.com port 443`.
 - PR #44 could not be updated from this environment. No force-push, host-key bypass, credential inspection/expansion, approval, or merge was attempted. The exact final local delivery-record descendant is the tip reported in the handoff.
+## 2026-09-11 — rebase branch topology note
+
+- The local `origin/codex/61-night-worker-runtime` tracking ref remains `d4d1178e4150de8c4f7c815eacdccd1e0f3c8e4b`; required base `aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4` is not its ancestor. Once transport is available, a non-force push of the rebased Task 61 tip may therefore be rejected as non-fast-forward and requires repository-owner coordination; no force-push was attempted.
