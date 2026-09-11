@@ -171,9 +171,9 @@ Validation results so far:
 - `node --test night-worker/tests/*.test.mjs` — PASS (22/22), including the correction-cycle crash-window, reservation/concurrency, raw-lifecycle, exact-model pagination, path-confinement, and lock-ownership tests.
 - `npm run lint` — PASS.
 - `npm run build` — BLOCKED by the restricted validation environment: Next.js 16.1.3/Turbopack could not fetch the Google Geist and Geist Mono font CSS, ending with `Failed to fetch Geist from Google Fonts`. No shared layout/font file was changed.
-- `git diff --check origin/main...1995092a797c3711c2a4e8cad7efb0867f0c3d9b` — PASS.
-- `git diff --name-only origin/main...1995092a797c3711c2a4e8cad7efb0867f0c3d9b` — PASS; only the Task 61 allowlist plus this card and its task-owned worklog are present.
-- `git diff --exit-code origin/main...1995092a797c3711c2a4e8cad7efb0867f0c3d9b -- workflow` — PASS; no workflow changes.
+- `git diff --check origin/main...3f2e5a9bbddafcdac18113df54b9af6cb1870490` — PASS.
+- `git diff --name-only origin/main...3f2e5a9bbddafcdac18113df54b9af6cb1870490` — PASS; only the Task 61 allowlist plus this card and its task-owned worklog are present.
+- `git diff --exit-code origin/main...3f2e5a9bbddafcdac18113df54b9af6cb1870490 -- workflow` — PASS; no workflow changes.
 - Required Git identity configuration — the shared worktree config could not be locked in this environment; the alternate commit path set and verified `dylanliu2002 <dylanliu2002@gmail.com>` on the rebased tip.
 
 ## Coordination Items
@@ -189,12 +189,12 @@ Validation results so far:
 
 ## Completion Record
 
-- Commit: `1995092a797c3711c2a4e8cad7efb0867f0c3d9b` (correction implementation tip, linearly based on current `origin/main`; a delivery-record descendant preserves the final card/worklog state)
+- Commit: `3f2e5a9bbddafcdac18113df54b9af6cb1870490` (correction delivery tip, linearly based on current `origin/main`; a final push-outcome worklog descendant is preserved locally)
 - Base / rebase commit: `aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4`
 - Changed files: `night-worker/app-server-client.mjs`, `night-worker/cli.mjs`, `night-worker/config.mjs`, `night-worker/queue.mjs`, `night-worker/runtime-store.mjs`, `night-worker/service.mjs`, `night-worker/submission.mjs`, `night-worker/tests/runtime.test.mjs`, `night-worker/thread-broker.mjs`, `tasks/61-night-worker-runtime.md`, `worklog/agent-61-night-worker-runtime.md`.
-- Validation results: focused tests PASS (22/22); `npm run lint` PASS; `npm run build` is blocked because the restricted environment cannot fetch Google Geist and Geist Mono from Google Fonts; `git diff --check origin/main...1995092a797c3711c2a4e8cad7efb0867f0c3d9b` PASS; committed paths are allowlist-only; `git diff --exit-code origin/main...1995092a797c3711c2a4e8cad7efb0867f0c3d9b -- workflow` PASS; `git log -1 --format='%an <%ae>' 1995092a797c3711c2a4e8cad7efb0867f0c3d9b` is exactly `dylanliu2002 <dylanliu2002@gmail.com>`.
+- Validation results: focused tests PASS (22/22); `npm run lint` PASS; `npm run build` is blocked because the restricted environment cannot fetch Google Geist and Geist Mono from Google Fonts; `git diff --check origin/main...3f2e5a9bbddafcdac18113df54b9af6cb1870490` PASS; committed paths are allowlist-only; `git diff --exit-code origin/main...3f2e5a9bbddafcdac18113df54b9af6cb1870490 -- workflow` PASS; `git log -1 --format='%an <%ae>' 3f2e5a9bbddafcdac18113df54b9af6cb1870490` is exactly `dylanliu2002 <dylanliu2002@gmail.com>`.
 - Worklog: `worklog/agent-61-night-worker-runtime.md`
-- Remaining risks: independent SOL review is pending; the required production build remains environment-blocked by Google Fonts network access. The normal shared Git metadata is read-only, so the rebased tip and its delivery-record descendant are preserved through the alternate object/index path. Push/PR outcome is recorded in the append-only worklog and final handoff.
+- Remaining risks: independent SOL review is pending; the required production build remains environment-blocked by Google Fonts network access. The non-force SSH push was denied at `github.com:22` (`Permission denied`) and the scoped HTTPS retry could not connect to `github.com:443`; PR #44 could not be updated from this environment. No force-push, host-verification bypass, credential expansion, approval, or merge was attempted.
 
 ## Rollback
 

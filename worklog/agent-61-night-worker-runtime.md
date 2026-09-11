@@ -31,3 +31,10 @@
 - The rebased commit author was verified as exactly `dylanliu2002 <dylanliu2002@gmail.com>` using the alternate Git object/index path after the shared worktree config lock failed with `Permission denied`.
 - Hash-qualified scope checks pass for the rebased commit: `git diff --check`, allowlist-only `git diff --name-only`, and `git diff --exit-code ... -- workflow`.
 - The task is now staged for independent SOL review. A delivery-record descendant will carry this card’s final push/PR outcome.
+-
+
+## 2026-09-11 — delivery attempt
+
+- Non-force SSH push of `3f2e5a9bbddafcdac18113df54b9af6cb1870490` to `codex/61-night-worker-runtime` failed before repository authorization: `ssh: connect to host github.com port 22: Permission denied`.
+- The same exact tip was retried over the repository’s HTTPS URL and failed before authentication: `Failed to connect to github.com port 443`.
+- PR #44 could not be updated from this environment. No force-push, host-key bypass, credential inspection/expansion, approval, or merge was attempted. The exact final local delivery-record descendant is the tip reported in the handoff.
