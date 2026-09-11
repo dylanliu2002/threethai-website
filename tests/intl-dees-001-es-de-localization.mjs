@@ -675,7 +675,7 @@ const {
 } = await importSource("src/content/article-blocks.ts");
 const { articlesForProduct, assertArticleRelated, relatedFor } = await importSource("src/content/article-related.ts");
 const {
-  knowledgeBlocks, resourcesGroups, MIN_GROUP_SIZE, RESOURCES_CATEGORY_ORDER,
+  resourcesGroups, RESOURCES_CATEGORY_ORDER,
 } = await importSource("src/content/resources-groups.ts");
 const { articles: legacyArticleEntries } = await importSource("src/content/legacy-source.ts");
 const { buyerAnswers } = await importSource("src/content/answers.ts");
@@ -789,7 +789,7 @@ test("TASK 61 · every guard refuses the mistake it exists for", () => {
   }), /has no blocks/, "a heading with nothing under it was accepted");
 
   assert.throws(() => resourcesGroups([{ slug: "x", category: { en: "Weather" } }]),
-    /no Resources category claims/, "an article filed under an undeclared category was accepted");
+    /no Resources shelf claims/, "an article filed under an undeclared category was accepted");
 
   assert.throws(() => relatedFor("not-an-article"), /has no related set/,
     "an article with no declared related set was silently accepted");
@@ -828,39 +828,50 @@ test("TASK 61 · related content is declared, resolves, and never points at itse
   }
 });
 
-test("TASK 61 · the hub groups by category and stays unlabelled until a label is honest", () => {
-  assert.ok(MIN_GROUP_SIZE >= 2, "a group of one is not a category — it adds a heading and no information");
-
-  const shown = knowledgeBlocks();
-  const slugs = shown.flatMap((block) => [...block.slugs]).sort();
+test("TASK 61 · the hub groups articles into taxonomy shelves on approved headings", () => {
+  const shelves = resourcesGroups();
+  const slugs = shelves.flatMap((group) => [...group.slugs]).sort();
   assert.deepEqual(slugs, articles.map((article) => article.slug).sort(),
     "grouping must show every article exactly once");
-  assert.equal(new Set(slugs).size, slugs.length, "an article is rendered in two groups");
-  for (const block of shown) {
-    if (block.label === null) continue;
-    const shared = new Set(block.slugs.map((slug) => articleCard(slug, "en").category));
-    assert.equal(shared.size, 1, `labelled block "${block.label}" spans several categories`);
-    assert.ok(shared.has(block.label), `label "${block.label}" is not a category its members use`);
+  assert.equal(new Set(slugs).size, slugs.length, "an article is rendered under two shelves");
+
+  const bySlug = new Map(articles.map((article) => [article.slug, article]));
+  for (const group of shelves) {
+    // A shelf heading is the members' own approved category, read from card-copy in
+    // all four locales — never a name invented for the grouping.
+    const categories = new Set(group.slugs.map((slug) => articleCard(slug, "en").category));
+    assert.equal(categories.size, 1, `shelf "${group.heading}" mixes categories and would need a new heading`);
+    assert.ok(categories.has(group.heading), `shelf "${group.heading}" is not its members' category`);
+    for (const slug of group.slugs) assert.equal(bySlug.get(slug).category.en, group.heading);
+    assert.ok(RESOURCES_CATEGORY_ORDER.includes(group.shelf), `${group.shelf} is not in the taxonomy`);
   }
 
-  // Prove the machinery works without waiting for more copy: agreement earns a
-  // heading, disagreement must not invent one.
+  // Shelf order is taxonomy order, and two shelves of one category keep article order.
+  const positions = shelves.map((group) => RESOURCES_CATEGORY_ORDER.indexOf(group.shelf));
+  assert.deepEqual(positions, [...positions].sort((a, b) => a - b),
+    "shelves render out of taxonomy order");
+
+  // An empty shelf renders nothing at all: no placeholder page, no invented label.
+  const claimed = new Set(shelves.map((group) => group.shelf));
+  assert.equal(claimed.has("troubleshooting"), false,
+    "troubleshooting has no approved four-locale heading, so it must not render");
+  assert.ok(claimed.size < RESOURCES_CATEGORY_ORDER.length,
+    "every shelf rendered, which means at least one is a placeholder");
+
+  // Two articles sharing a label merge into one shelf; a new label joins the shelf
+  // it is declared under rather than forcing a new heading into existence.
   const twin = resourcesGroups([
     { slug: "a", category: { en: "Material selection" } },
     { slug: "b", category: { en: "Material selection" } },
   ]);
   assert.equal(twin.length, 1);
-  assert.equal(twin[0].label, "Material selection", "a genuine two-article group earned no heading");
-  const split = resourcesGroups([
+  assert.deepEqual(twin[0].slugs, ["a", "b"]);
+  const joined = resourcesGroups([
     { slug: "a", category: { en: "Material selection" } },
     { slug: "b", category: { en: "Technical guide" } },
   ]);
-  assert.equal(split[0].label, null,
-    "two articles with different approved labels were given a heading neither one uses");
-
-  assert.deepEqual(RESOURCES_CATEGORY_ORDER,
-    ["product-selection", "applications", "testing-evidence", "manufacturing-capability", "troubleshooting", "buyer-guides"],
-    "the six-category model changed shape");
+  assert.equal(joined.length, 2, "two approved labels on one shelf must not be collapsed under one of them");
+  assert.deepEqual(joined.map((group) => group.shelf), ["product-selection", "product-selection"]);
 });
 
 test("TASK 61 · the section answers to one name in every locale", () => {
@@ -941,6 +952,45 @@ test("TASK 61 · the shipped HTML renders the model and keeps each article's own
     for (const slug of article.related.answers) {
       assert.ok(footline.includes(answerCard(slug, "en").question), `${article.slug}: lost related answer "${slug}"`);
     }
+  }
+});
+
+test("TASK 61 · the shipped hub really shows its shelves, in all four locales", buildOptions, () => {
+  const shelves = resourcesGroups();
+  const hubDoc = (locale) => (locale === "en" ? "knowledge.html" : `${locale}/knowledge.html`);
+
+  for (const locale of locales) {
+    const rel = hubDoc(locale);
+    assert.ok(existsSync(path.join(PRERENDER_ROOT, rel)), `missing prerendered hub: ${rel}`);
+    const html = readFileSync(path.join(PRERENDER_ROOT, rel), "utf8")
+      .replace(/<script[\s\S]*?<\/script>/g, " ");
+    const text = visibleText(html);
+
+    // Every article is still reachable from the hub, exactly once.
+    for (const article of articles) {
+      const title = locale === "es" || locale === "de" ? articleCard(article.slug, locale).title : article.title[locale];
+      assert.ok(text.includes(title), `${rel} lost the card for ${article.slug}`);
+    }
+
+    // Each shelf contributes one heading, and the heading is the approved localized
+    // label rather than the English one. Count inside the page body only: the site
+    // footer legitimately carries its own three `<h2>` column headings.
+    const body = html.slice(0, html.indexOf("<footer") > 0 ? html.indexOf("<footer") : html.length);
+    const headings = [...body.matchAll(/<h2[^>]*>([\s\S]*?)<\/h2>/gi)].map((m) => visibleText(m[1]));
+    for (const group of shelves) {
+      const localized = articleCard(group.slugs[0], locale).category;
+      const occurrences = headings.filter((h) => h === localized).length;
+      assert.equal(occurrences, 1,
+        `${rel}: shelf "${localized}" appears ${occurrences} times — expected exactly one heading and no per-card repeat`);
+      assert.ok(headings.indexOf(localized) < headings.indexOf(getDictionary(locale).answersIndex.title),
+        `${rel}: the shelves must sit above the Buyer answers bridge, not after it`);
+    }
+    assert.equal(headings.length, shelves.length + 1,
+      `${rel}: expected one h2 per shelf plus the Buyer answers bridge, got ${headings.length} [${headings.join(" | ")}]`);
+    // The per-card category chip is gone, so no card repeats its own shelf heading.
+    const cardTitles = [...body.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/gi)].map((m) => visibleText(m[1]));
+    assert.equal(cardTitles.length, articles.length,
+      `${rel}: every card should sit under a shelf with an h3 title, got ${cardTitles.length}`);
   }
 });
 

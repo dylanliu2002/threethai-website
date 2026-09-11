@@ -190,40 +190,53 @@ table or figure markup appearing where the model declares none.
 
 ## Coordination Items
 
-1. **The six-category model is shipped as structure, not as visible headings — this is
-   a deliberate deviation from card §3 and needs a decision.** Card §7 forbids
-   manufacturing ES/DE/ZH translations, and the dictionary-completeness test
-   (`intl-dees-001` REQ 3) refuses any ES/DE leaf that merely equals its English.
-   Only one of the six proposed names has an approved four-locale string today
-   ("Applications"). Inventing the other five would ship unreviewed Spanish and
-   German; leaving them English would put English chrome on `/zh`, which is a fully
-   translated, indexed surface. So `resources-groups.ts` claims each group through
-   the article categories that already exist in four locales, and a group renders a
-   heading only when its members agree on one label and there is more than one.
-   With four articles in four distinct categories, **`/knowledge` therefore still
-   renders no group headings**. The classifier, the ordering and the "unclassified
-   article fails the build" guard are live and tested; the second article in any
-   category turns its heading on with no code change. If the owner prefers headings
-   now, the honest route is to supply reviewed translations for the six names.
-2. **`product-view.tsx` is a shared component** (`CARD_RENDERERS` member, four product
+1. **Six-category model: resolved by the owner on 2026-09-11 — shelves render now.**
+   The first implementation hid the grouping: a shelf earned a heading only with
+   ≥2 articles agreeing on a label, which with four articles in four categories
+   meant `/knowledge` looked exactly as before. The owner reviewed that and chose
+   "make it visible now".
+   The fix separates two jobs that had been conflated:
+   - the **six taxonomy buckets** classify an article and set shelf **order**;
+   - the **rendered heading** is the article's own `category`, which `card-copy.ts`
+     already ships in `{ en, zh, es, de }` and already asserts against the entity.
+   So the hub now shows real groupings in all four locales with **zero new
+   translation authored and no placeholder pages**. A shelf whose members would
+   disagree on a label is simply two shelves — collapsing them under one of the
+   two names was rejected as inventing a heading.
+   Residual, and deliberate: because headings are the site's existing labels,
+   `Product Selection` reads as `Material selection` / `Technical guide`, and
+   `Manufacturing Capability` / `Troubleshooting` / `Applications` render nothing
+   until an article exists there. Renaming the shelves to the audit's six names
+   needs reviewed ES/DE/ZH strings from the owner — one record each in
+   `CATEGORY_TO_SHELF`, no structural change.
+2. **Per-card category chip removed from the hub.** With a shelf heading above it,
+   the same string repeated on every card read as noise. Card titles dropped from
+   `<h2>` to `<h3>` so the outline stays `h1 > h2(shelf) > h3(card)`. This changes
+   the hub's visible text and is covered by a build assertion.
+3. **`product-view.tsx` is a shared component** (`CARD_RENDERERS` member, four product
    pages × four locales). Card §4 authorises replacing the global related-article
    selection, which is what changed here, and no other part of the file was touched.
    Recorded rather than assumed to be free.
-3. **`pageMeta.zh.knowledge` is English verbatim** (`site-copy.ts:148`), so `/zh/knowledge`
+4. **`pageMeta.zh.knowledge` is English verbatim** (`site-copy.ts:148`), so `/zh/knowledge`
    still carries an English `<title>` and description. Pre-existing, and fixing it
    means authoring Chinese metadata — out of scope under §7. Flagged for a zh parity task.
-4. **`actions.allArticles` still reads "All technical articles"** in all four locales.
+5. **`actions.allArticles` still reads "All technical articles"** in all four locales.
    It is a link label, not the section name, so it was left alone; renaming it needs
    four new short strings.
-5. **`tasks/03-knowledge-expansion.md` is marked superseded, not executed.** Its goal
+6. **`tasks/03-knowledge-expansion.md` is marked superseded, not executed.** Its goal
    (volume for long-tail terms) would reproduce the audited defect on the new model.
-6. **Deferred:** `home-knowledge.tsx` still uses `articles.slice(0, 3)` and
+7. **Deferred:** `home-knowledge.tsx` still uses `articles.slice(0, 3)` and
    `resourcesGroups` is not yet wired into the product page's answer links. Both are
    related-content work with visible-text consequences and need their own sign-off.
-7. Unrelated to this task, found incidentally: the `test:seo` list omits
-   `first-wave-correctness.mjs`, which asserts a live cap of 4 knowledge articles.
-   Adding a fifth article requires editing that shared file (`package.json`-adjacent
-   scope), so the R-series batch must plan for it.
+8. Correction to an earlier version of this item, which repeated a claim disproved
+   during implementation: `tests/first-wave-correctness.mjs` asserts **nothing** about
+   article count (its five tests are inquiry a11y, Product Finder parameters,
+   quote-page Finder route, navigation focus management, and the accent colour
+   token) and is not in `test:seo` at all. The live article assertion is
+   `tests/gsc-index-002-fallback-indexation.mjs:90`, `articles.length >= 4` — a
+   **floor**. Adding a fifth article therefore needs no shared-file edit; it needs a
+   `card-copy.ts` `ARTICLE_TEASERS` entry in four locales, which that module already
+   requires and guards, plus `src/app/sitemap.ts` picking the slug up automatically.
 
 ## Review Status
 
@@ -250,8 +263,10 @@ table or figure markup appearing where the model declares none.
 - Worklog: `worklog/agent-61-knowledge-article-foundation.md`
 - Not merged, no pull request opened, `main` untouched
 - Remaining risks:
-  1. Category headings are invisible today (Coordination Item 1) — a reviewer may
-     judge this as not meeting §3; the alternative was unreviewed translation.
+  1. Shelf headings are the site's existing category labels rather than the audit's
+     six names, and three of the six shelves are empty so they render nothing — the
+     direct consequence of shipping visible grouping without new translation
+     (Coordination Item 1). Owner-supplied reviewed names would close the gap.
   2. Related content now genuinely differs per article, so **product pages and article
      pages show fewer links than before**. That is the requested behaviour, but it is
      a navigation change and internal-link count changes on 16 product documents.

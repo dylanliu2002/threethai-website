@@ -187,6 +187,67 @@ defect until proven otherwise.
   come back as `CHANGES_REQUESTED`, and the fix is owner-supplied reviewed
   translations, not a code change.
 
+## 2026-09-11 — Owner asked why the page looked unchanged; grouping made visible
+
+The owner's report was accurate and the first delivery caused it. Two separate
+reasons were established with measurements rather than explanation:
+
+1. **Nothing was deployed.** The card forbids merging, so production `threethai.com`
+   still serves `main`. Live-versus-build comparison on the same fields:
+
+   | | production | branch build |
+   |---|---|---|
+   | `/knowledge` H1 | Technical articles | Resources |
+   | article eyebrow | Technical guide · PVA knowledge | Technical guide · Resources |
+   | article byline | … · About this answer | orphan label removed |
+   | products linked from an article | all 4 | the 1 it declares |
+
+2. **Even deployed, the grouping was invisible by my own design.** The `≥2 articles
+   agreeing on a label` rule meant four articles in four categories produced no
+   shelf heading at all. That rule was mine, chosen to satisfy §7's
+   no-manufactured-translation constraint, and it defeated the visible point of §3.
+   Presenting it as "structure now, headings later" was defensible but wrong in
+   outcome: the section looked untouched.
+
+The owner chose "visible now". The fix was not to lower the threshold and leave a
+two-article shelf with a null heading — with `product-selection` holding both
+`Material selection` and `Technical guide`, that would have rendered an untitled
+pair of cards. The real defect was that one field was doing two jobs:
+
+- `resources-groups.ts` now separates the **taxonomy shelf** (classification and
+  display order, the six buckets) from the **rendered heading**, which is the
+  article's own `category` — a string `card-copy.ts` already ships in four locales
+  and already locks against the entity.
+- A label group whose members disagree becomes two shelves rather than one
+  collapsed under one of its two names, because collapsing would be inventing a
+  heading.
+- `knowledgeBlocks()` and `MIN_GROUP_SIZE` are gone: with headings guaranteed by
+  construction there is nothing to merge, and keeping a dead knob invites someone
+  to re-tune it later.
+- The per-card category chip was removed and card titles moved `<h2>` → `<h3>`, so
+  the outline is `h1 > h2(shelf) > h3(card)`. Leaving the chip would have printed
+  the shelf name twice per card.
+
+Test updates: the `MIN_GROUP_SIZE` assertion was deleted with the constant and
+replaced by shelf invariants — every article exactly once, heading equals the
+members' own category, shelf order follows the taxonomy, no empty shelf renders,
+and disagreeing labels stay separate shelves. A new build-gated test asserts the
+prerendered hub in **all four locales** shows exactly one `<h2>` per shelf plus the
+Buyer-answers bridge, and one `<h3>` per card; counting had to exclude the site
+footer, which legitimately owns three `<h2>` column headings — that was a flaw in
+my first version of the assertion, not in the page.
+
+Gates after the change: typecheck clean; `eslint .` exit 0; build clean at 225
+pages / 222 documents; `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` **232 pass / 0
+fail / 0 skipped** (one test added); article body integrity still PASS on all 16
+documents; `averageUntouched` 75,233 B against the 76,800 B ceiling; line-ending
+and encoding sweep clean, including the repaired `de.ts` (4-line diff) and `es.ts`
+(3-line diff).
+
+Operational note for the next session: `.next/standalone/server.js` keeps the
+`.next` tree open on Windows and a `next build` started against it **hangs with no
+output until it times out**. Stop the preview before rebuilding.
+
 ## 2026-09-11 — Deliberately not done
 
 - No article copy written; no R1–R8. No number, test value, setpoint or case added.
