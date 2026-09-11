@@ -8,11 +8,17 @@ import {
   type LegacySectionTuple,
 } from "./article-blocks";
 import { assertArticleRelated, relatedFor, type ArticleRelated } from "./article-related";
+import { reAuthoredBodies } from "./article-body-patches";
 
 /**
  * Technical knowledge articles — English copy migrated verbatim from the
  * legacy site (URLs preserved for SEO), Simplified Chinese written for the
  * /zh knowledge routes so the Chinese site no longer falls back to English.
+ *
+ * A slug listed in `article-body-patches.ts` has been re-authored on the block
+ * model and no longer renders the legacy tuples; `reAuthoredOn` carries the date
+ * of that rewrite, so `dateModified` advances for the articles whose content
+ * actually changed and stays put for the ones that did not.
  */
 
 export type Article = {
@@ -114,22 +120,47 @@ const zhPatches: Record<string, ArticlePatch> = {
   },
 };
 
+/**
+ * The date each re-authored body was written. Keeping this separate from the bodies
+ * and asserting the two agree means a rewritten article cannot quietly keep an old
+ * `dateModified`, and an untouched one cannot quietly claim a new one.
+ */
+const reAuthoredOn: Record<string, string> = {
+  "pva-yarn-dissolution-temperature-guide": "2026-09-11",
+  "pva-batch-dissolution-consistency": "2026-09-11",
+};
+
 function build(slug: string): Article {
   const src = legacy[slug];
   const zh = zhPatches[slug];
+  const reAuthored = reAuthoredBodies[slug];
   if (!src) throw new Error(`Unknown legacy article: ${slug}`);
   if (!zh) throw new Error(`Missing zh patch for article: ${slug}`);
+  if (reAuthored && !reAuthoredOn[slug]) {
+    throw new Error(
+      `articles: ${slug} has a re-authored body but no revision date. Its dateModified would still ` +
+        `claim the legacy copy was current, which is the opposite of what changed.`,
+    );
+  }
+  if (!reAuthored && reAuthoredOn[slug]) {
+    throw new Error(
+      `articles: ${slug} declares a revision date but has no re-authored body in ` +
+        `article-body-patches.ts, so the date would credit a rewrite that did not happen.`,
+    );
+  }
   const article: Article = {
     slug,
     datePublished: src.datePublished,
-    dateModified: src.dateModified,
+    dateModified: reAuthoredOn[slug] ?? src.dateModified,
     category: { en: src.category, zh: zh.category },
     title: { en: src.title, zh: zh.title },
     metaDescription: { en: src.metaDescription, zh: zh.metaDescription },
     intro: { en: src.intro, zh: zh.intro },
-    // Each legacy tuple becomes one section holding one paragraph, so the four
-    // shipped articles still render exactly the markup they rendered before.
-    sections: { en: legacyTupleToBody(src.sections), zh: legacyTupleToBody(zh.sections) },
+    // A re-authored body is already in blocks. Anything else folds each legacy
+    // tuple into one section holding one paragraph, so its markup is unchanged.
+    sections: reAuthored
+      ? { en: reAuthored.en, zh: reAuthored.zh }
+      : { en: legacyTupleToBody(src.sections), zh: legacyTupleToBody(zh.sections) },
     related: relatedFor(slug),
   };
   assertArticleBodyShape(slug, article.sections);

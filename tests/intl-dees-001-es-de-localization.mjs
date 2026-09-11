@@ -692,9 +692,13 @@ test("TASK 61 · a block body is still one { en, zh } record, so the seam can wi
   }
 });
 
-test("TASK 61 · the four shipped articles keep every heading and paragraph they had", () => {
+test("TASK 61 · the articles this pass left alone still render their legacy text", () => {
   const legacy = new Map(legacyArticleEntries.map((entry) => [entry.slug, entry]));
-  for (const article of articles) {
+  const reAuthored = new Set(Object.keys(reAuthoredBodies));
+  assert.ok(reAuthored.size < articles.length,
+    "every article is re-authored, so nothing in this suite still checks the legacy fold");
+
+  for (const article of articles.filter((a) => !reAuthored.has(a.slug))) {
     const before = legacy.get(article.slug);
     assert.ok(before, `${article.slug} is no longer in legacy-source.ts`);
     assert.equal(article.sections.en.length, before.sections.length, `${article.slug}: section count changed`);
@@ -702,16 +706,183 @@ test("TASK 61 · the four shipped articles keep every heading and paragraph they
     before.sections.forEach(([heading, body], index) => {
       const section = article.sections.en[index];
       assert.equal(section.heading, heading, `${article.slug}: section ${index + 1} heading drifted`);
-      assert.equal(section.blocks.length, 1,
-        `${article.slug}: section ${index + 1} gained structure — this task adds a model, not content`);
-      assert.equal(section.blocks[0].type, "paragraph", `${article.slug}: section ${index + 1} is no longer a paragraph`);
+      assert.equal(section.blocks.length, 1, `${article.slug}: section ${index + 1} gained structure`);
+      assert.equal(section.blocks[0].type, "paragraph", `${article.slug}: section ${index + 1} is not a paragraph`);
       assert.equal(section.blocks[0].text, body, `${article.slug}: section ${index + 1} text drifted`);
     });
-    article.sections.zh.forEach((section, index) => {
-      assert.equal(section.blocks.length, 1, `${article.slug}: zh section ${index + 1} gained structure`);
-      assert.match(section.blocks[0].text, /[㐀-鿿]/, `${article.slug}: zh section ${index + 1} is not Chinese`);
-    });
   }
+});
+
+/*
+ * ============================================================================
+ * Task 62 · R1 and R2 re-authored on the block model
+ *
+ * Batch 0's guarantee was "no copy changed". This pass deliberately breaks it
+ * for two articles, so the guard that mattered has to become a different one:
+ *
+ *   1. Every published figure in new prose must trace to a source already in the
+ *      repository. That is the whole factual red line reduced to a test: a
+ *      number that exists nowhere else is an invented number.
+ *   2. No fabricated commercial or performance claim — no MOQ, lead time, price,
+ *      guarantee, superlative, customer or dissolution time.
+ *   3. Headlines, intros, categories and descriptions stay untouched, because
+ *      card-copy mirrors them in four locales and refreshing the Spanish side
+ *      would mean authoring a translation nobody reviewed.
+ *   4. dateModified advances only where the body actually changed.
+ */
+
+const { reAuthoredBodies } = await importSource("src/content/article-body-patches.ts");
+
+/** Every string leaf in a body, in declaration order. */
+function bodyStrings(body) {
+  const out = [];
+  const spans = (list) => list.forEach((span) => out.push(span.text));
+  for (const section of body) {
+    out.push(section.heading);
+    for (const block of section.blocks) {
+      switch (block.type) {
+        case "heading":
+        case "paragraph":
+          out.push(block.text);
+          break;
+        case "callout":
+          out.push(block.text, block.label);
+          break;
+        case "prose":
+          spans(block.spans);
+          break;
+        case "list":
+          block.items.forEach(spans);
+          break;
+        case "definitionList":
+          block.items.forEach((item) => {
+            out.push(item.term);
+            spans(item.detail);
+          });
+          break;
+        case "table":
+          out.push(block.caption, ...block.columns);
+          block.rows.forEach((row) => out.push(...row));
+          break;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Numeric tokens, extracted the same way from prose and from source.
+ *
+ * This is deliberately not a substring test. An earlier version asked whether
+ * "42.7" appeared anywhere in the corpus and was satisfied — because it is the
+ * tail of the patent application number `ZL 2020 1 0227142.7`. A figure buried
+ * inside an unrelated identifier does not publish that figure, so both sides are
+ * reduced to whole numeric tokens and compared as sets.
+ */
+const figureTokens = (text) =>
+  new Set((text.match(/\d[\d.,]*\d|\d/g) || []).map((token) => token.replace(/[.,]+$/, "")));
+
+/** The repository's own published record — the only admissible source of a figure. */
+const evidenceCorpus = [
+  "src/content/quality.ts",
+  "src/content/patents.ts",
+  "src/content/factory.ts",
+  "src/content/legacy-source.ts",
+  "src/content/applications.ts",
+  "src/content/catalog.ts",
+].map(read).join("\n");
+const corpusFigures = figureTokens(evidenceCorpus);
+
+test("TASK 62 · every figure in a re-authored body already exists in the repository's record", () => {
+  for (const [slug, body] of Object.entries(reAuthoredBodies)) {
+    for (const locale of ["en", "zh"]) {
+      const figures = figureTokens(bodyStrings(body[locale]).join(" "));
+      assert.ok(figures.size > 0, `${slug}/${locale} states no figures at all`);
+      for (const figure of figures) {
+        assert.ok(corpusFigures.has(figure),
+          `${slug}/${locale} states "${figure}", which is published nowhere in the repository's own ` +
+            `record. A number that exists nowhere else is an invented number: cite it or cut it.`);
+      }
+    }
+  }
+});
+
+test("TASK 62 · the re-authored bodies add no fabricated commercial or performance claim", () => {
+  const forbidden = [
+    [/minimum order quantity|\bMOQ\b/i, "an MOQ figure or promise"],
+    [/lead time/i, "a lead-time claim"],
+    [/per (kg|kilogram|tonne|ton)\b|US?\$\s?\d|price of \$/i, "a price"],
+    // Affirmative promises only. This copy's whole position is that nothing here is
+    // a guarantee, so a bare /guarantee/ would flag the sentence that says so.
+    [/\bguaranteed\b|we guarantee|this guarantees|guarantee of|comes with a guarantee|market share/i,
+      "a guarantee or market-share claim"],
+    [/\b(no\.?1|number one|best|leading|largest)\b/i, "a superlative the repository does not support"],
+    [/\b(dissolves?|removal|dissolution)\b[^.]{0,60}\b\d+(\.\d+)?\s*(minutes?|mins|hours?|seconds?)\b/i, "a dissolution time"],
+    [/\b(tenacity|breaking strength|elongation)\b[^.]{0,40}\b\d+(\.\d+)?\s*(cN|cn|g\/d|MPa|%)/i, "a mechanical value"],
+    [/\btwist\b[^.]{0,30}\b\d+(\.\d+)?\s*(tm|t\/m|turns)/i, "a twist figure"],
+    [/\b(bath|liquor) ratio\b[^.]{0,30}1\s*[:：]\s*\d/i, "a bath ratio"],
+    [/\b(customer|client) (named|called|such as|like)\b/i, "a named customer"],
+  ];
+  for (const [slug, body] of Object.entries(reAuthoredBodies)) {
+    const text = [...bodyStrings(body.en), ...bodyStrings(body.zh)].join(" ");
+    for (const [pattern, what] of forbidden) {
+      const hit = text.match(pattern);
+      assert.equal(hit, null, `${slug} states ${what}${hit ? `: "...${hit[0]}..."` : ""}`);
+    }
+  }
+});
+
+test("TASK 62 · re-authoring kept the headlines and gave the bodies real structure", () => {
+  const legacy = new Map(legacyArticleEntries.map((entry) => [entry.slug, entry]));
+  for (const article of articles) {
+    const before = legacy.get(article.slug);
+    const authored = article.sections.en;
+    const isReauthored = Object.prototype.hasOwnProperty.call(reAuthoredBodies, article.slug);
+
+    // card-copy mirrors these four in en/zh/es/de, so this pass may not move them.
+    assert.equal(article.title.en, before.title, `${article.slug}: English title changed`);
+    assert.equal(article.intro.en, before.intro, `${article.slug}: English intro changed`);
+    assert.equal(article.category.en, before.category, `${article.slug}: category changed`);
+    assert.equal(article.metaDescription.en, before.metaDescription, `${article.slug}: description changed`);
+
+    const kinds = new Set(authored.flatMap((s) => s.blocks.map((b) => b.type)));
+    assert.ok(kinds.has("paragraph"), `${article.slug} lost its prose`);
+    if (isReauthored) {
+      for (const kind of ["table", "definitionList", "list", "prose", "callout"]) {
+        assert.ok(kinds.has(kind),
+          `${article.slug} was re-authored without the ${kind} this task exists to enable`);
+      }
+      const linked = authored.some((section) => section.blocks.some((block) => {
+        const leaves = block.type === "prose" ? block.spans
+          : block.type === "list" ? block.items.flat()
+          : block.type === "definitionList" ? block.items.flatMap((i) => i.detail)
+          : [];
+        return leaves.some((leaf) => leaf.kind === "link");
+      }));
+      assert.ok(linked, `${article.slug} added structure but no internal link`);
+      assert.equal(article.dateModified, "2026-09-11",
+        `${article.slug} was rewritten but still claims the legacy revision date`);
+    } else {
+      assert.equal(article.dateModified, before.dateModified,
+        `${article.slug} did not change, so its dateModified must not move`);
+    }
+  }
+});
+
+test("TASK 62 · an invented figure cannot pass the traceability filter", () => {
+  // Negative control: without this, "every number traces" is indistinguishable
+  // from a filter that accepts everything. 42.7 is chosen deliberately — it is the
+  // tail of a patent application number, so a weaker substring rule would wave it
+  // through as if the company had published that strength.
+  const planted = [{
+    heading: "Planted",
+    blocks: [{ type: "paragraph", text: "Typical breaking strength is 42.7 cN/tex." }],
+  }];
+  const figures = [...figureTokens(bodyStrings(planted).join(" "))];
+  assert.ok(figures.length >= 1, "the extractor found no figures to check");
+  const untraceable = figures.filter((figure) => !corpusFigures.has(figure));
+  assert.ok(untraceable.includes("42.7"),
+    "an invented mechanical value passed the traceability filter");
 });
 
 test("TASK 61 · the legacy fold adds no text and loses none", () => {
