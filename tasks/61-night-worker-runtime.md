@@ -189,12 +189,12 @@ Validation results so far:
 
 ## Completion Record
 
-- Commit:
+- Commit: `db45f231afedf62059a0f454fdc40419c1fc1fa7` (implementation commit; delivery-record follow-up is preserved locally below)
 - Base / rebase commit: `3d01f21df361b6dc72149c46740e5ce197f9f557`
-- Changed files:
-- Validation results:
+- Changed files: `night-worker/app-server-client.mjs`, `night-worker/cli.mjs`, `night-worker/config.mjs`, `night-worker/queue.mjs`, `night-worker/runtime-store.mjs`, `night-worker/service.mjs`, `night-worker/submission.mjs`, `night-worker/tests/runtime.test.mjs`, `night-worker/thread-broker.mjs`, `tasks/61-night-worker-runtime.md`, `worklog/agent-61-night-worker-runtime.md`.
+- Validation results: focused tests PASS (15/15); `npm run lint` PASS; `npm run build` PASS; `git diff --check origin/main...db45f231afedf62059a0f454fdc40419c1fc1fa7` PASS; committed paths are allowlist-only; `git diff --exit-code origin/main...db45f231afedf62059a0f454fdc40419c1fc1fa7 -- workflow` PASS; `git log -1 --format='%an <%ae>' db45f231afedf62059a0f454fdc40419c1fc1fa7` is exactly `dylanliu2002 <dylanliu2002@gmail.com>`.
 - Worklog: `worklog/agent-61-night-worker-runtime.md`
-- Remaining risks:
+- Remaining risks: independent SOL review is pending. Push and PR delivery are blocked by the environment: SSH host-key verification cannot read `C:\Users\dylan\.ssh\known_hosts` (`Permission denied`), HTTPS has no credentials (`SEC_E_NO_CREDENTIALS`), and `gh auth status` reports the stored GitHub token invalid. No host-verification bypass or credential expansion was attempted. The local implementation and delivery-record commit objects are preserved; the normal worktree Git ref/index is read-only in this environment.
 
 ## Rollback
 
