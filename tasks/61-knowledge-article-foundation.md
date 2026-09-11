@@ -228,10 +228,15 @@ table or figure markup appearing where the model declares none.
 7. **Deferred:** `home-knowledge.tsx` still uses `articles.slice(0, 3)` and
    `resourcesGroups` is not yet wired into the product page's answer links. Both are
    related-content work with visible-text consequences and need their own sign-off.
-8. Unrelated to this task, found incidentally: the `test:seo` list omits
-   `first-wave-correctness.mjs`, which asserts a live cap of 4 knowledge articles.
-   Adding a fifth article requires editing that shared file (`package.json`-adjacent
-   scope), so the R-series batch must plan for it.
+8. Correction to an earlier version of this item, which repeated a claim disproved
+   during implementation: `tests/first-wave-correctness.mjs` asserts **nothing** about
+   article count (its five tests are inquiry a11y, Product Finder parameters,
+   quote-page Finder route, navigation focus management, and the accent colour
+   token) and is not in `test:seo` at all. The live article assertion is
+   `tests/gsc-index-002-fallback-indexation.mjs:90`, `articles.length >= 4` — a
+   **floor**. Adding a fifth article therefore needs no shared-file edit; it needs a
+   `card-copy.ts` `ARTICLE_TEASERS` entry in four locales, which that module already
+   requires and guards, plus `src/app/sitemap.ts` picking the slug up automatically.
 
 ## Review Status
 
