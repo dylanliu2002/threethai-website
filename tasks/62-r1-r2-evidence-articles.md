@@ -101,10 +101,23 @@ Measured on the delivered tree (2026-09-11):
 
 - typecheck clean · `eslint .` exit 0 · build clean, 225 pages / 222 documents,
   route set unchanged from `origin/main`.
-- `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` → **236 pass / 0 fail / 0 skipped**.
-  Sequence: 234 pass + 1 fail (byte guard) → guard changed under owner approval →
-  all green. `intl-dees-003b` alone: 14 pass / 0 fail, so the bundle-size bound and
-  the policy-string scan that this task did not touch are intact.
+- `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` → **238 pass / 0 fail / 0 skipped**.
+  Sequence: 234 pass / 1 fail (byte guard) → guard changed under owner approval →
+  236 → +2 Chinese-language guards → 238. `intl-dees-003b` alone: 14 pass / 0 fail,
+  so the bundle-size bound and the policy-string scan this task did not touch are
+  intact.
+- **The Chinese bodies are guarded, not assumed.** `assertAlignedBody` compares block
+  *shapes* and the figure filter scans both locales, so pasting the English text into
+  `zh` would have passed every earlier guard while `/zh` — a fully translated,
+  indexed surface — rendered English. Two guards added: every reconstructed zh prose
+  unit must contain Chinese characters and must not equal its English counterpart at
+  the same position; and the built `/zh/knowledge/<slug>.html` must carry every zh
+  heading and **none** of the English ones. Table cells are exempt from the
+  CJK requirement because they legitimately hold identifiers like `SH005 149658`;
+  captions and column headers are not exempt, since they are the table's prose.
+  A first draft of this guard failed on the string `"。"` — a prose span severed by
+  an inline link — which is why units are rejoined before being tested rather than
+  checked span by span.
 - Rendered growth, per article: R1 394 → 1,207 words, R2 342 → 1,401 words; tables
   1 each (caption present, `scope="col"` 3, `scope="row"` 5 and 6); ordered lists 1
   and 2; definition lists 4 and 5 terms; inline links 4 and 3; **zero `<script>`
@@ -207,13 +220,35 @@ Validation: REQUIRE_BUILD_OUTPUT=1 npm run test:seo; the two new assertions must
 
 ## Completion Record
 
-- Commits: local on `codex/62-knowledge-r1-r2-evidence`; **not pushed**, because a
-  validation gate is red and Coordination Item 1 is unresolved
-- Base: `origin/main` @ `aa5c2bc` (verified current at branch creation)
+- Commits pushed to `origin/codex/62-knowledge-r1-r2-evidence` — `a6b5ab9` plus the
+  follow-up commit that adds the Chinese-language guards.
+  **Not merged, and no pull request opened by this task.**
+- Base: `origin/main` @ `aa5c2bc` (verified current at branch creation and again
+  before push)
 - Changed files: `src/content/article-body-patches.ts` (new), `src/content/articles.ts`,
-  `tests/intl-dees-001-es-de-localization.mjs`, this card, the worklog
-- Remaining risks: see Coordination Item 1; ZH body copy is authored by this task and
-  needs a native read-through before merge.
+  `tests/intl-dees-001-es-de-localization.mjs`,
+  `tests/intl-dees-003b-server-client-boundary.mjs` (by owner approval), this card,
+  the worklog
+- Remaining risks:
+  1. Shelf headings are the site's existing category labels, not the audit's six
+     names, and three shelves are empty so they render nothing.
+  2. Related content genuinely differs per article, so product and article pages show
+     fewer links than before — intended by card §4, but it is a navigation change.
+  3. Table / list / definition-list / callout / inline-link rendering is now exercised
+     by shipped content, closing that Batch 0 caveat; `type: "heading"` (the `<h3>`
+     block) is still covered only by the synthetic fixture, because neither rewrite
+     needed a sub-heading.
+  4. **The Chinese copy is authored by this task.** It is now *guarded* — every zh
+     prose unit must contain Chinese and must not equal its English counterpart, and
+     the built `/zh` page must carry the zh headings and none of the English ones —
+     but no test can say whether it reads like a native technical writer wrote it.
+     Terminology follows the existing zh dictionaries (浴比, 调湿, 条干均匀度, 回潮率,
+     捻向, 卷装, 终点); a native read-through is still required before merge.
+  5. The byte-guard change touches a file INTL-DEES-003B owns. The reviewer should
+     read that diff specifically and decide whether the median's remaining blind spot
+     — a leak confined to a minority of documents — is acceptable, or should be
+     closed by the per-route assertion named in the change request.
+  6. Verified against a local prerender, not a deployed environment.
 
 ## Rollback
 

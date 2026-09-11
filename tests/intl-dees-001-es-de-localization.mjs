@@ -885,6 +885,100 @@ test("TASK 62 · an invented figure cannot pass the traceability filter", () => 
     "an invented mechanical value passed the traceability filter");
 });
 
+/**
+ * Translate-ready units of a body: each unit is one piece of prose a reader
+ * experiences as a whole. Adjacent spans are rejoined, because a link inside a
+ * sentence splits it into fragments and a trailing "。" is not an untranslated
+ * string. Table *cells* are excluded on purpose — they legitimately carry
+ * document identifiers such as `SH005 149658` in any language — while captions
+ * and column headers are included, since those are the table's prose.
+ */
+function translatableUnits(body) {
+  const join = (spans) => spans.map((span) => span.text).join("");
+  const units = [];
+  for (const section of body) {
+    units.push(section.heading);
+    for (const block of section.blocks) {
+      switch (block.type) {
+        case "heading":
+        case "paragraph":
+          units.push(block.text);
+          break;
+        case "callout":
+          units.push(`${block.label}${block.text}`);
+          break;
+        case "prose":
+          units.push(join(block.spans));
+          break;
+        case "list":
+          block.items.forEach((item) => units.push(join(item)));
+          break;
+        case "definitionList":
+          block.items.forEach((item) => {
+            units.push(item.term);
+            units.push(join(item.detail));
+          });
+          break;
+        case "table":
+          units.push(block.caption, ...block.columns);
+          break;
+      }
+    }
+  }
+  return units;
+}
+
+test("TASK 62 · the Chinese bodies are Chinese, not the English text pasted twice", () => {
+  // assertAlignedBody compares block *shapes*, and the figure filter scans both
+  // locales, so an English body dropped into `zh` would satisfy everything above
+  // while /zh rendered untranslated copy on a fully translated, indexed surface.
+  const hasCjk = (text) => /[㐀-鿿]/.test(text);
+
+  for (const [slug, body] of Object.entries(reAuthoredBodies)) {
+    assert.equal(body.zh.length, body.en.length, `${slug}: zh and en section counts differ`);
+
+    const enUnits = translatableUnits(body.en);
+    const zhUnits = translatableUnits(body.zh);
+    assert.equal(zhUnits.length, enUnits.length, `${slug}: zh and en carry different numbers of prose units`);
+
+    zhUnits.forEach((unit, index) => {
+      assert.ok(hasCjk(unit),
+        `TASK 62: ${slug} zh unit ${index + 1} holds no Chinese characters: "${unit.slice(0, 60)}"`);
+      assert.notEqual(unit, enUnits[index],
+        `TASK 62: ${slug} zh unit ${index + 1} is the English text verbatim: "${unit.slice(0, 60)}"`);
+    });
+
+    // Positional pairing means a section translated out of order is caught, not
+    // just one missing entirely.
+    body.en.forEach((section, i) => {
+      assert.equal(body.zh[i].blocks.length, section.blocks.length,
+        `${slug}: section ${i + 1} has a different number of blocks in zh`);
+    });
+  }
+});
+
+test("TASK 62 · the shipped /zh article renders the Chinese body", buildOptions, () => {
+  for (const slug of Object.keys(reAuthoredBodies)) {
+    const file = path.join(PRERENDER_ROOT, "zh", "knowledge", `${slug}.html`);
+    assert.ok(existsSync(file), `missing prerendered zh document for ${slug}`);
+    const text = visibleText(readFileSync(file, "utf8"));
+    const body = reAuthoredBodies[slug];
+
+    for (const section of body.zh) {
+      assert.ok(text.includes(section.heading),
+        `zh/${slug}: the rendered page lost the heading "${section.heading}"`);
+    }
+    for (const section of body.en) {
+      assert.equal(text.includes(section.heading), false,
+        `zh/${slug}: the English heading "${section.heading}" is on the Chinese page`);
+    }
+    // A table is only useful to a Chinese reader if its cells arrived translated.
+    const zhTable = body.zh.flatMap((s) => s.blocks).find((b) => b.type === "table");
+    assert.ok(zhTable && text.includes(zhTable.rows[0][0]),
+      `zh/${slug}: the first row of the Chinese table did not render`);
+  }
+});
+
 test("TASK 61 · the legacy fold adds no text and loses none", () => {
   assert.deepEqual(legacyTupleToBody([["Heading A", "Body A"], ["Heading B", "Body B"]]), [
     { heading: "Heading A", blocks: [{ type: "paragraph", text: "Body A" }] },

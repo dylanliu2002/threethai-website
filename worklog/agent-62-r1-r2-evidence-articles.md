@@ -115,6 +115,32 @@ request would close that and is left as the follow-up.
 - Line-ending and encoding sweep clean; the Chinese copy renders CJK in `/zh`.
 - Committed and pushed to `codex/62-knowledge-r1-r2-evidence`. Not merged.
 
+## 2026-09-11 — Self-review of the new guards found a hole
+
+Reviewing the test set after pushing, the Chinese side of the rewrite had no guard at
+all. `assertAlignedBody` compares block **shapes**, and the figure-traceability filter
+reads both locales, so pasting the English body into `zh` would have satisfied every
+assertion while `/zh/knowledge/...` rendered English on a fully translated, indexed
+surface. Two guards added:
+
+- each reconstructed zh prose unit must contain Chinese characters and must not equal
+  the English unit in the same position;
+- the built `/zh` document must contain every zh heading and **none** of the English
+  headings, plus the first cell of the translated table.
+
+Scoping was decided by what the data actually contains rather than by applying one rule
+everywhere: table **cells** are exempt from the CJK requirement because they legitimately
+hold identifiers such as `SH005 149658` in any language, while captions and column
+headers are not exempt because those are the table's prose.
+
+A first version failed on the string `"。"`. That was my test being wrong, not the copy:
+`prose` splits a sentence into spans wherever a link sits, so a trailing full stop
+arrives as its own span. Units are now rejoined before being tested, which also makes
+the positional English/Chinese comparison meaningful.
+
+Gates after the change: typecheck clean, `eslint .` exit 0, build untouched (no `src`
+change), `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` **238 pass / 0 fail / 0 skipped**.
+
 ## 2026-09-11 — Deliberately not done
 
 - No new technical or commercial claim; no figure absent from this repository. No
