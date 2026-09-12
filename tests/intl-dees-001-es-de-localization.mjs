@@ -698,8 +698,15 @@ test("TASK 61 · the articles this pass left alone still render their legacy tex
   // Articles written for this site have no legacy row to be faithful to, so they are out of
   // scope here rather than failures; that they carry real structure is asserted separately.
   const untouchedLegacy = articles.filter((a) => legacy.has(a.slug) && !reAuthored.has(a.slug));
-  assert.ok(untouchedLegacy.length >= 2,
-    "no article left that is still migrated copy, so this guard no longer covers the legacy fold");
+  // Task 64 re-authored `pva-staple-fiber-vs-filament-yarn` (R6) on the block model, which drops
+  // it out of this set exactly as R1 and R2 dropped theirs, so a `>= 2` floor can no longer hold
+  // and a shrinking count would also stop meaning anything. Task 64 must not touch R3, so
+  // `pva-yarn-buyer-specification-checklist` is the only migrated article left, and it is pinned
+  // by name: a further re-author, deliberate or accidental, fails here instead of quietly
+  // reducing the legacy fold's coverage to nothing.
+  assert.deepEqual(untouchedLegacy.map((article) => article.slug), ["pva-yarn-buyer-specification-checklist"],
+    "the set of still-migrated articles changed, so the legacy fold below now covers something other " +
+      "than the one article Task 64 promised to leave alone");
 
   for (const article of untouchedLegacy) {
     const before = legacy.get(article.slug);

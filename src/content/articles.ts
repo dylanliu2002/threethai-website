@@ -130,6 +130,7 @@ const zhPatches: Record<string, ArticlePatch> = {
 const reAuthoredOn: Record<string, string> = {
   "pva-yarn-dissolution-temperature-guide": "2026-09-11",
   "pva-batch-dissolution-consistency": "2026-09-11",
+  "pva-staple-fiber-vs-filament-yarn": "2026-09-11",
 };
 
 function build(slug: string): Article {

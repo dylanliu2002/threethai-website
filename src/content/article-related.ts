@@ -83,6 +83,11 @@ const ARTICLE_RELATED: Record<string, ArticleRelated> = {
     products: ["pva-staple-fiber", "pva-filament-yarn"],
     applications: NONE,
     answers: ["pva-staple-fiber-vs-filament-yarn-difference"],
+    // The article-edge bucket stays NONE, as it was when the page migrated. Row 43's other
+    // half is "product pages", and the two product cards plus the decision answer are the
+    // navigation this article owns; the cards it could hand on to in this bucket are titled
+    // after a PVA yarn the comparison does not declare, so listing them would surface a
+    // product name the article never offers.
     articles: NONE,
   },
   "what-is-water-soluble-pva-yarn": {

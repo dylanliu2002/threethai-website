@@ -25,4 +25,18 @@ export const articleTitlePatches: Record<string, { title: Record<ContentLocale, 
       "now says what the article is. The former title is preserved in the body's own copy, which " +
       "still explains why 20°C, 40°C and 90°C are the three labels buyers ask about.",
   },
+  "pva-staple-fiber-vs-filament-yarn": {
+    title: {
+      en: "PVA Staple Fiber, Filament or Yarn: How to Select the Material Form",
+      zh: "PVA 短纤、长丝与纱线：如何选择材料形态",
+    },
+    why:
+      "The migrated headline promised a two-way comparison, but the re-authored body compares the " +
+      "four forms the site supplies: staple fibre, filament yarn, spun yarn and sewing thread. Its " +
+      "first section says so, and a headline left on two forms would advertise a shorter article " +
+      "than the page holds. The \"How to …\" opener is kept because both re-authored articles on " +
+      "this branch use it and the editorial voice rules do not ban it; what changed is the set of " +
+      "forms named, not the framing. The entity name keeps the American `Fiber` the product page " +
+      "uses, while the body prose uses the house `fibre`.",
+  },
 };

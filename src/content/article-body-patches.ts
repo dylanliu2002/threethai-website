@@ -764,4 +764,347 @@ export const reAuthoredBodies: Record<string, { en: ArticleBody; zh: ArticleBody
       },
     ],
   },
+
+  /* ------------------------------------------------------------------ *
+   * R6 — staple fibre, filament, spun yarn and sewing thread
+   *
+   * Extends the migrated two-way comparison to the four forms the site
+   * supplies, and adds the field that has to be written down for each.
+   * Every figure below is already published elsewhere: the cut lengths,
+   * linear densities, counts, filament constructions, thread length and
+   * temperature groups come from `catalog.ts`; the two patent numbers and
+   * the 9 / 25 / 34 / 2 patent counts come from `patents.ts`; the four
+   * process positions come from `applications.ts`. No dissolution time,
+   * strength, tenacity, elongation, twist, machine speed, bath ratio,
+   * tolerance, capacity, headcount, MOQ or lead time appears, and no
+   * customer is named.
+   * ------------------------------------------------------------------ */
+  "pva-staple-fiber-vs-filament-yarn": {
+    en: [
+      {
+        heading: "The choice is between four supplied forms, not two",
+        blocks: [
+          {
+            type: "paragraph",
+            text: "Staple fibre against filament is the comparison most buyers arrive with, and it is the framing search engines have rewarded for years. It is also incomplete. Three Thai supplies PVA in four forms, and a request for a sample reads differently depending on which one the process can actually accept. Staple fibre is cut, opened and blended by weight. Filament yarn is extruded as a continuous multi-filament and runs under tension. Spun yarn turns staple into a countable, twisted yarn. Sewing thread is a finished yarn built to pass through a needle. Fixing the form first turns every later question into a question about one material: count, cut length, package, removal.",
+          },
+          {
+            type: "paragraph",
+            text: "The table below is the shortest honest version of that comparison. It lists what each form is, where it enters a process, and the field that has to be written down before a sample is worth quoting.",
+          },
+          {
+            type: "table",
+            caption: "The four supplied forms",
+            columns: ["Form", "What it is", "Where it enters the process", "Write this down"],
+            rowHeader: true,
+            rows: [
+              ["Staple fibre", "Cut PVA lengths", "Spinning blends, wet-laid webs, papermaking furnish", "Cut length, linear density"],
+              ["Filament yarn", "Continuous multi-filament PVA", "Guides, tension devices, placement equipment", "Filament count, package build"],
+              ["Spun PVA yarn", "Staple drafted, spun and twisted", "Plaiting and support yarns in knitting and weaving", "Count, ply, twist direction"],
+              ["Sewing thread", "A finished needle yarn", "Temporary seams and stitch lines", "Thread size, seam position"],
+            ],
+          },
+          {
+            type: "paragraph",
+            text: "A buyer may ask why sewing thread is listed beside a fibre. It is listed because the four forms are often bought by different people inside the same mill, and the field that has to be written down is not the same in each case.",
+          },
+          {
+            type: "paragraph",
+            text: "Leaving the form unnamed moves the work downstream. A 4 mm papermaking length and a 38 mm spinning length are different stock, and a quotation written against the wrong one has to be rebuilt before the first sample runs.",
+          },
+        ],
+      },
+      {
+        heading: "Where each form does something the others cannot",
+        blocks: [
+          {
+            type: "paragraph",
+            text: "Each of the four forms carries a mechanical advantage the others do not share, and it is usually that advantage, rather than a price difference, that settles the route. Staple can be opened and blended, so it can be dosed by weight into a moving stock or into a carding blend. Filament arrives continuous, so a guide and a tension device can carry it without a drafting stage in front of them. Spun yarn carries twist, so a buyer can name a count and a ply in the ordinary way, and the weaving or knitting room already knows how to run it. Sewing thread is finished for a needle, which is a different set of requirements from a yarn that only has to be woven or knitted and then dissolved.",
+          },
+          {
+            type: "list",
+            ordered: false,
+            items: [
+              [{ kind: "text", text: "Staple fibre, where cutting and opening let the material be weighed into a blend." }],
+              [{ kind: "text", text: "Filament yarn, where continuity removes the drafting stage." }],
+              [{ kind: "text", text: "Spun PVA yarn, where a count, a ply and a twist direction can all be named in the trade's own units." }],
+              [{ kind: "text", text: "Sewing thread, finished so that a needle can pass through the same point hundreds of times." }],
+            ],
+          },
+          {
+            type: "paragraph",
+            text: "A buyer who starts from the price of a kilogram compares two forms that do different jobs at different points in the line. Starting from the process position keeps the comparison honest, and it usually narrows the field to one form before a sample is discussed.",
+          },
+        ],
+      },
+      {
+        heading: "Reading the form off the process",
+        blocks: [
+          {
+            type: "prose",
+            spans: [
+              { kind: "text", text: "The published application pages already place each form where the process does. " },
+              { kind: "link", text: "Towel weaving", href: "/applications/towel-weaving" },
+              { kind: "text", text: " runs a soluble yarn as the support a zero-twist pile cannot hold by itself. " },
+              { kind: "link", text: "Knitting", href: "/applications/knitting" },
+              { kind: "text", text: " brings PVA in as a plating yarn, as a blend component during spinning, or as staple fibre in the blend. " },
+              { kind: "link", text: "Papermaking", href: "/applications/papermaking" },
+              { kind: "text", text: " doses staple fibre into the furnish with the pulp, where length and linear density decide how it opens, distributes and bonds. " },
+              { kind: "link", text: "Technical textiles", href: "/applications/technical-textiles" },
+              { kind: "text", text: " runs filament yarn as a continuous element through guides, tension devices and placement equipment. " },
+              { kind: "link", text: "Embroidery & sewing", href: "/applications/embroidery-sewing" },
+              { kind: "text", text: " uses the finished thread for the temporary seam itself, and the yarn as a guide or support inside an embroidery or lace construction. Five application pages, five positions in the line, and not one of them is settled by a fibre-versus-yarn argument." },
+            ],
+          },
+          {
+            type: "paragraph",
+            text: "What the five entries share is a position the material holds while the other components are still being formed, and a removal step that has to fit whatever else is in the bath at that point.",
+          },
+        ],
+      },
+      {
+        heading: "The four fields a comparison turns on",
+        blocks: [
+          {
+            type: "paragraph",
+            text: "Cut length and linear density decide how staple opens. The published papermaking grades sit at 2 dtex × 4 mm and 2 dtex × 6 mm, while the staple range includes 1.33–1.67 dtex × 38 mm. Filament is described by filament count and package build: 110D/25F and 55D/15F are two of the published constructions. Spun PVA yarn counts run from 20S/1–80S/1 in the 20°C group to 40S/1–60S/1 in the 60°C group, and 1,500–5,000 m is a published length for the 40S/2 thread. Temperature is the field buyers ask about first, and the published groups are 20°C, 40°C, 55°C, 60°C, 80°C and 90°C.",
+          },
+          {
+            type: "paragraph",
+            text: "A temperature label is not a specification by itself. The catalog note says the same thing more plainly: a label is a starting point, and the observed result moves with time, agitation, bath ratio, fabric construction and the finishing chemistry. A buyer comparing two suppliers on temperature alone is comparing one variable out of several, and the one that is easiest to quote.",
+          },
+        ],
+      },
+      {
+        heading: "A comparison the next supplier can repeat",
+        blocks: [
+          {
+            type: "paragraph",
+            text: "Two samples run by two people are not a comparison. Fix the form, then fix the conditions, then write the result down in a way that survives a change of supplier. Three Thai's granted patents include an opening and cleaning device for water-soluble vinylon, ZL 2021 2 0221226.X, published as CN 214300496 U, and a production device for openwork single-jersey knitted fabric made with water-soluble yarn, ZL 2022 2 2968610.3, published as CN 218520715 U. Neither document chooses a form for you. Both describe a defined step where the material behaves or does not.",
+          },
+          {
+            type: "paragraph",
+            text: "Record four events in the order they happen, and the second run becomes comparable to the first.",
+          },
+          {
+            type: "list",
+            ordered: true,
+            items: [
+              [{ kind: "text", text: "First wetting: the point at which the bath reaches the material." }],
+              [{ kind: "text", text: "Softening: the point at which the material stops behaving like a yarn or a fibre and starts behaving like a gel." }],
+              [{ kind: "text", text: "Loss of function: the point at which the support no longer carries load, even though material is still present." }],
+              [{ kind: "text", text: "Full removal: the point at which the process can stop treating the material as present at all." }],
+            ],
+          },
+        ],
+      },
+      {
+        heading: "What this comparison does not settle",
+        blocks: [
+          {
+            type: "callout",
+            label: "Limit of the table",
+            tone: "note",
+            text: "The table places each form and names the field to write down. It carries no dissolution time, strength figure, twist value or bath ratio, because each of those belongs to a grade, a structure and a process rather than to a form.",
+          },
+          {
+            type: "paragraph",
+            text: "The published patent record lists 9 invention patents and 25 utility models among 34 grants, plus 2 registered foreign patents. None of those documents chooses a form for you. What they describe is a manufacturing base: a set of processes that have been built, claimed and, where the claim is live, maintained by an annual fee. The decision about which form your line should buy stays with the process position, the field that has to be written down, and a trial both sides can repeat.",
+          },
+          {
+            type: "paragraph",
+            text: "Two things have to be written down before the trial: the form the line can accept, and the field that has to be agreed for that form. Everything else in those four fields sits with the grade, the structure or the finishing step, and a trial decides it.",
+          },
+        ],
+      },
+      {
+        heading: "What to send with the enquiry",
+        blocks: [
+          {
+            type: "prose",
+            spans: [
+              { kind: "text", text: "The buyer answer that names the two forms most often confused is " },
+              { kind: "link", text: "the difference between PVA staple fibre and filament yarn", href: "/answers/pva-staple-fiber-vs-filament-yarn-difference" },
+              { kind: "text", text: ". Read that first, then open the form pages for the published formats: " },
+              { kind: "link", text: "PVA staple fibre", href: "/products/pva-staple-fiber" },
+              { kind: "text", text: ", " },
+              { kind: "link", text: "PVA filament yarn", href: "/products/pva-filament-yarn" },
+              { kind: "text", text: " and " },
+              { kind: "link", text: "water-soluble PVA sewing thread", href: "/products/water-soluble-pva-sewing-thread" },
+              { kind: "text", text: ". When the enquiry goes out it should carry four things: the form, the field that decides it, the position in the line where the material has to perform, and the stage at which it has to be gone. A supplier who receives those four can quote a sample against the process instead of against a catalogue line." },
+              { kind: "link", text: "Request a sample", href: "/request-quote" },
+              { kind: "text", text: " with those four fields filled in, or ask the one question that is still open." },
+            ],
+          },
+          {
+            type: "paragraph",
+            text: "If the first trial leaves the question open, the next step is a second trial on the same conditions with the other form, not a wider specification. Write both runs down as the same four events in the same order, and the two results can be set side by side.",
+          },
+        ],
+      },
+    ],
+    zh: [
+      {
+        heading: "要选的是四种供货形态，不是两种",
+        blocks: [
+          {
+            type: "paragraph",
+            text: "多数买家是带着“短纤还是长丝”这个问题来的，搜索引擎也多年偏爱这个框架。它并不完整。Three Thai 供应的 PVA 有四种形态，而取样能不能被工艺接受，取决于手里拿的是哪一种。短纤要切断、开松，再按重量进入混料；长丝是连续的复丝，在张力下走纱路；纺纱用短纤牵伸加捻，纺成能报支数的纱；缝纫线则是做成能反复穿过针眼的成品线。先把形态定下来，后面每一个问题才会收拢成同一件事：支数、切断长度、卷装、去除。",
+          },
+          {
+            type: "paragraph",
+            text: "下表是这段比较最简短也最可靠的写法。它列出每种形态是什么、从工艺的哪一处进入，以及取样报价之前必须写下来的字段。",
+          },
+          {
+            type: "table",
+            caption: "四种供货形态",
+            columns: ["形态", "是什么", "在工艺中的位置", "必须写下来的字段"],
+            rowHeader: true,
+            rows: [
+              ["短纤", "切断的 PVA 纤维", "纺纱混料、湿法成网、造纸浆料", "切断长度、线密度"],
+              ["长丝", "连续的 PVA 复丝", "导纱器、张力装置、铺放设备", "单丝根数、卷装形式"],
+              ["纺纱用 PVA 纱", "短纤经牵伸、加捻纺成", "针织与机织的添纱、支撑纱", "支数、股数、捻向"],
+              ["缝纫线", "能直接穿针的成品线", "临时缝线与定位线迹", "线的规格、缝线位置"],
+            ],
+          },
+          {
+            type: "paragraph",
+            text: "买家会问，缝纫线为什么和纤维放在同一张表里。因为同一个工厂里，这四种形态常常由不同岗位的人采购，而各自必须写下来的字段并不相同。",
+          },
+          {
+            type: "paragraph",
+            text: "形态没定，工作只能往下游推。4 mm 的造纸级长度和 38 mm 的纺纱长度是两种不同的物料，报价按错的那一种写出来，第一次打样之前就得重做。",
+          },
+        ],
+      },
+      {
+        heading: "每种形态各有一处别处替代不了的地方",
+        blocks: [
+          {
+            type: "paragraph",
+            text: "四种形态各自带着一处其他形态没有的机械优势，定下路线的通常就是这处优势，而不是价格差。短纤能开松、能混料，所以可以按重量投进流动的浆料或梳理混料里。长丝到厂就是连续的，前面挂上导纱器和张力装置就能走，不需要牵伸工序。纺纱带捻度，买家能按本行的单位报出支数和股数，织造或针织车间也知道怎么开。缝纫线是按针眼做成的成品，这一点和只要求织进去再溶掉的纱线不同，是两套要求。",
+          },
+          {
+            type: "list",
+            ordered: false,
+            items: [
+              [{ kind: "text", text: "短纤：切断与开松，材料才能按重量进入混料。" }],
+              [{ kind: "text", text: "长丝：连续性省掉了牵伸工序。" }],
+              [{ kind: "text", text: "纺纱：支数、股数、捻向都能用本行的单位写清楚。" }],
+              [{ kind: "text", text: "缝纫线：做成能在同一处反复穿过针眼几百次的线。" }],
+            ],
+          },
+          {
+            type: "paragraph",
+            text: "从每公斤价格出发，比的是两件在不同工序位置干不同活的东西。从工序位置出发，比较才站得住，而且通常在某一种形态上就收拢了，还不到谈样品那一步。",
+          },
+        ],
+      },
+      {
+        heading: "从工序倒推形态",
+        blocks: [
+          {
+            type: "prose",
+            spans: [
+              { kind: "text", text: "已发布的工艺页面本身就把每种形态的位置说了出来。" },
+              { kind: "link", text: "毛巾织造", href: "/applications/towel-weaving" },
+              { kind: "text", text: "把水溶纱用作无捻绒头自己拢不住的支撑。" },
+              { kind: "link", text: "针织", href: "/applications/knitting" },
+              { kind: "text", text: "让 PVA 以添纱、纺纱混料组分或混料中的短纤进入织物。" },
+              { kind: "link", text: "造纸", href: "/applications/papermaking" },
+              { kind: "text", text: "把短纤随纸浆投进浆料，长度和线密度决定它怎么开松、分布和结合。" },
+              { kind: "link", text: "产业用纺织品", href: "/applications/technical-textiles" },
+              { kind: "text", text: "让长丝作为连续元件穿过导纱器、张力装置和铺放设备。" },
+              { kind: "link", text: "刺绣与缝纫", href: "/applications/embroidery-sewing" },
+              { kind: "text", text: "用成品线本身做成临时缝线，把水溶纱用作刺绣或花边结构里的导引或支撑。五个工艺页面，五个工序位置，没有一处是靠纤维还是纱这个争论定下来的。" },
+            ],
+          },
+          {
+            type: "paragraph",
+            text: "五处共有的一点是：材料要在其余组分还没成形的时候占住一个位置，而它的去除步骤得和当时浴液里别的东西对得上。",
+          },
+        ],
+      },
+      {
+        heading: "比较最终落在四个字段上",
+        blocks: [
+          {
+            type: "paragraph",
+            text: "切断长度和线密度决定短纤怎么开松。已发布的造纸级落在 2 dtex × 4 mm 和 2 dtex × 6 mm，短纤范围里还有 1.33–1.67 dtex × 38 mm。长丝用单丝根数和卷装形式描述：110D/25F 和 55D/15F 是已发布的两种结构。纺纱用 PVA 纱的支数，从 20°C 组的 20S/1–80S/1 到 60°C 组的 40S/1–60S/1，40S/2 缝纫线已发布的长度是 1,500–5,000 m。温度是买家最先问的字段，已发布的温度组有 20°C、40°C、55°C、60°C、80°C 和 90°C。",
+          },
+          {
+            type: "paragraph",
+            text: "温度标签本身不是规格。目录说明说得更直白：标签是起点，实际结果会随作用时间、搅动、浴比、织物结构和整理化学品变化。只拿温度比两家的买家，比的是好几个变量里的一个，而且是最容易被抄进目录的那一个。",
+          },
+        ],
+      },
+      {
+        heading: "下一次换供应商也能复现的比较",
+        blocks: [
+          {
+            type: "paragraph",
+            text: "两个人各做一次样品，不叫比较。先固定形态，再固定条件，最后把结果写成换一家也读得懂的样子。Three Thai 的已授权专利里，有一项水溶性维纶开清装置，ZL 2021 2 0221226.X，公开号 CN 214300496 U；还有一项采用水溶纱制造的镂空单面针织面料的生产装置，ZL 2022 2 2968610.3，公开号 CN 218520715 U。这两份文件都不会替你挑形态，它们描述的都是材料表现得出或表现不出的某个确定步骤。",
+          },
+          {
+            type: "paragraph",
+            text: "把四个事件按发生顺序记下来，第二次打样才和第一次对得上。",
+          },
+          {
+            type: "list",
+            ordered: true,
+            items: [
+              [{ kind: "text", text: "初次润湿：浴液接触到材料的那一刻。" }],
+              [{ kind: "text", text: "软化：材料不再像纱线或纤维、而开始像凝胶的那一刻。" }],
+              [{ kind: "text", text: "功能丧失：材料还在，但支撑已经不再承力的那一刻。" }],
+              [{ kind: "text", text: "完全去除：工艺可以不再把材料当作存在的那一个终点。" }],
+            ],
+          },
+        ],
+      },
+      {
+        heading: "这段比较没有解决的事",
+        blocks: [
+          {
+            type: "callout",
+            label: "上表的边界",
+            tone: "note",
+            text: "上表给出每种形态的位置和必须写下来的字段。它不含溶解时间、强度值、捻度值或浴比，因为这些都属于某个牌号、某种结构和某条工艺，而不属于一种形态。",
+          },
+          {
+            type: "paragraph",
+            text: "已发布的专利记录列出 9 项发明专利和 25 项实用新型，中国授权合计 34 项，另有 2 项境外注册专利。这些文件都不会替你挑形态。它们说的是一套制造基础：一批已经建成、已经主张，并且在权利有效期内按年缴费维持的工艺。你的产线该买哪种形态，取决于工序位置、必须写下来的字段，以及双方都能复现的那次打样。",
+          },
+          {
+            type: "paragraph",
+            text: "打样之前必须写下来的是两件事：产线能接受哪一种形态，以及这一形态必须确认哪一个字段。这四个字段里其余的内容都归属于牌号、结构或整理步骤，靠打样定。",
+          },
+        ],
+      },
+      {
+        heading: "询价时该一起发过去的内容",
+        blocks: [
+          {
+            type: "prose",
+            spans: [
+              { kind: "text", text: "把最常被混淆的两种形态讲清楚的那条买家问答是" },
+              { kind: "link", text: "PVA 短纤与长丝的区别", href: "/answers/pva-staple-fiber-vs-filament-yarn-difference" },
+              { kind: "text", text: "。先读它，再打开已发布规格的形态页面：" },
+              { kind: "link", text: "PVA 短纤", href: "/products/pva-staple-fiber" },
+              { kind: "text", text: "、" },
+              { kind: "link", text: "PVA 长丝", href: "/products/pva-filament-yarn" },
+              { kind: "text", text: "和" },
+              { kind: "link", text: "水溶性 PVA 缝纫线", href: "/products/water-soluble-pva-sewing-thread" },
+              { kind: "text", text: "。询价发出去时应该带上四件事：形态、决定形态的那个字段、材料必须在那处起作用的工序位置，以及它必须消失的那一步。拿到这四件事的供应商，可以针对工艺报样品，而不是对着目录里某一行报价。" },
+              { kind: "link", text: "索取样品", href: "/request-quote" },
+              { kind: "text", text: "并把这四个字段填上，或者只问那个还没有答案的问题。" },
+            ],
+          },
+          {
+            type: "paragraph",
+            text: "如果第一次打样还得不到结论，下一步是在同样条件下换另一种形态再做一次，而不是把规格放宽。两次都按同样顺序记成那四个事件，两份结果就能并排放。",
+          },
+        ],
+      },
+    ],
+  },
 };

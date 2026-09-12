@@ -1,6 +1,6 @@
 {
   "$note": "Per-document byte budget, regenerated deliberately by the task that changed a route.",
-  "$baseCommit": "28f2024acd249216bb46c3133d2b642caf0814ea",
+  "$baseCommit": "58dec64c833468d870a4b7ea9ecb4fa22e9d20e9",
   "$toleranceBytes": 64,
   "documents": {
     "about.html": {
@@ -320,16 +320,16 @@
       "scriptBytes": 63143
     },
     "de/knowledge.html": {
-      "bytes": 87416,
-      "scriptBytes": 62016
+      "bytes": 87424,
+      "scriptBytes": 62022
     },
     "de/knowledge/pva-batch-dissolution-consistency.html": {
       "bytes": 95211,
       "scriptBytes": 66212
     },
     "de/knowledge/pva-staple-fiber-vs-filament-yarn.html": {
-      "bytes": 72618,
-      "scriptBytes": 53111
+      "bytes": 95076,
+      "scriptBytes": 65810
     },
     "de/knowledge/pva-yarn-buyer-specification-checklist.html": {
       "bytes": 73321,
@@ -352,8 +352,8 @@
       "scriptBytes": 69732
     },
     "de/knowledge/what-is-water-soluble-pva-yarn.html": {
-      "bytes": 101715,
-      "scriptBytes": 70577
+      "bytes": 101719,
+      "scriptBytes": 70579
     },
     "de/manufacturing.html": {
       "bytes": 87905,
@@ -368,12 +368,12 @@
       "scriptBytes": 59082
     },
     "de/products/pva-filament-yarn.html": {
-      "bytes": 102998,
-      "scriptBytes": 71535
+      "bytes": 103002,
+      "scriptBytes": 71537
     },
     "de/products/pva-staple-fiber.html": {
-      "bytes": 106149,
-      "scriptBytes": 73453
+      "bytes": 106153,
+      "scriptBytes": 73455
     },
     "de/products/water-soluble-pva-sewing-thread.html": {
       "bytes": 105472,
@@ -556,16 +556,16 @@
       "scriptBytes": 64014
     },
     "es/knowledge.html": {
-      "bytes": 88062,
-      "scriptBytes": 62542
+      "bytes": 88058,
+      "scriptBytes": 62539
     },
     "es/knowledge/pva-batch-dissolution-consistency.html": {
       "bytes": 95764,
       "scriptBytes": 66719
     },
     "es/knowledge/pva-staple-fiber-vs-filament-yarn.html": {
-      "bytes": 73201,
-      "scriptBytes": 53633
+      "bytes": 95659,
+      "scriptBytes": 66332
     },
     "es/knowledge/pva-yarn-buyer-specification-checklist.html": {
       "bytes": 73876,
@@ -588,8 +588,8 @@
       "scriptBytes": 70214
     },
     "es/knowledge/what-is-water-soluble-pva-yarn.html": {
-      "bytes": 102318,
-      "scriptBytes": 71108
+      "bytes": 102316,
+      "scriptBytes": 71107
     },
     "es/manufacturing.html": {
       "bytes": 88871,
@@ -604,12 +604,12 @@
       "scriptBytes": 59731
     },
     "es/products/pva-filament-yarn.html": {
-      "bytes": 103914,
-      "scriptBytes": 72199
+      "bytes": 103912,
+      "scriptBytes": 72198
     },
     "es/products/pva-staple-fiber.html": {
-      "bytes": 106866,
-      "scriptBytes": 74037
+      "bytes": 106864,
+      "scriptBytes": 74036
     },
     "es/products/water-soluble-pva-sewing-thread.html": {
       "bytes": 106747,
@@ -636,16 +636,16 @@
       "scriptBytes": 81868
     },
     "knowledge.html": {
-      "bytes": 86164,
-      "scriptBytes": 61167
+      "bytes": 86168,
+      "scriptBytes": 61170
     },
     "knowledge/pva-batch-dissolution-consistency.html": {
       "bytes": 95139,
       "scriptBytes": 66095
     },
     "knowledge/pva-staple-fiber-vs-filament-yarn.html": {
-      "bytes": 72654,
-      "scriptBytes": 53052
+      "bytes": 95042,
+      "scriptBytes": 65711
     },
     "knowledge/pva-yarn-buyer-specification-checklist.html": {
       "bytes": 73354,
@@ -668,8 +668,8 @@
       "scriptBytes": 69533
     },
     "knowledge/what-is-water-soluble-pva-yarn.html": {
-      "bytes": 101305,
-      "scriptBytes": 70238
+      "bytes": 101307,
+      "scriptBytes": 70239
     },
     "manufacturing.html": {
       "bytes": 87107,
@@ -684,12 +684,12 @@
       "scriptBytes": 59085
     },
     "products/pva-filament-yarn.html": {
-      "bytes": 101251,
-      "scriptBytes": 70428
+      "bytes": 101253,
+      "scriptBytes": 70429
     },
     "products/pva-staple-fiber.html": {
-      "bytes": 103964,
-      "scriptBytes": 72086
+      "bytes": 103966,
+      "scriptBytes": 72087
     },
     "products/water-soluble-pva-sewing-thread.html": {
       "bytes": 103652,
@@ -872,16 +872,16 @@
       "scriptBytes": 42006
     },
     "zh/knowledge.html": {
-      "bytes": 82124,
-      "scriptBytes": 57394
+      "bytes": 82160,
+      "scriptBytes": 57421
     },
     "zh/knowledge/pva-batch-dissolution-consistency.html": {
       "bytes": 89791,
       "scriptBytes": 61672
     },
     "zh/knowledge/pva-staple-fiber-vs-filament-yarn.html": {
-      "bytes": 67885,
-      "scriptBytes": 48963
+      "bytes": 88659,
+      "scriptBytes": 60827
     },
     "zh/knowledge/pva-yarn-buyer-specification-checklist.html": {
       "bytes": 69187,
@@ -904,8 +904,8 @@
       "scriptBytes": 65626
     },
     "zh/knowledge/what-is-water-soluble-pva-yarn.html": {
-      "bytes": 96699,
-      "scriptBytes": 66347
+      "bytes": 96717,
+      "scriptBytes": 66356
     },
     "zh/manufacturing.html": {
       "bytes": 82780,
@@ -920,12 +920,12 @@
       "scriptBytes": 54831
     },
     "zh/products/pva-filament-yarn.html": {
-      "bytes": 95264,
-      "scriptBytes": 65508
+      "bytes": 95282,
+      "scriptBytes": 65517
     },
     "zh/products/pva-staple-fiber.html": {
-      "bytes": 97963,
-      "scriptBytes": 67172
+      "bytes": 97981,
+      "scriptBytes": 67181
     },
     "zh/products/water-soluble-pva-sewing-thread.html": {
       "bytes": 97852,

@@ -163,11 +163,13 @@ const ARTICLE_TEASERS: Record<string, { category: CopyField<string>; title: Copy
   },
   "pva-staple-fiber-vs-filament-yarn": {
     category: { en: "Material selection", zh: "选材对比", es: "Selección de material", de: "Materialauswahl" },
+    // Retitled by `article-title-patches.ts`, with the reason recorded there. `en`/`zh` are
+    // asserted equal to the entity; `es`/`de` are DRAFTED and pending translator review.
     title: {
-      en: "PVA Staple Fiber vs Filament Yarn: How to Select the Material Form",
-      zh: "PVA 短纤与长丝：如何选择材料形态",
-      es: "Fibra cortada de PVA frente a filamento: cómo elegir la forma del material",
-      de: "PVA-Stapelfaser oder Filamentgarn: so wählen Sie die Materialform",
+      en: "PVA Staple Fiber, Filament or Yarn: How to Select the Material Form",
+      zh: "PVA 短纤、长丝与纱线：如何选择材料形态",
+      es: "Fibra cortada, filamento o hilo de PVA: cómo elegir la forma del material",
+      de: "PVA-Stapelfaser, Filament oder Garn: so wählen Sie die Materialform",
     },
     intro: {
       en: "Staple fiber and continuous filament solve different process problems. The correct choice starts with the manufacturing route and the function the PVA material must perform.",
