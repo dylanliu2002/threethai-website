@@ -116,11 +116,13 @@ export function applicationCard(slug: string, locale: Locale): ApplicationCardCo
 const ARTICLE_TEASERS: Record<string, { category: CopyField<string>; title: CopyField<string>; intro: CopyField<string> }> = {
   "pva-yarn-dissolution-temperature-guide": {
     category: { en: "Technical guide", zh: "技术指南", es: "Guía técnica", de: "Fachleitfaden" },
+    // Retitled by `article-title-patches.ts`, with the reason recorded there. `en`/`zh` are
+    // asserted equal to the entity; `es`/`de` are DRAFTED and pending translator review.
     title: {
-      en: "PVA Yarn Dissolution Temperature Guide: 20°C, 40°C and 90°C",
-      zh: "PVA 纱线溶解温度指南：20°C、40°C 与 90°C",
-      es: "Guía de temperatura de disolución del hilo de PVA: 20 °C, 40 °C y 90 °C",
-      de: "Leitfaden zur Auflösungstemperatur von PVA-Garn: 20 °C, 40 °C und 90 °C",
+      en: "How to Choose the Right Dissolution Temperature for Water-Soluble PVA Yarn",
+      zh: "如何为水溶性 PVA 纱线选择合适的溶解温度",
+      es: "Cómo elegir la temperatura de disolución adecuada para el hilo de PVA hidrosoluble",
+      de: "Die richtige Auflösungstemperatur für wasserlösliches PVA-Garn wählen",
     },
     intro: {
       en: "A quoted dissolution temperature is a starting point, not a complete process specification. Buyers should evaluate the full removal cycle under repeatable conditions.",
@@ -161,17 +163,142 @@ const ARTICLE_TEASERS: Record<string, { category: CopyField<string>; title: Copy
   },
   "pva-staple-fiber-vs-filament-yarn": {
     category: { en: "Material selection", zh: "选材对比", es: "Selección de material", de: "Materialauswahl" },
+    // Retitled by `article-title-patches.ts`, with the reason recorded there. `en`/`zh` are
+    // asserted equal to the entity; `es`/`de` are DRAFTED and pending translator review.
     title: {
-      en: "PVA Staple Fiber vs Filament Yarn: How to Select the Material Form",
-      zh: "PVA 短纤与长丝：如何选择材料形态",
-      es: "Fibra cortada de PVA frente a filamento: cómo elegir la forma del material",
-      de: "PVA-Stapelfaser oder Filamentgarn: so wählen Sie die Materialform",
+      en: "PVA Staple Fiber, Filament or Yarn: How to Select the Material Form",
+      zh: "PVA 短纤、长丝与纱线：如何选择材料形态",
+      es: "Fibra cortada, filamento o hilo de PVA: cómo elegir la forma del material",
+      de: "PVA-Stapelfaser, Filament oder Garn: so wählen Sie die Materialform",
     },
     intro: {
       en: "Staple fiber and continuous filament solve different process problems. The correct choice starts with the manufacturing route and the function the PVA material must perform.",
       zh: "短纤和连续长丝解决的是不同的工艺问题。正确的选择从制造路线和 PVA 材料必须承担的功能开始。",
       es: "La fibra cortada y el filamento continuo resuelven problemas de proceso distintos. La elección correcta empieza por la ruta de fabricación y la función que el material de PVA debe cumplir.",
       de: "Stapelfaser und endloses Filament lösen unterschiedliche Prozessprobleme. Die richtige Wahl beginnt beim Fertigungsweg und der Funktion, die das PVA-Material erfüllen muss.",
+    },
+  },
+  "what-is-water-soluble-pva-yarn": {
+    // Article authored for this site, not migrated. `en` and `zh` are asserted equal to the
+    // entity below, so they are copied from `article-additions.ts` exactly. `es` and `de`
+    // are DRAFTED here against this file's own glossary comment (fibra cortada / Stapelfaser,
+    // disolución / Auflösung, the spaced degree sign those dictionaries use) and are
+    // PENDING TRANSLATOR REVIEW — they are card labels, not the promotion seam, so they make
+    // no approved-translation claim, but they must be read before the page is signed off.
+    category: { en: "Technical guide", zh: "技术指南", es: "Guía técnica", de: "Fachleitfaden" },
+    title: {
+      en: "What Is Water-Soluble PVA Yarn? A Practical Guide for Textile Buyers",
+      zh: "什么是水溶性 PVA 纱线：面向纺织采购的实用指南",
+      es: "¿Qué es el hilo de PVA hidrosoluble? Guía práctica para compradores textiles",
+      de: "Was ist wasserlösliches PVA-Garn? Ein praktischer Leitfaden für Textileinkäufer",
+    },
+    intro: {
+      en: "Water-soluble PVA yarn is bought to do a job and then leave. This guide covers what it is, where mills use it, the four forms it is supplied in, and what to decide before asking for a sample.",
+      zh: "水溶性 PVA 纱线是为了完成任务之后离开而采购的。本文说明它是什么、工厂在哪些环节使用、供应的四种形态，以及索取样品前需要先定下的内容。",
+      es: "El hilo de PVA hidrosoluble se compra para cumplir una función y después desaparecer. Esta guía explica qué es, dónde lo usan las fábricas, las cuatro formas en que se suministra y qué conviene decidir antes de pedir una muestra.",
+      de: "Wasserlösliches PVA-Garn wird gekauft, um eine Aufgabe zu erfüllen und danach zu verschwinden. Dieser Leitfaden erklärt, was es ist, wo Werke es einsetzen, in welchen vier Formen es geliefert wird und was vor einer Musteranfrage zu klären ist.",
+    },
+  },
+  "water-soluble-pva-yarn-towel-manufacturing": {
+    // Authored for this site. `en`/`zh` are asserted equal to the entity in `article-additions.ts`;
+    // `es`/`de` are DRAFTED against this file's glossary comment and are PENDING TRANSLATOR REVIEW.
+    category: { en: "Technical guide", zh: "技术指南", es: "Guía técnica", de: "Fachleitfaden" },
+    title: {
+      en: "Water-Soluble PVA Yarn in Towel Manufacturing: How and Why It Is Used",
+      zh: "水溶性 PVA 纱线在毛巾制造中的用法与原因",
+      es: "Hilo de PVA hidrosoluble en la fabricación de toallas: cómo y por qué se usa",
+      de: "Wasserlösliches PVA-Garn in der Handtuchherstellung: wie und warum es verwendet wird",
+    },
+    intro: {
+      en: "A zero-twist towel cannot hold its pile without support, and a permanent support yarn would ruin it. This is where a water-soluble yarn sits in the towel process, and how to run the trial that decides whether it works.",
+      zh: "无捻毛巾没有支撑就拢不住绒头，而永久性支撑纱又会毁掉它。本文说明水溶纱在毛巾流程中的位置，以及如何做那一次决定成败的试验。",
+      es: "Una toalla sin torsión no puede sostener su rizo sin soporte, y un hilo de soporte permanente la arruinaría. Aquí se explica dónde encaja un hilo hidrosoluble en el proceso de la toalla y cómo realizar el ensayo que decide si funciona.",
+      de: "Ein Handtuch ohne Drehung kann seinen Flor nicht ohne Stütze halten, und ein dauerhaftes Stützgarn würde es ruinieren. Hier steht, wo ein wasserlösliches Garn im Handtuchprozess sitzt und wie der Versuch abläuft, der darüber entscheidet, ob er funktioniert.",
+    },
+  },
+  "water-soluble-pva-yarn-knitting": {
+    // Authored for this site. `en`/`zh` are asserted equal to the entity in `article-additions.ts`;
+    // `es`/`de` are DRAFTED against this file's glossary comment and are PENDING TRANSLATOR REVIEW.
+    category: { en: "Technical guide", zh: "技术指南", es: "Guía técnica", de: "Fachleitfaden" },
+    title: {
+      en: "Water-Soluble PVA Yarn in Knitting and Knitwear: How and Why It Is Used",
+      zh: "水溶性 PVA 纱线在针织与针织成衣中的用法与原因",
+      es: "Hilo de PVA hidrosoluble en el tejido de punto y las prendas de punto: cómo y por qué se usa",
+      de: "Wasserlösliches PVA-Garn beim Stricken und in Strickwaren: wie und warum es verwendet wird",
+    },
+    intro: {
+      en: "A knitted fabric or a plated structure can need support while it is being made, and that support has to be gone before the garment is worn. This is where a water-soluble PVA yarn sits in a knitwear route, the three ways it can enter a knit, and how to run the trial that decides whether it works.",
+      zh: "针织面料或添纱结构在成形过程中可能需要支撑，而这份支撑必须在成衣被穿着之前消失。本文说明水溶性 PVA 纱线在针织流程中的位置、它进入针织物的三条路径，以及如何做那次决定成败的打样。",
+      es: "Un tejido de punto o una estructura platinada puede necesitar soporte mientras se fabrica, y ese soporte debe desaparecer antes de que la prenda se use. Aquí se explica dónde encaja un hilo de PVA hidrosoluble en un proceso de punto, las tres formas en que puede entrar en un tejido de punto y cómo realizar el ensayo que decide si funciona.",
+      de: "Ein Gestrick oder eine platinierte Struktur kann während der Herstellung eine Stütze brauchen, und diese Stütze muss verschwunden sein, bevor das Kleidungsstück getragen wird. Hier steht, wo ein wasserlösliches PVA-Garn in einem Strickprozess sitzt, auf welchen drei Wegen es in ein Gestrick gelangen kann und wie der Versuch abläuft, der darüber entscheidet, ob er funktioniert.",
+    },
+  },
+  "water-soluble-sewing-thread-guide": {
+    // Authored for this site. `en`/`zh` are asserted equal to the entity in `article-additions.ts`;
+    // `es`/`de` are DRAFTED against this file's glossary comment and are PENDING TRANSLATOR REVIEW.
+    category: { en: "Technical guide", zh: "技术指南", es: "Guía técnica", de: "Fachleitfaden" },
+    title: {
+      en: "Water-Soluble Sewing Thread: What It Is, How It Works and Where It Is Used",
+      zh: "水溶性 PVA 缝纫线：是什么、怎么起作用、用在哪里",
+      es: "Hilo de coser de PVA hidrosoluble: qué es, cómo funciona y dónde se usa",
+      de: "Wasserlösliches PVA-Nähgarn: was es ist, wie es wirkt und wo es eingesetzt wird",
+    },
+    intro: {
+      en: "A water-soluble sewing thread holds a seam through stitching and handling and then leaves in the finishing bath. This guide covers the three positions it holds, why a bench tensile result does not predict a break on the machine, and what to write down so the second trial costs less than the first.",
+      zh: "水溶性 PVA 缝纫线在缝制与搬运中固定住一道缝线，随后在水洗工序里离开。本文说明它能承担的三种位置、为什么台面上的拉伸结果预测不了机器上的断线，以及该记下哪些内容才能让第二次打样比第一次更省事。",
+      es: "Un hilo de coser hidrosoluble sostiene una costura durante la confección y la manipulación y después desaparece en el baño de acabado. Esta guía explica las tres posiciones que puede ocupar, por qué un resultado de tracción en banco no predice una rotura en la máquina y qué anotar para que el segundo ensayo cueste menos que el primero.",
+      de: "Ein wasserlösliches Nähgarn hält eine Naht beim Nähen und Handhaben und verschwindet anschließend im Ausrüstungsbad. Dieser Leitfaden erklärt die drei Positionen, die es einnehmen kann, warum ein Zugversuch auf dem Tisch keinen Fadenbruch an der Maschine vorhersagt und was festzuhalten ist, damit der zweite Versuch weniger kostet als der erste.",
+    },
+  },
+  "pva-dissolution-in-textile-processing": {
+    // Authored for this site. `en`/`zh` are asserted equal to the entity in `article-additions.ts`;
+    // `es`/`de` are DRAFTED against this file's glossary comment and are PENDING TRANSLATOR REVIEW.
+    category: { en: "Technical guide", zh: "技术指南", es: "Guía técnica", de: "Fachleitfaden" },
+    title: {
+      en: "What Determines How Water-Soluble PVA Dissolves in Real Textile Processing?",
+      zh: "什么决定水溶性 PVA 在真实纺织加工中的溶解表现？",
+      es: "¿Qué determina cómo se disuelve el PVA hidrosoluble en el procesamiento textil real?",
+      de: "Was bestimmt, wie sich wasserlösliches PVA in der realen Textilverarbeitung auflöst?",
+    },
+    intro: {
+      en: "A removal result comes out of several variables acting at once, and temperature is only the first of them. This article works through each variable in turn, then gives a troubleshooting table of questions to investigate rather than asserted causes.",
+      zh: "去除结果是几个变量同时作用的结果，温度只是其中第一个。本文依次说明各个变量，然后给出一张排查表——列的是值得查证的问题，而不是断言的成因。",
+      es: "Un resultado de eliminación surge de varias variables que actúan a la vez, y la temperatura es solo la primera de ellas. Este artículo revisa cada variable y ofrece una tabla de resolución de problemas con preguntas que investigar en lugar de causas afirmadas.",
+      de: "Ein Entfernungsergebnis entsteht aus mehreren gleichzeitig wirkenden Variablen, und die Temperatur ist nur die erste davon. Dieser Beitrag geht jede Variable der Reihe nach durch und gibt dann eine Fehlerbehebungstabelle mit Fragen zum Nachgehen statt behaupteter Ursachen.",
+    },
+  },
+  "pva-sample-to-production-testing": {
+    // Authored for this site. `en`/`zh` are asserted equal to the entity in `article-additions.ts`;
+    // `es`/`de` are DRAFTED against this file's glossary comment and are PENDING TRANSLATOR REVIEW.
+    category: { en: "Technical guide", zh: "技术指南", es: "Guía técnica", de: "Fachleitfaden" },
+    title: {
+      en: "From Sample to Production: How to Test Water-Soluble PVA in Your Textile Process",
+      zh: "从样品到大货：如何在真实纺织工序中测试水溶性 PVA",
+      es: "De la muestra a la producción: cómo probar el PVA hidrosoluble en tu proceso textil",
+      de: "Vom Muster zur Produktion: Wie man wasserlösliches PVA im eigenen Textilprozess prüft",
+    },
+    intro: {
+      en: "A sample that dissolves on the bench is a candidate, not an approval. This article sets out the trial that turns a sample into a production decision: the brief behind it, the two-candidate rule, the record that captures more than disappearance, and the single-variable move that makes the second trial cheaper than the first.",
+      zh: "台面上能溶解的样品只是一个候选，不是批准。本文说明把样品变成生产决定的那次试做：它背后的需求说明、两选一的取规格方式、一份记的比“是否消失”更多的记录，以及那个让第二次试做比第一次更省的单一变量动作。",
+      es: "Una muestra que se disuelve en el banco es un candidato, no una aprobación. Este artículo expone el ensayo que convierte una muestra en una decisión de producción: el pliego que lo sustenta, la regla de dos candidatos, el registro que recoge más que la desaparición y el cambio de una sola variable que abarata el segundo ensayo.",
+      de: "Ein Muster, das auf dem Tisch in Lösung geht, ist ein Kandidat, keine Freigabe. Dieser Beitrag beschreibt den Versuch, der aus einem Muster eine Produktionsentscheidung macht: das zugrunde liegende Lastenheft, die Zwei-Kandidaten-Regel, die Aufzeichnung, die mehr als das Verschwinden festhält, und die Änderung einer einzigen Variablen, die den zweiten Versuch günstiger macht.",
+    },
+  },
+  "how-to-evaluate-water-soluble-pva-supplier": {
+    // Authored for this site. `en`/`zh` are asserted equal to the entity in `article-additions.ts`;
+    // `es`/`de` are DRAFTED against this file's glossary comment and are PENDING TRANSLATOR REVIEW.
+    category: { en: "Technical guide", zh: "技术指南", es: "Guía técnica", de: "Fachleitfaden" },
+    title: {
+      en: "How to Evaluate a Water-Soluble PVA Supplier Before Placing an Order",
+      zh: "下订单前如何评估水溶性 PVA 供应商",
+      es: "Cómo evaluar a un proveedor de PVA hidrosoluble antes de realizar el pedido",
+      de: "Wie Sie einen Lieferanten für wasserlösliches PVA vor der Bestellung bewerten",
+    },
+    intro: {
+      en: "A supplier is comparable only when every candidate was asked the same question. This guide sets out the ten areas to compare, the questions that separate a document from a claim, and how Three Thai answers each point from its own published record.",
+      zh: "只有当每一家候选供应商都被问到同一个问题时，供应商之间才可比。本文给出应当比较的十个维度、能把一份文件与一个说法区分开的问题，以及荣沣如何用自己公开的记录回应每一点。",
+      es: "Un proveedor solo es comparable cuando a todos los candidatos se les planteó la misma pregunta. Esta guía expone las diez áreas que conviene comparar, las preguntas que separan un documento de una afirmación y cómo se responde a cada punto desde un registro publicado.",
+      de: "Ein Lieferant ist nur vergleichbar, wenn jedem Kandidaten dieselbe Frage gestellt wurde. Dieser Leitfaden stellt die zehn Vergleichsbereiche vor, die Fragen, die ein Dokument von einer Behauptung trennen, und wie jeder Punkt aus einem veröffentlichten Nachweis beantwortet wird.",
     },
   },
 };
