@@ -195,6 +195,23 @@ const ARTICLE_TEASERS: Record<string, { category: CopyField<string>; title: Copy
       de: "Wasserlösliches PVA-Garn wird gekauft, um eine Aufgabe zu erfüllen und danach zu verschwinden. Dieser Leitfaden erklärt, was es ist, wo Werke es einsetzen, in welchen vier Formen es geliefert wird und was vor einer Musteranfrage zu klären ist.",
     },
   },
+  "water-soluble-pva-yarn-towel-manufacturing": {
+    // Authored for this site. `en`/`zh` are asserted equal to the entity in `article-additions.ts`;
+    // `es`/`de` are DRAFTED against this file's glossary comment and are PENDING TRANSLATOR REVIEW.
+    category: { en: "Technical guide", zh: "技术指南", es: "Guía técnica", de: "Fachleitfaden" },
+    title: {
+      en: "Water-Soluble PVA Yarn in Towel Manufacturing: How and Why It Is Used",
+      zh: "水溶性 PVA 纱线在毛巾制造中的用法与原因",
+      es: "Hilo de PVA hidrosoluble en la fabricación de toallas: cómo y por qué se usa",
+      de: "Wasserlösliches PVA-Garn in der Handtuchherstellung: wie und warum es verwendet wird",
+    },
+    intro: {
+      en: "A zero-twist towel cannot hold its pile without support, and a permanent support yarn would ruin it. This is where a water-soluble yarn sits in the towel process, and how to run the trial that decides whether it works.",
+      zh: "无捻毛巾没有支撑就拢不住绒头，而永久性支撑纱又会毁掉它。本文说明水溶纱在毛巾流程中的位置，以及如何做那一次决定成败的试验。",
+      es: "Una toalla sin torsión no puede sostener su rizo sin soporte, y un hilo de soporte permanente la arruinaría. Aquí se explica dónde encaja un hilo hidrosoluble en el proceso de la toalla y cómo realizar el ensayo que decide si funciona.",
+      de: "Ein Handtuch ohne Drehung kann seinen Flor nicht ohne Stütze halten, und ein dauerhaftes Stützgarn würde es ruinieren. Hier steht, wo ein wasserlösliches Garn im Handtuchprozess sitzt und wie der Versuch abläuft, der darüber entscheidet, ob er funktioniert.",
+    },
+  },
 };
 
 export function articleCard(slug: string, locale: Locale): ArticleCardCopy {

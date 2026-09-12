@@ -95,6 +95,14 @@ const ARTICLE_RELATED: Record<string, ArticleRelated> = {
     answers: ["20c-vs-90c-pva-yarn-difference", "test-pva-yarn-dissolution-temperature", "sample-order-process-pva-water-soluble-yarn"],
     articles: ["pva-yarn-dissolution-temperature-guide", "pva-staple-fiber-vs-filament-yarn", "pva-yarn-buyer-specification-checklist"],
   },
+  "water-soluble-pva-yarn-towel-manufacturing": {
+    // The product set is the one `applications.ts` declares for towel-weaving, and the answer
+    // edge is the existing zero-twist question. Nothing here is inferred from the towel topic.
+    products: ["water-soluble-pva-yarn", "pva-filament-yarn"],
+    applications: ["towel-weaving"],
+    answers: ["source-water-soluble-yarn-zero-twist-towels"],
+    articles: ["what-is-water-soluble-pva-yarn", "pva-yarn-dissolution-temperature-guide", "pva-yarn-buyer-specification-checklist"],
+  },
 };
 
 /**
