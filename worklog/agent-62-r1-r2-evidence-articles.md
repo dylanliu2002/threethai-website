@@ -141,6 +141,50 @@ the positional English/Chinese comparison meaningful.
 Gates after the change: typecheck clean, `eslint .` exit 0, build untouched (no `src`
 change), `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` **238 pass / 0 fail / 0 skipped**.
 
+## 2026-09-11 — Handoff for the next session, and one method trap
+
+State: branch `codex/62-knowledge-r1-r2-evidence` pushed (through `a492d3c`), working tree
+clean, `REQUIRE_BUILD_OUTPUT=1 npm run test:seo` 243 pass / 0 fail / 0 skipped. Editorial
+rules are in `docs/audits/resources-editorial-voice.md`; the byte guard is per-route and
+reports real movement.
+
+**Trap that cost a cycle here:** writing one module containing a full bilingual article
+(EN + zh, ~1,300 words each, typed blocks) **truncates the tool call mid-file**, leaving an
+invalid module. It happened once and the partial file had to be deleted. Split it:
+
+1. `src/content/article-additions.<slug>.en.ts` → `export const en: ArticleBody`.
+2. `src/content/article-additions.<slug>.zh.ts` → `export const zh: ArticleBody`.
+3. `src/content/article-additions.ts` → the `NewArticleSpec` map composing them.
+
+Each write then stays inside one response, and a reviewer gets the two locales side by side
+to check block alignment.
+
+**Next steps, in order (approved):**
+
+1. Ship R1 `what-is-water-soluble-pva-yarn` with the three files above. `category` reuses the
+   approved `Technical guide` / `技术指南` so **neither version of the grouping registry needs
+   an edit** (the merged #43 shelf version keys headings off the article's own category).
+2. Wire it in: `articles.ts` appends non-legacy articles via a `buildFromSpec`; `card-copy.ts`
+   needs a four-locale `ARTICLE_TEASERS` entry (en/zh must equal the entity verbatim or the
+   build throws; es/de drafted against the glossary in that file's header, flagged for
+   translator review); `article-related.ts` needs a `relatedFor` entry or it throws.
+3. Test changes that will be needed: the legacy-fidelity assertion must skip slugs with no
+   legacy entry; the structure/headline assertion must not compare a new article against a
+   missing legacy row; and the figure-traceability and zh-language guards must iterate a
+   combined body map (existing rewrites + new articles), not only `reAuthoredBodies`.
+4. Then regenerate the byte baseline (`UPDATE_DOCUMENT_BUDGET=1`, **not** chained with `&&`,
+   or the variable leaks into the next command) and add the new `/knowledge/<slug>` routes to
+   `CONTENT_GROWTH` only if they are re-edited later; the first landing is covered by the
+   baseline regeneration itself.
+5. Then R3 (towels) on the same pattern, then R2 (rewrite `pva-yarn-dissolution-temperature-guide`
+   with the brief's H1, which also means four-locale title strings), then R4 as the knitting
+   piece rather than cashmere.
+
+Blocking on the owner, unchanged: es/de card drafts need human review; zh bodies need a native
+read-through; `products.ts:254` vs `:260-266` extended-formats contradiction stays untouched;
+PR #43 must merge or be rebased against this branch (both touch `resources-groups.ts` and the
+001 hub test).
+
 ## 2026-09-11 — Deliberately not done
 
 - No new technical or commercial claim; no figure absent from this repository. No
