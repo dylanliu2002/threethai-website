@@ -175,7 +175,8 @@ A  src/content/article-water-soluble-sewing-thread-guide-{en,zh}.ts        R5
 A  src/content/article-pva-dissolution-in-textile-processing-{en,zh}.ts    R7
 A  src/content/article-pva-sample-to-production-testing-{en,zh}.ts         R9
 A  src/content/article-how-to-evaluate-water-soluble-pva-supplier-{en,zh}.ts R8
-M  src/content/article-body-patches.ts            R6 body (and R1/R2, Task 62)
+M  src/content/article-body-patches.ts            R6 body (only 2bed364 in this range;
+                                                  the R1/R2 entries in this file predate c171213)
 M  src/content/article-title-patches.ts           R6 title
 M  src/content/article-additions.ts               spec + registrations, R4–R9
 M  src/content/article-related.ts                 related edge, R4–R9
