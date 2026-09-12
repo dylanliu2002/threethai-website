@@ -98,3 +98,15 @@
 - `npm run build` was rerun and remains blocked only because the restricted environment cannot fetch the existing Google Geist and Geist Mono fonts; independent SOL clean-build evidence for reviewed PR head `b9902288b4bf81781841c7fe4232b3b6ff63b207` remains recorded in the card.
 - Cycle-4 implementation commit: `771c4554d9272f6deb24efa0071e8933eda1a7a5`, parent `aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4`, exact author and committer `dylanliu2002 <dylanliu2002@gmail.com>`. The final administrative card/worklog descendant will be recorded after the final hash-qualified gates.
 - No push, approval, merge, force-push, workflow/**, package-file, SYS-AUTO-007, or external-worker action was performed.
+
+## 2026-09-13 — correction cycle 4 evidence handoff
+
+- Administrative evidence commit: `16c368aac9d77250e5e2889cc88cc37b76a06391`, parent `771c4554d9272f6deb24efa0071e8933eda1a7a5`, exact author and committer `dylanliu2002 <dylanliu2002@gmail.com>`.
+- The implementation and evidence trees remain linearly based on `origin/main` `aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4`. The final card/worklog delivery descendant will be recorded after the last scope and identity gates.
+
+## 2026-09-13 — correction cycle 4 final gate record
+
+- Final hash-qualified gates against handoff evidence commit `16c368aac9d77250e5e2889cc88cc37b76a06391` all pass: `git diff --check`, allowlist-only changed-path review, package-lock immutability, `workflow/**` immutability, and `origin/main` ancestry. The changed path set is exactly the nine Task 61 `night-worker` files, `tasks/61-night-worker-runtime.md`, and `worklog/agent-61-night-worker-runtime.md`.
+- `git log -1 --format='%an <%ae>' 16c368aac9d77250e5e2889cc88cc37b76a06391` and the committer check both equal exactly `dylanliu2002 <dylanliu2002@gmail.com>`.
+- Durable handoff identifiers: implementation `771c4554d9272f6deb24efa0071e8933eda1a7a5`; evidence handoff `16c368aac9d77250e5e2889cc88cc37b76a06391`; base/current `origin/main` `aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4`.
+- Task status remains `REVIEW` after the fresh SOL CHANGES_REQUESTED result; no approval, merge, push, force-push, PR mutation, or activation was performed. The shared worktree Git metadata remains unwritable, so the verified handoff objects are preserved through the task-scoped alternate index/object directory for orchestrator delivery.

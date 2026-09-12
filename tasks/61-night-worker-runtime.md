@@ -172,9 +172,11 @@ Validation results so far:
 - `npm run lint` — PASS.
 - `npm run build` — BLOCKED by the restricted validation environment: Next.js 16.1.3/Turbopack could not fetch the Google Geist and Geist Mono font CSS, ending with `Failed to fetch Geist from Google Fonts`. No shared layout/font file was changed.
 - Independent SOL evidence for reviewed PR head `b9902288b4bf81781841c7fe4232b3b6ff63b207`: clean `npm run build` PASS.
-- `git diff --check origin/main...771c4554d9272f6deb24efa0071e8933eda1a7a5` — PASS.
-- `git diff --name-only origin/main...771c4554d9272f6deb24efa0071e8933eda1a7a5` — PASS for the implementation tree; only the nine Task 61 `night-worker` files are present.
-- `git diff --exit-code origin/main...771c4554d9272f6deb24efa0071e8933eda1a7a5 -- workflow` — PASS; no workflow changes.
+- `git diff --check origin/main...16c368aac9d77250e5e2889cc88cc37b76a06391` — PASS.
+- `git diff --name-only origin/main...16c368aac9d77250e5e2889cc88cc37b76a06391` — PASS; only the nine Task 61 `night-worker` files plus this card and its task-owned worklog are present.
+- `git diff --exit-code origin/main...16c368aac9d77250e5e2889cc88cc37b76a06391 -- workflow` — PASS; no workflow changes.
+- `git diff --exit-code origin/main...16c368aac9d77250e5e2889cc88cc37b76a06391 -- package-lock.json` — PASS; package files are unchanged.
+- `git merge-base --is-ancestor aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4 16c368aac9d77250e5e2889cc88cc37b76a06391` — PASS; the handoff is linearly based on current `origin/main`.
 - Required Git identity configuration — the shared worktree config could not be locked in this environment; the alternate commit path set and verified `dylanliu2002 <dylanliu2002@gmail.com>` on the implementation tip.
 
 ## Coordination Items
@@ -193,9 +195,10 @@ Validation results so far:
 ## Completion Record
 
 - Commit: `771c4554d9272f6deb24efa0071e8933eda1a7a5` (cycle-4 implementation tip, linearly based on current `origin/main`; final card/worklog delivery descendant is recorded in the worklog)
+- Handoff evidence commit: `16c368aac9d77250e5e2889cc88cc37b76a06391` (Task 61 card/worklog descendant carrying the correction-cycle evidence and exact implementation SHA)
 - Base / rebase commit: `aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4`
 - Changed files: `night-worker/app-server-client.mjs`, `night-worker/cli.mjs`, `night-worker/config.mjs`, `night-worker/queue.mjs`, `night-worker/runtime-store.mjs`, `night-worker/service.mjs`, `night-worker/submission.mjs`, `night-worker/tests/runtime.test.mjs`, `night-worker/thread-broker.mjs`, `tasks/61-night-worker-runtime.md`, `worklog/agent-61-night-worker-runtime.md`.
-- Validation results: focused tests PASS (31/31); `npm run lint` PASS; local `npm run build` is blocked because the restricted environment cannot fetch Google Geist and Geist Mono from Google Fonts; independent SOL evidence records a clean build PASS for reviewed PR head `b9902288b4bf81781841c7fe4232b3b6ff63b207`; implementation diff/check, committed paths, workflow immutability, and exact identity gates PASS for `771c4554d9272f6deb24efa0071e8933eda1a7a5`.
+- Validation results: focused tests PASS (31/31); `npm run lint` PASS; local `npm run build` is blocked because the restricted environment cannot fetch Google Geist and Geist Mono from Google Fonts; independent SOL evidence records a clean build PASS for reviewed PR head `b9902288b4bf81781841c7fe4232b3b6ff63b207`; implementation and handoff diff/check, committed paths, package/workflow immutability, `origin/main` ancestry, and exact identity gates PASS for `16c368aac9d77250e5e2889cc88cc37b76a06391`.
 - Worklog: `worklog/agent-61-night-worker-runtime.md`
 - Remaining risks: independent SOL review is pending; local build evidence remains environment-blocked by Google Fonts network access, with independent SOL clean-build evidence recorded above. The corrected tip will be handed to the SOL orchestrator for safe non-force delivery of PR #44. This implementer performs no push, force-push, approval, or merge.
 
