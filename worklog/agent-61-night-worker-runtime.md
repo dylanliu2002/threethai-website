@@ -64,6 +64,17 @@
 - Added deterministic regressions for inert process/spawn/codex-exec bypass proof, fake/out-of-root/noncanonical submission stores, invalid batch/claim/reservation timestamps, and fixed expiry semantics. Focused tests PASS (28/28); npm run lint PASS.
 - Local npm run build was attempted and remains blocked by the sandbox’s inability to fetch existing Google Geist and Geist Mono fonts. Independent SOL evidence for reviewed PR head b9902288b4bf81781841c7fe4232b3b6ff63b207 records a clean npm run build PASS. No shared layout/font file was changed.
 - Prior local intermediate tip references in this append-only worklog are superseded by the cycle-3 implementation tip recorded in the task card and final handoff; no historical worklog entry was rewritten.
+
+## 2026-09-12 — bounded bootstrap correction cycle 3 handoff
+
+- Cycle-3 implementation tip: 4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf, parent aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4 (current origin/main). The commit author/committer was set and verified as exactly dylanliu2002 <dylanliu2002@gmail.com> through the alternate Git index/object path because the shared worktree metadata is unwritable.
+- Final focused tests PASS (28/28); npm run lint PASS. Local npm run build remains blocked by Google Fonts network access; independent SOL evidence records a clean build PASS for reviewed PR head b9902288b4bf81781841c7fe4232b3b6ff63b207.
+- Hash-qualified diff/check, allowlist path, workflow immutability, and origin/main ancestry checks pass for 4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf. Status is REVIEW pending independent SOL review. No push, approval, or merge was performed.
+
+## 2026-09-12 — final local handoff
+
+- The final local delivery-record descendant will contain this entry on top of implementation tip 4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf. It remains based on current origin/main aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4 and is preserved through the alternate Git object/index path.
+- Handoff is review-ready with independent SOL clean-build evidence, while local build transport remains blocked. No push, approval, merge, or protected-branch action is performed by this implementer.
 ## 2026-09-12 — correction cycle 2 ambiguity hardening
 
 - Hardened the deterministic post-response persistence failure path: the broker now atomically marks the pre-call reservation THREAD_START_AMBIGUOUS when thread/start was attempted but the thread mapping write did not complete. A later start fails closed on that durable state even if the simulated original process is still live; the original pre-call THREAD_START_IN_FLIGHT state remains fail-closed after actual process loss.

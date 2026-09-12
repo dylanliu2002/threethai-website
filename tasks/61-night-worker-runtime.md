@@ -13,7 +13,7 @@
 - **Current Model Family:** `gpt-5.6-luna`
 - **Execution Assignment Recorded:** Yes
 - **Priority:** `P0`
-- **Status:** `IN_PROGRESS`
+- **Status:** `REVIEW`
 - **Risk:** `MEDIUM`
 - **Branch:** `codex/61-night-worker-runtime`
 - **Worktree:** `worktrees/agent-61-night-worker-runtime`
@@ -164,7 +164,7 @@ git log -1 --format='%an <%ae>'
 ```
 
 - [x] Diff scope reviewed: implementation changes are limited to the Task 61 allowlist plus this card and its task-owned worklog; package files, shared files, `workflow/**`, and SYS-AUTO-007 are not Task 61 changes.
-- [x] Validation recorded below; correction cycle 3 is being rebuilt on the current `origin/main` tip and remains pending independent SOL review.
+- [x] Validation recorded below; correction cycle 3 is rebuilt on the current `origin/main` tip and remains pending independent SOL review.
 
 Validation results so far:
 
@@ -172,9 +172,9 @@ Validation results so far:
 - `npm run lint` — PASS.
 - `npm run build` — BLOCKED by the restricted validation environment: Next.js 16.1.3/Turbopack could not fetch the Google Geist and Geist Mono font CSS, ending with `Failed to fetch Geist from Google Fonts`. No shared layout/font file was changed.
 - Independent SOL evidence for reviewed PR head `b9902288b4bf81781841c7fe4232b3b6ff63b207`: clean `npm run build` PASS.
-- `git diff --check origin/main...<cycle-3-tip>` — pending final local commit.
-- `git diff --name-only origin/main...<cycle-3-tip>` — pending final local commit; only the Task 61 allowlist plus this card and its task-owned worklog are permitted.
-- `git diff --exit-code origin/main...<cycle-3-tip> -- workflow` — pending final local commit; no workflow changes observed locally.
+- `git diff --check origin/main...4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf` — PASS.
+- `git diff --name-only origin/main...4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf` — PASS; only the Task 61 allowlist plus this card and its task-owned worklog are present.
+- `git diff --exit-code origin/main...4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf -- workflow` — PASS; no workflow changes.
 - Required Git identity configuration — the shared worktree config could not be locked in this environment; the alternate commit path set and verified `dylanliu2002 <dylanliu2002@gmail.com>` on the rebased tip.
 
 ## Coordination Items
@@ -190,10 +190,10 @@ Validation results so far:
 
 ## Completion Record
 
-- Commit: cycle-3 implementation commit pending final local reconstruction on current `origin/main` (exact SHA recorded below after commit)
+- Commit: `4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf` (cycle-3 implementation tip, linearly based on current `origin/main`; final card/worklog delivery descendant is recorded in the worklog)
 - Base / rebase commit: `aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4`
 - Changed files: `night-worker/app-server-client.mjs`, `night-worker/cli.mjs`, `night-worker/config.mjs`, `night-worker/queue.mjs`, `night-worker/runtime-store.mjs`, `night-worker/service.mjs`, `night-worker/submission.mjs`, `night-worker/tests/runtime.test.mjs`, `night-worker/thread-broker.mjs`, `tasks/61-night-worker-runtime.md`, `worklog/agent-61-night-worker-runtime.md`.
-- Validation results: focused tests PASS (28/28); `npm run lint` PASS; local `npm run build` is blocked because the restricted environment cannot fetch Google Geist and Geist Mono from Google Fonts; independent SOL evidence records a clean build PASS for reviewed PR head `b9902288b4bf81781841c7fe4232b3b6ff63b207`; final hash-qualified checks and exact-tip identity are recorded after cycle-3 commit.
+- Validation results: focused tests PASS (28/28); `npm run lint` PASS; local `npm run build` is blocked because the restricted environment cannot fetch Google Geist and Geist Mono from Google Fonts; independent SOL evidence records a clean build PASS for reviewed PR head `b9902288b4bf81781841c7fe4232b3b6ff63b207`; `git diff --check origin/main...4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf` PASS; committed paths are allowlist-only; `git diff --exit-code origin/main...4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf -- workflow` PASS; `git log -1 --format='%an <%ae>' 4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf` is exactly `dylanliu2002 <dylanliu2002@gmail.com>`.
 - Worklog: `worklog/agent-61-night-worker-runtime.md`
 - Remaining risks: independent SOL review is pending; local build evidence remains environment-blocked by Google Fonts network access, with independent SOL clean-build evidence recorded above. The corrected tip will be handed to the SOL orchestrator for safe non-force delivery of PR #44. This implementer performs no push, force-push, approval, or merge.
 
