@@ -85,6 +85,16 @@ const ARTICLE_RELATED: Record<string, ArticleRelated> = {
     answers: ["pva-staple-fiber-vs-filament-yarn-difference"],
     articles: NONE,
   },
+  "what-is-water-soluble-pva-yarn": {
+    // The category cornerpiece, so all four forms and all five application pages are its
+    // actual subject rather than a dump: the body describes the four forms in a table and
+    // links each application page by name. The answer and article edges are the ones the
+    // body itself points at, plus the sampling route a first-time buyer needs next.
+    products: ["water-soluble-pva-yarn", "water-soluble-pva-sewing-thread", "pva-staple-fiber", "pva-filament-yarn"],
+    applications: ["towel-weaving", "embroidery-sewing", "knitting", "papermaking", "technical-textiles"],
+    answers: ["20c-vs-90c-pva-yarn-difference", "test-pva-yarn-dissolution-temperature", "sample-order-process-pva-water-soluble-yarn"],
+    articles: ["pva-yarn-dissolution-temperature-guide", "pva-staple-fiber-vs-filament-yarn", "pva-yarn-buyer-specification-checklist"],
+  },
 };
 
 /**

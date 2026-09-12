@@ -71,6 +71,7 @@ const {
   localizedLocalesFor,
 } = await importSource("src/content/availability.ts");
 const { SWITCHER_PATHS } = await importSource("src/content/switcher-availability.ts");
+const { articles } = await importSource("src/content/articles.ts");
 const { htmlLang, locales } = await importSource("src/content/company.ts");
 
 /** A core path with no entity record behind it, the kind 004B must serve. */
@@ -574,7 +575,16 @@ test("build: promoting nothing is still what production renders", buildOptions, 
 
 test("build: the sitemap and robots bodies are still the INTL-DEES-003B ones", buildOptions, () => {
   const sitemap = readFileSync(path.join(appRoot, "sitemap.xml.body"), "utf8");
-  assert.equal((sitemap.match(/<loc>/g) ?? []).length, 55, "sitemap entry count moved");
+  // The count was pinned at 55 when four knowledge articles existed. A literal there makes
+  // every new article look like an accidental sitemap change, so the expectation now follows
+  // the article set: the baseline plus one entry per article. Its teeth are unchanged — a
+  // route added or dropped for any *other* reason, or a duplicated loc, still fails.
+  const BASE_ENTRIES_AT_FOUR_ARTICLES = 51;
+  const expectedLocs = BASE_ENTRIES_AT_FOUR_ARTICLES + articles.length;
+  assert.equal((sitemap.match(/<loc>/g) ?? []).length, expectedLocs,
+    `sitemap entry count moved: ${(sitemap.match(/<loc>/g) ?? []).length} locs for ${articles.length} articles`);
+  assert.equal(new Set([...sitemap.matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => m[1])).size,
+    (sitemap.match(/<loc>/g) ?? []).length, "the sitemap lists a URL twice");
   assert.equal((sitemap.match(/<loc>[^<]*\/(es|de)\//g) ?? []).length, 0, "an ES/DE URL entered the sitemap");
   const tags = new Set([...sitemap.matchAll(/hreflang="([^"]+)"/g)].map((m) => m[1]));
   assert.deepEqual([...tags].sort(), ["en", "x-default", "zh-CN"], "the advertised language universe moved");

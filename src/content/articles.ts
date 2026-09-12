@@ -9,6 +9,7 @@ import {
 } from "./article-blocks";
 import { assertArticleRelated, relatedFor, type ArticleRelated } from "./article-related";
 import { reAuthoredBodies } from "./article-body-patches";
+import { newKnowledgeArticles, type NewArticleSpec } from "./article-additions";
 
 /**
  * Technical knowledge articles — English copy migrated verbatim from the
@@ -168,7 +169,32 @@ function build(slug: string): Article {
   return article;
 }
 
-export const articles: readonly Article[] = legacyArticles.map((a) => build(a.slug));
+/**
+ * Articles authored for this site rather than migrated, built from the same shape so the
+ * hub, the sitemap and the content guards treat them identically. Their bodies are already
+ * blocks, so they skip the legacy tuple fold.
+ */
+function buildFromSpec(slug: string, spec: NewArticleSpec): Article {
+  const article: Article = {
+    slug,
+    datePublished: spec.datePublished,
+    dateModified: spec.dateModified,
+    category: spec.category,
+    title: spec.title,
+    metaDescription: spec.metaDescription,
+    intro: spec.intro,
+    sections: spec.sections,
+    related: relatedFor(slug),
+  };
+  assertArticleBodyShape(slug, article.sections);
+  assertAlignedBody(slug, article.sections);
+  return article;
+}
+
+export const articles: readonly Article[] = [
+  ...legacyArticles.map((a) => build(a.slug)),
+  ...Object.entries(newKnowledgeArticles).map(([slug, spec]) => buildFromSpec(slug, spec)),
+];
 
 // Every declared related edge is checked against the live content arrays here, so a
 // retired slug fails at load with the offending pair named.

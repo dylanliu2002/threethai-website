@@ -174,6 +174,27 @@ const ARTICLE_TEASERS: Record<string, { category: CopyField<string>; title: Copy
       de: "Stapelfaser und endloses Filament lösen unterschiedliche Prozessprobleme. Die richtige Wahl beginnt beim Fertigungsweg und der Funktion, die das PVA-Material erfüllen muss.",
     },
   },
+  "what-is-water-soluble-pva-yarn": {
+    // Article authored for this site, not migrated. `en` and `zh` are asserted equal to the
+    // entity below, so they are copied from `article-additions.ts` exactly. `es` and `de`
+    // are DRAFTED here against this file's own glossary comment (fibra cortada / Stapelfaser,
+    // disolución / Auflösung, the spaced degree sign those dictionaries use) and are
+    // PENDING TRANSLATOR REVIEW — they are card labels, not the promotion seam, so they make
+    // no approved-translation claim, but they must be read before the page is signed off.
+    category: { en: "Technical guide", zh: "技术指南", es: "Guía técnica", de: "Fachleitfaden" },
+    title: {
+      en: "What Is Water-Soluble PVA Yarn? A Practical Guide for Textile Buyers",
+      zh: "什么是水溶性 PVA 纱线：面向纺织采购的实用指南",
+      es: "¿Qué es el hilo de PVA hidrosoluble? Guía práctica para compradores textiles",
+      de: "Was ist wasserlösliches PVA-Garn? Ein praktischer Leitfaden für Textileinkäufer",
+    },
+    intro: {
+      en: "Water-soluble PVA yarn is bought to do a job and then leave. This guide covers what it is, where mills use it, the four forms it is supplied in, and what to decide before asking for a sample.",
+      zh: "水溶性 PVA 纱线是为了完成任务之后离开而采购的。本文说明它是什么、工厂在哪些环节使用、供应的四种形态，以及索取样品前需要先定下的内容。",
+      es: "El hilo de PVA hidrosoluble se compra para cumplir una función y después desaparecer. Esta guía explica qué es, dónde lo usan las fábricas, las cuatro formas en que se suministra y qué conviene decidir antes de pedir una muestra.",
+      de: "Wasserlösliches PVA-Garn wird gekauft, um eine Aufgabe zu erfüllen und danach zu verschwinden. Dieser Leitfaden erklärt, was es ist, wo Werke es einsetzen, in welchen vier Formen es geliefert wird und was vor einer Musteranfrage zu klären ist.",
+    },
+  },
 };
 
 export function articleCard(slug: string, locale: Locale): ArticleCardCopy {
