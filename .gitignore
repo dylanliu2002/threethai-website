@@ -65,3 +65,6 @@ db/*.db
 
 # multi-agent worktrees (per-agent working copies)
 /worktrees/
+
+# CodeGraph local index (code intelligence for agents — machine-specific, never commit)
+.codegraph/
