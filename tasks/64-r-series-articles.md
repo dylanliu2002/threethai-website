@@ -212,13 +212,22 @@ markets, customer names).
 ## Review Status
 
 - Outcome: Pending
+- Pull request: **#45**, `codex/62-knowledge-r1-r2-evidence` → `main`, opened ready for
+  review (not draft, not merged) on the owner's instruction.
 - Independent reviewer evidence:
 
 ## Completion Record
 
 - Commits pushed to `origin/codex/62-knowledge-r1-r2-evidence`: `28f2024` (R4),
-  `58dec64` (R5), `2bed364` (R6), `ef541bd` (R7), `30d9322` (R9), `b32517f` (R8).
-  **Not merged, and no pull request opened by this task.** Head `b32517f`.
+  `58dec64` (R5), `2bed364` (R6), `ef541bd` (R7), `30d9322` (R9), `b32517f` (R8), and the
+  task docs `dfae739` + `1d8b237`. Head `1d8b237`. **Not merged.**
+- PR #45 is against `main`, so its diff is the whole branch (32 files, +7,377 / −59) and
+  contains Task 62's unmerged R1–R3 work, the block model, the `intl-dees-003b`
+  document-budget infrastructure and the `intl-dees-004b` count change as well as R4–R9.
+  That is a consequence of the plan's "continue on `codex/62-knowledge-r1-r2-evidence`",
+  and both the card and the PR body say so; a reviewer can scope to the R-series alone with
+  `git diff --name-status c171213..1d8b237` (20 files, +3,314 / −58). Task 62's card and
+  worklog own the other half and are unchanged.
 - Base: `origin/main` @ `aa5c2bc` (Task 62's base), plan commit `c171213`.
 - Git identity verified `dylanliu2002 <dylanliu2002@gmail.com>` on every commit.
 - Remaining risks: the es/de drafts, the native-zh read, and the untouched

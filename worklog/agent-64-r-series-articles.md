@@ -68,8 +68,13 @@ Stage Summary:
   documents) then 19 pass / 0 fail / 0 skip with 0 moved; `test:seo` 243 pass / 0 fail /
   0 skip; `test:first-wave` 5/5; lint clean; `git diff --stat` equals `--ignore-cr-at-eol`.
 - Identity verified `dylanliu2002 <dylanliu2002@gmail.com>` on every commit. Branch pushed;
-  **not merged, no PR opened.** Card moved to `REVIEW`; the implementer does not
-  self-approve.
+  card moved to `REVIEW`; the implementer does not self-approve.
+- PR **#45** opened against `main` on the owner's instruction (ready for review, not draft).
+  Because the plan put this task on Task 62's branch, the PR diff is the whole branch since
+  `aa5c2bc` (32 files, +7,377 / −59) and carries Task 62's unmerged R1–R3 work, the block
+  model and the `intl-dees-003b` budget infrastructure alongside R4–R9; the PR body and the
+  card both say so, and `git diff --name-status c171213..1d8b237` scopes a reviewer to the
+  R-series alone. Head `1d8b237`; **not merged.**
 - Open and not to be reported as done: es/de listing-card drafts need translator review;
   the Chinese bodies need a native read; PR #43 must merge or be rebased against this branch;
   independent review; R4's band reading above.
