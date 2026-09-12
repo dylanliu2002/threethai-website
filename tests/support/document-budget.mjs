@@ -172,10 +172,18 @@ export function budgetReport({
     violations,
     documents: entries.length,
     unchangedDocuments: unchangedDeltas.length,
+    // A signed maximum is what the violation rule cares about, because only growth can
+    // fail. It is the wrong number to *report*: on Task 62 the reworded article shrank
+    // 408 B in three locales and the signed max still read 0 B, which looks like a
+    // build that changed nothing. So report the largest movement either way, and how
+    // many documents moved at all.
     medianUnchangedDelta: Math.round(median(unchangedDeltas)),
     maxUnchangedDelta: unchangedDeltas.length ? Math.max(...unchangedDeltas) : 0,
+    maxAbsUnchangedDelta: unchangedDeltas.length ? Math.max(...unchangedDeltas.map(Math.abs)) : 0,
+    movedDocuments: unchangedDeltas.filter((delta) => delta !== 0).length,
     medianSharedDelta: Math.round(median(sharedDeltas)),
     maxSharedDelta: sharedDeltas.length ? Math.max(...sharedDeltas) : 0,
+    maxAbsSharedDelta: sharedDeltas.length ? Math.max(...sharedDeltas.map(Math.abs)) : 0,
     meanSharedPayload: Math.round(mean(entries.map((entry) => entry.scriptBytes))),
     grew,
   };

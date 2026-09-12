@@ -1,6 +1,6 @@
 {
   "$note": "Per-document byte budget, regenerated deliberately by the task that changed a route.",
-  "$baseCommit": "9d8ccc114c243fafbc4ec83e61d021e0ccfff026",
+  "$baseCommit": "78999aa1c7276bbe0ce015aaa7973838406b7d85",
   "$toleranceBytes": 64,
   "documents": {
     "about.html": {
@@ -336,8 +336,8 @@
       "scriptBytes": 53546
     },
     "de/knowledge/pva-yarn-dissolution-temperature-guide.html": {
-      "bytes": 92504,
-      "scriptBytes": 64760
+      "bytes": 92096,
+      "scriptBytes": 64547
     },
     "de/manufacturing.html": {
       "bytes": 87905,
@@ -556,8 +556,8 @@
       "scriptBytes": 54054
     },
     "es/knowledge/pva-yarn-dissolution-temperature-guide.html": {
-      "bytes": 93091,
-      "scriptBytes": 65284
+      "bytes": 92683,
+      "scriptBytes": 65071
     },
     "es/manufacturing.html": {
       "bytes": 88871,
@@ -620,8 +620,8 @@
       "scriptBytes": 53481
     },
     "knowledge/pva-yarn-dissolution-temperature-guide.html": {
-      "bytes": 92372,
-      "scriptBytes": 64609
+      "bytes": 91964,
+      "scriptBytes": 64396
     },
     "manufacturing.html": {
       "bytes": 87107,
@@ -840,8 +840,8 @@
       "scriptBytes": 49728
     },
     "zh/knowledge/pva-yarn-dissolution-temperature-guide.html": {
-      "bytes": 86935,
-      "scriptBytes": 60211
+      "bytes": 86872,
+      "scriptBytes": 60169
     },
     "zh/manufacturing.html": {
       "bytes": 82780,

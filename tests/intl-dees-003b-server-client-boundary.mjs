@@ -574,9 +574,10 @@ test("build: documents did not grow to pay for the boundary", buildOptions, () =
   // A passing run still reports what it measured, so a growth that only *almost*
   // fits cannot pass unnoticed into a review.
   console.log(
-    `  byte budget: ${report.unchangedDocuments} pinned documents, unchanged-route ` +
-    `median Δ${report.medianUnchangedDelta} B max Δ${report.maxUnchangedDelta} B; inline payload ` +
-    `median Δ${report.medianSharedDelta} B max Δ${report.maxSharedDelta} B ` +
+    `  byte budget: ${report.unchangedDocuments} pinned documents, ${report.movedDocuments} moved; ` +
+    `unchanged-route median Δ${report.medianUnchangedDelta} B, largest movement ` +
+    `${report.maxAbsUnchangedDelta} B (growth max Δ${report.maxUnchangedDelta} B); inline payload ` +
+    `median Δ${report.medianSharedDelta} B, largest ${report.maxAbsSharedDelta} B ` +
     `(mean ${report.meanSharedPayload} B/document); ${report.grew.length} growth-allowed documents`,
   );
 });

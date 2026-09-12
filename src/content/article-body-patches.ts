@@ -42,11 +42,11 @@ export const reAuthoredBodies: Record<string, { en: ArticleBody; zh: ArticleBody
   "pva-yarn-dissolution-temperature-guide": {
     en: [
       {
-        heading: "What a temperature label actually commits to",
+        heading: "The label is not the specification",
         blocks: [
           {
             type: "paragraph",
-            text: "A dissolution temperature states the direction a grade was developed in. It does not state how long the material may stay wet, how much water moves across it, what else in the construction is dissolving at the same time, or what has to be true before the next process step can start. Those are what decide whether a grade works in your line, and none of them is in the label.",
+            text: "A dissolution temperature states the direction a grade was developed in. It does not state how long the material may stay wet, how much water moves across it, what else in the construction is dissolving at the same time, or what has to be true before the next process step can start. A grade selected on the label alone is selected on one of those five inputs.",
           },
           {
             type: "prose",
@@ -72,31 +72,31 @@ export const reAuthoredBodies: Record<string, { en: ArticleBody; zh: ArticleBody
         ],
       },
       {
-        heading: "Five things that move the observed result",
+        heading: "Five inputs that move the observed result",
         blocks: [
           {
             type: "list",
             ordered: false,
             items: [
-              [{ kind: "text", text: "Exposure time — how long the material actually stays in contact with water, including the dwell a machine gives it." }],
-              [{ kind: "text", text: "Bath movement — whether water is passing across the yarn or sitting around it. Still water saturates locally and slows removal." }],
-              [{ kind: "text", text: "Liquor ratio — the amount of water relative to the material, and whether dissolved polymer is allowed to accumulate in it." }],
-              [{ kind: "text", text: "Surrounding construction — how dense the fabric is around the PVA element, and whether water can reach the interior at all." }],
-              [{ kind: "text", text: "Other chemistry — sizing, spinning oils, dyes, auxiliaries and the finishing order, all of which change wetting." }],
+              [{ kind: "text", text: "Exposure time: how long the material stays wet, including the dwell your machine actually gives it." }],
+              [{ kind: "text", text: "Bath movement. Water sitting around a yarn saturates locally and slows removal; water passing across it carries dissolved polymer away." }],
+              [{ kind: "text", text: "Liquor ratio, and whether the bath is renewed between specimens." }],
+              [{ kind: "text", text: "How dense the surrounding construction is, which decides whether water reaches the interior of the fabric at all." }],
+              [{ kind: "text", text: "Everything else in the bath: sizing, spinning oils, dyes, auxiliaries, and the order they arrive in." }],
             ],
           },
           {
             type: "paragraph",
-            text: "This is why the same grade can vanish in a beaker and survive in the densest zone of a towel finished with the buyer's own recipe. Neither observation is wrong. They are different tests, and only one of them resembles production.",
+            text: "The same grade can disappear in a beaker and still be present in the densest zone of a towel run through the buyer's own finishing recipe. Both results are correct for the test that produced them, and only one of them was ever going to predict a line.",
           },
         ],
       },
       {
-        heading: "Read removal as five separate events",
+        heading: "Five separate events, not one",
         blocks: [
           {
             type: "paragraph",
-            text: "\u201CDissolved\u201D is not one observation. Recording the stages separately is what turns an argument about whether the yarn left the fabric into a measurement both sides can repeat.",
+            text: "\u201CDissolved\u201D is not a single observation. Recording the stages separately is what turns an argument about whether the yarn left the fabric into a measurement both sides can repeat.",
           },
           {
             type: "table",
@@ -113,28 +113,28 @@ export const reAuthoredBodies: Record<string, { en: ArticleBody; zh: ArticleBody
           },
           {
             type: "paragraph",
-            text: "Choose the stage before the trial, write it down, and accept no result that reports a different one. When you asked whether the seam has stopped carrying load and the answer comes back \u201Cfully dissolved\u201D, the question has been replaced rather than answered.",
+            text: "Fix the stage before the trial, write it into the method, and reject a result reported against a different one. A supplier who answers \u201Cfully dissolved\u201D to a question about load-bearing has answered another question.",
           },
         ],
       },
       {
-        heading: "Set up a comparison you can defend",
+        heading: "Run a comparison the next supplier can repeat",
         blocks: [
           {
             type: "paragraph",
-            text: "The point of a first test is not to find out whether the yarn dissolves. It is to produce a result that still means something after the supplier changes, so that a later difference can be acted on.",
+            text: "A first test is not there to prove the yarn dissolves. It is there to produce a number that still means something when the supplier changes, so a later difference can be acted on instead of argued.",
           },
           {
             type: "list",
             ordered: true,
             items: [
-              [{ kind: "text", text: "Identify and condition the specimens, and record the batch code before anything goes into water." }],
+              [{ kind: "text", text: "Identify and condition the specimens; record the batch code before anything meets water." }],
               [{ kind: "text", text: "Fix specimen mass and length, so no candidate is helped by being smaller or looser." }],
-              [{ kind: "text", text: "Fix the water volume and the ratio of water to material, and write both down." }],
+              [{ kind: "text", text: "Fix water volume and liquor ratio, and write both down." }],
               [{ kind: "text", text: "Hold the temperature inside an agreed tolerance, measured with a calibrated instrument rather than the bath's own display." }],
-              [{ kind: "text", text: "Fix the agitation, and decide in advance whether the bath is renewed between specimens. Dissolved polymer left in the water changes the next result." }],
-              [{ kind: "text", text: "Write the endpoint every party will accept, in the terms of the table above." }],
-              [{ kind: "text", text: "Repeat enough times that one favourable observation cannot carry a decision." }],
+              [{ kind: "text", text: "Fix the agitation, and decide in advance whether the bath is renewed between specimens; polymer left in the water changes the next result." }],
+              [{ kind: "text", text: "State the endpoint every party will accept, using the stage names above." }],
+              [{ kind: "text", text: "Repeat. One favourable run tells you nothing about the next shipment." }],
             ],
           },
           {
@@ -150,7 +150,7 @@ export const reAuthoredBodies: Record<string, { en: ArticleBody; zh: ArticleBody
         ],
       },
       {
-        heading: "Four terms worth pinning down before you order",
+        heading: "Four terms to fix before you order",
         blocks: [
           {
             type: "definitionList",
@@ -222,7 +222,7 @@ export const reAuthoredBodies: Record<string, { en: ArticleBody; zh: ArticleBody
     ],
     zh: [
       {
-        heading: "温度标签到底承诺了什么",
+        heading: "标签不是规格",
         blocks: [
           {
             type: "paragraph",
@@ -245,7 +245,7 @@ export const reAuthoredBodies: Record<string, { en: ArticleBody; zh: ArticleBody
         ],
       },
       {
-        heading: "改变观测结果的五件事",
+        heading: "影响观测结果的五个变量",
         blocks: [
           {
             type: "list",
@@ -265,7 +265,7 @@ export const reAuthoredBodies: Record<string, { en: ArticleBody; zh: ArticleBody
         ],
       },
       {
-        heading: "把去除看成五个独立事件",
+        heading: "去除是五个独立事件",
         blocks: [
           {
             type: "paragraph",
@@ -291,7 +291,7 @@ export const reAuthoredBodies: Record<string, { en: ArticleBody; zh: ArticleBody
         ],
       },
       {
-        heading: "建立一个站得住脚的比较方法",
+        heading: "让下一家供应商也能复现的比较",
         blocks: [
           {
             type: "paragraph",
@@ -323,7 +323,7 @@ export const reAuthoredBodies: Record<string, { en: ArticleBody; zh: ArticleBody
         ],
       },
       {
-        heading: "下单前值得先固定的四个术语",
+        heading: "下单前先固定这四个术语",
         blocks: [
           {
             type: "definitionList",
