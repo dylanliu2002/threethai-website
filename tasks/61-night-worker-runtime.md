@@ -164,18 +164,20 @@ git log -1 --format='%an <%ae>'
 ```
 
 - [x] Diff scope reviewed: implementation changes are limited to the Task 61 allowlist plus this card and its task-owned worklog; package files, shared files, `workflow/**`, and SYS-AUTO-007 are not Task 61 changes.
-- [x] Validation recorded below; correction cycle 3 is rebuilt on the current `origin/main` tip and remains pending independent SOL review.
+- [x] Validation recorded below; correction cycle 4 is rebuilt on the current `origin/main` tip and remains pending independent SOL re-review.
 
 Validation results so far:
 
-- `node --test night-worker/tests/*.test.mjs` — PASS (28/28), including the bounded-bootstrap process/spawn boundary, canonical production submission boundary, invalid persisted timestamp, and fixed eight-hour expiry regression tests.
+- `node --test night-worker/tests/*.test.mjs` — PASS (31/31), including durable turn-start ambiguity with response-loss/empty-read recovery, broker-only lifecycle authority, complete canonical-store dependency validation, and effective SOL difficulty concurrency regression tests.
 - `npm run lint` — PASS.
 - `npm run build` — BLOCKED by the restricted validation environment: Next.js 16.1.3/Turbopack could not fetch the Google Geist and Geist Mono font CSS, ending with `Failed to fetch Geist from Google Fonts`. No shared layout/font file was changed.
 - Independent SOL evidence for reviewed PR head `b9902288b4bf81781841c7fe4232b3b6ff63b207`: clean `npm run build` PASS.
-- `git diff --check origin/main...4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf` — PASS.
-- `git diff --name-only origin/main...4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf` — PASS; only the Task 61 allowlist plus this card and its task-owned worklog are present.
-- `git diff --exit-code origin/main...4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf -- workflow` — PASS; no workflow changes.
-- Required Git identity configuration — the shared worktree config could not be locked in this environment; the alternate commit path set and verified `dylanliu2002 <dylanliu2002@gmail.com>` on the rebased tip.
+- `git diff --check origin/main...16c368aac9d77250e5e2889cc88cc37b76a06391` — PASS.
+- `git diff --name-only origin/main...16c368aac9d77250e5e2889cc88cc37b76a06391` — PASS; only the nine Task 61 `night-worker` files plus this card and its task-owned worklog are present.
+- `git diff --exit-code origin/main...16c368aac9d77250e5e2889cc88cc37b76a06391 -- workflow` — PASS; no workflow changes.
+- `git diff --exit-code origin/main...16c368aac9d77250e5e2889cc88cc37b76a06391 -- package-lock.json` — PASS; package files are unchanged.
+- `git merge-base --is-ancestor aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4 16c368aac9d77250e5e2889cc88cc37b76a06391` — PASS; the handoff is linearly based on current `origin/main`.
+- Required Git identity configuration — the shared worktree config could not be locked in this environment; the alternate commit path set and verified `dylanliu2002 <dylanliu2002@gmail.com>` on the implementation tip.
 
 ## Coordination Items
 
@@ -185,15 +187,18 @@ Validation results so far:
 
 ## Review Status
 
-- Outcome: Pending independent SOL review
+- Outcome: CHANGES_REQUESTED from fresh independent SOL review; correction cycle 4 is implemented and pending re-review.
 - Independent reviewer evidence:
+  - Reviewer run `01a09574-c580-7802-9ac3-2892989a16e7` reviewed base `aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4` and delivery head `10a2933ff762a2e379dda842947e58fde918c017`.
+  - Findings addressed: durable turn-start ambiguity/recovery, broker-only typed lifecycle authority and inert transports, real canonical RuntimeStore dependency validation, and policy-complete in-flight deduplication.
 
 ## Completion Record
 
-- Commit: `4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf` (cycle-3 implementation tip, linearly based on current `origin/main`; final card/worklog delivery descendant is recorded in the worklog)
+- Commit: `771c4554d9272f6deb24efa0071e8933eda1a7a5` (cycle-4 implementation tip, linearly based on current `origin/main`; final card/worklog delivery descendant is recorded in the worklog)
+- Handoff evidence commit: `16c368aac9d77250e5e2889cc88cc37b76a06391` (Task 61 card/worklog descendant carrying the correction-cycle evidence and exact implementation SHA)
 - Base / rebase commit: `aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4`
 - Changed files: `night-worker/app-server-client.mjs`, `night-worker/cli.mjs`, `night-worker/config.mjs`, `night-worker/queue.mjs`, `night-worker/runtime-store.mjs`, `night-worker/service.mjs`, `night-worker/submission.mjs`, `night-worker/tests/runtime.test.mjs`, `night-worker/thread-broker.mjs`, `tasks/61-night-worker-runtime.md`, `worklog/agent-61-night-worker-runtime.md`.
-- Validation results: focused tests PASS (28/28); `npm run lint` PASS; local `npm run build` is blocked because the restricted environment cannot fetch Google Geist and Geist Mono from Google Fonts; independent SOL evidence records a clean build PASS for reviewed PR head `b9902288b4bf81781841c7fe4232b3b6ff63b207`; `git diff --check origin/main...4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf` PASS; committed paths are allowlist-only; `git diff --exit-code origin/main...4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf -- workflow` PASS; `git log -1 --format='%an <%ae>' 4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf` is exactly `dylanliu2002 <dylanliu2002@gmail.com>`.
+- Validation results: focused tests PASS (31/31); `npm run lint` PASS; local `npm run build` is blocked because the restricted environment cannot fetch Google Geist and Geist Mono from Google Fonts; independent SOL evidence records a clean build PASS for reviewed PR head `b9902288b4bf81781841c7fe4232b3b6ff63b207`; implementation and handoff diff/check, committed paths, package/workflow immutability, `origin/main` ancestry, and exact identity gates PASS for `16c368aac9d77250e5e2889cc88cc37b76a06391`.
 - Worklog: `worklog/agent-61-night-worker-runtime.md`
 - Remaining risks: independent SOL review is pending; local build evidence remains environment-blocked by Google Fonts network access, with independent SOL clean-build evidence recorded above. The corrected tip will be handed to the SOL orchestrator for safe non-force delivery of PR #44. This implementer performs no push, force-push, approval, or merge.
 

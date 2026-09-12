@@ -24,6 +24,28 @@ const CLIENT_OPTION_KEYS = new Set([
 ]);
 const THREAD_SANDBOXES = new Set(["workspace-write", "read-only"]);
 const TURN_SANDBOX_TYPES = new Set(["workspaceWrite", "readOnly"]);
+const BROKER_LIFECYCLE_CAPABILITY = Object.freeze({});
+const PROCESS_TRANSPORT_KEYS = new Set([
+  "pid",
+  "spawnfile",
+  "spawnFile",
+  "spawnargs",
+  "stdin",
+  "stdout",
+  "stderr",
+  "stdio",
+  "process",
+  "child",
+  "spawn",
+  "exec",
+  "command",
+  "args",
+  "env",
+  "kill",
+  "disconnect",
+  "unref",
+  "ref",
+]);
 
 function idKey(id) { return `${typeof id}:${String(id)}`; }
 
@@ -39,6 +61,24 @@ function safeText(value) {
 }
 
 function isStream(value) { return value && typeof value.on === "function"; }
+
+function assertInertTransport(transport) {
+  if (!transport || typeof transport !== "object" || Array.isArray(transport)) {
+    throw new Error("App Server transport must be an inert fake transport object.");
+  }
+  for (const key of PROCESS_TRANSPORT_KEYS) {
+    if (key in transport) throw new Error("Process handles are not permitted as App Server transports.");
+  }
+  if (typeof transport.send !== "function" || typeof transport.onMessage !== "function") {
+    throw new Error("App Server transport must provide send and onMessage.");
+  }
+}
+
+function assertBrokerLifecycleCapability(capability) {
+  if (capability !== BROKER_LIFECYCLE_CAPABILITY) {
+    throw new Error("App Server lifecycle methods are reserved for Thread Broker dispatch.");
+  }
+}
 
 function assertThreadSandbox(value) {
   if (value !== undefined && !THREAD_SANDBOXES.has(value)) {
@@ -86,6 +126,7 @@ export class AppServerClient extends EventEmitter {
       onDiagnostic,
       requestTimeoutMs = 0,
     } = options;
+    if (transport !== null) assertInertTransport(transport);
     if (!Number.isInteger(requestTimeoutMs) || requestTimeoutMs < 0) {
       throw new Error("requestTimeoutMs must be a non-negative integer.");
     }
@@ -329,7 +370,8 @@ export class AppServerClient extends EventEmitter {
 
   modelList(params = {}) { return this.#request("model/list", params); }
 
-  threadStart(params = {}) {
+  threadStart(params = {}, capability) {
+    assertBrokerLifecycleCapability(capability);
     if (!params || typeof params !== "object" || Array.isArray(params)) throw new Error("thread/start parameters must be an object.");
     if (params.ephemeral !== undefined && params.ephemeral !== false) throw new Error("Night Worker threads cannot be ephemeral.");
     if (params.allowProviderModelFallback === true) throw new Error("Provider model fallback is forbidden.");
@@ -340,7 +382,8 @@ export class AppServerClient extends EventEmitter {
     return this.#request("thread/start", params, { lifecycle: true });
   }
 
-  turnStart(params) {
+  turnStart(params, capability) {
+    assertBrokerLifecycleCapability(capability);
     if (!params || typeof params !== "object" || Array.isArray(params)) {
       throw new Error("turn/start parameters must be an object.");
     }
@@ -349,7 +392,8 @@ export class AppServerClient extends EventEmitter {
     return this.#request("turn/start", params, { lifecycle: true });
   }
 
-  threadRead(threadId, options = {}) {
+  threadRead(threadId, options = {}, capability) {
+    assertBrokerLifecycleCapability(capability);
     if (threadId && typeof threadId === "object") {
       assertThreadId(threadId.threadId ?? threadId.thread_id);
       return this.#request("thread/read", threadId, { lifecycle: true });
@@ -358,7 +402,8 @@ export class AppServerClient extends EventEmitter {
     return this.#request("thread/read", { threadId, ...options }, { lifecycle: true });
   }
 
-  threadResume(threadId, params = {}) {
+  threadResume(threadId, params = {}, capability) {
+    assertBrokerLifecycleCapability(capability);
     assertThreadId(threadId);
     if (!params || typeof params !== "object" || Array.isArray(params)) throw new Error("thread/resume parameters must be an object.");
     assertThreadSandbox(params.sandbox);
@@ -408,6 +453,19 @@ export async function connectAppServer(options) {
   const client = new AppServerClient(options);
   await client.connect();
   return client;
+}
+
+export function createThreadBrokerClient(client) {
+  if (!(client instanceof AppServerClient)) {
+    throw new Error("Thread Broker lifecycle binding requires an AppServerClient.");
+  }
+  return Object.freeze({
+    modelList: (params) => client.modelList(params),
+    threadStart: (params) => client.threadStart(params, BROKER_LIFECYCLE_CAPABILITY),
+    turnStart: (params) => client.turnStart(params, BROKER_LIFECYCLE_CAPABILITY),
+    threadRead: (threadId, options) => client.threadRead(threadId, options, BROKER_LIFECYCLE_CAPABILITY),
+    threadResume: (threadId, params) => client.threadResume(threadId, params, BROKER_LIFECYCLE_CAPABILITY),
+  });
 }
 
 export const startAppServerClient = connectAppServer;

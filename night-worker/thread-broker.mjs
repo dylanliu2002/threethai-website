@@ -13,8 +13,9 @@ import {
   reviewEffortForDifficulty,
   timestampFrom,
 } from "./config.mjs";
-import { AppServerClient } from "./app-server-client.mjs";
-import { assertGitWorktree, canonicalDirectory } from "./submission.mjs";
+import { AppServerClient, createThreadBrokerClient } from "./app-server-client.mjs";
+import { RuntimeStore } from "./runtime-store.mjs";
+import { assertGitWorktree, canonicalDirectory, defaultRuntimeStorePath } from "./submission.mjs";
 
 const ROLE_IMPLEMENTATION = "IMPLEMENTATION";
 const ROLE_REVIEW = "REVIEW";
@@ -38,18 +39,49 @@ function assertAbsoluteDirectory(cwd) {
   return assertGitWorktree(canonicalDirectory(value, "Worker cwd"), "Worker cwd");
 }
 
-function taskFromBatch(store, batchId, taskId) {
-  if (!store || typeof store.getBatch !== "function") {
-    throw new Error("Thread Broker requires a RuntimeStore for durable submission traceability.");
+function assertCanonicalRuntimeStore(store, batch) {
+  if (!(store instanceof RuntimeStore)) {
+    throw new Error("Thread Broker requires a real RuntimeStore for durable submission traceability.");
   }
+  const expectedPath = defaultRuntimeStorePath(batch.repository_root);
+  const actualPath = store.filePath;
+  if (path.relative(expectedPath, actualPath) !== "" || path.relative(actualPath, expectedPath) !== "") {
+    throw new Error("Thread Broker requires the canonical repository .night-worker/runtime.json store.");
+  }
+}
+
+function taskFromBatch(store, batchId, taskId) {
   const batch = store.getBatch(batchId);
   if (!batch) throw new Error(`Cannot start a worker without an explicit submitted batch: ${batchId}`);
+  assertCanonicalRuntimeStore(store, batch);
   if (!["QUEUED", "CLAIMED", "RUNNING"].includes(batch.state)) {
     throw new Error(`Batch is not eligible for a worker start: ${batch.state}`);
   }
   const task = batch.tasks.find((item) => item.task_id === taskId);
   if (!task) throw new Error(`Task is not part of submitted batch ${batchId}: ${taskId}`);
   return { batch, task };
+}
+
+function effectiveWorkerPolicy(options, role) {
+  if (role === ROLE_IMPLEMENTATION && options.difficulty !== undefined) {
+    throw new Error("Implementation starts do not accept review difficulty.");
+  }
+  const difficulty = role === ROLE_REVIEW
+    ? (options.difficulty ?? REVIEW_DEFAULT_REASONING_EFFORT)
+    : null;
+  const model = role === ROLE_IMPLEMENTATION ? IMPLEMENTATION_MODEL_NAME : REVIEW_MODEL_NAME;
+  const effort = role === ROLE_IMPLEMENTATION
+    ? IMPLEMENTATION_REASONING_EFFORT
+    : reviewEffortForDifficulty(difficulty);
+  return {
+    model,
+    effort,
+    difficulty: role === ROLE_REVIEW ? reviewEffortForDifficulty(difficulty) : null,
+    threadSandbox: role === ROLE_IMPLEMENTATION ? "workspace-write" : "read-only",
+    turnSandboxPolicy: role === ROLE_IMPLEMENTATION
+      ? { type: "workspaceWrite" }
+      : { type: "readOnly" },
+  };
 }
 
 function modelEntries(payload) {
@@ -206,11 +238,26 @@ export class ThreadBroker {
     if (!(client instanceof AppServerClient) && (!client || typeof client.modelList !== "function")) {
       throw new Error("Thread Broker requires an App Server client.");
     }
-    if (!store || typeof store.getWorkerMapping !== "function" || typeof store.putWorkerMapping !== "function"
-      || typeof store.reserveWorker !== "function" || typeof store.releaseWorkerReservation !== "function"
-      || typeof store.assertWorkerReservation !== "function" || typeof store.renewWorkerReservation !== "function"
-      || typeof store.markWorkerThreadStartAmbiguous !== "function") {
-      throw new Error("Thread Broker requires a RuntimeStore.");
+    const requiredClientMethods = ["modelList", "threadStart", "turnStart", "threadRead", "threadResume"];
+    if (requiredClientMethods.some((method) => typeof client[method] !== "function")) {
+      throw new Error("Thread Broker requires the complete typed App Server client API.");
+    }
+    const requiredStoreMethods = [
+      "getBatch",
+      "getWorkerMapping",
+      "getWorkerReservation",
+      "putWorkerMapping",
+      "patchWorkerMapping",
+      "reserveWorker",
+      "releaseWorkerReservation",
+      "assertWorkerReservation",
+      "renewWorkerReservation",
+      "markWorkerThreadStartAmbiguous",
+      "markWorkerTurnStartInFlight",
+      "markWorkerTurnStartAmbiguous",
+    ];
+    if (!(store instanceof RuntimeStore) || requiredStoreMethods.some((method) => typeof store[method] !== "function")) {
+      throw new Error("Thread Broker requires a real RuntimeStore with the complete durable worker API.");
     }
     if (!Number.isInteger(reservationLeaseMs) || reservationLeaseMs <= 0) {
       throw new Error("Thread Broker reservation lease must be positive.");
@@ -222,7 +269,7 @@ export class ThreadBroker {
     if (typeof setIntervalFn !== "function" || typeof clearIntervalFn !== "function") {
       throw new Error("Thread Broker heartbeat scheduler is invalid.");
     }
-    this.client = client;
+    this.client = client instanceof AppServerClient ? createThreadBrokerClient(client) : client;
     this.store = store;
     this.clock = clock;
     this.reservation_lease_ms = reservationLeaseMs;
@@ -299,37 +346,72 @@ export class ThreadBroker {
     };
   }
 
+  async #recoverAmbiguousTurn({ batch, task, mapping, reservation, normalized, role, model, effort }) {
+    if (!mapping?.thread_id) {
+      throw new Error("Ambiguous worker turn/start cannot recover without a durably mapped thread.");
+    }
+    if (typeof mapping.client_user_message_id !== "string" || mapping.client_user_message_id.length === 0) {
+      throw new Error("Ambiguous worker turn/start cannot recover without the persisted client_user_message_id.");
+    }
+    const available = await this.#validatePolicy(model, effort);
+    const read = await this.client.threadRead(mapping.thread_id, { includeTurns: true });
+    const recoveredTurnId = reconcileTurnId(read, mapping.client_user_message_id);
+    if (!recoveredTurnId) {
+      throw new Error("Ambiguous worker turn/start remains fail-closed; thread/read returned no correlated turn.");
+    }
+    const updated = this.store.patchWorkerMapping(mapping.batch_id, mapping.task_id, mapping.role, {
+      client_user_message_id: mapping.client_user_message_id,
+      turn_id: recoveredTurnId,
+      lifecycle_state: "TURN_STARTED",
+      updated_at: timestampFrom(this.clock),
+    }, { reservationToken: reservation.owner_token });
+    return {
+      mapping: updated,
+      turn: { id: recoveredTurnId },
+      model: available.model,
+      effort: available.effort,
+      recovered: true,
+      ambiguous_recovery: true,
+      batch_id: batch.batch_id,
+      task_id: task.task_id,
+      role,
+      cwd: normalized.cwd,
+    };
+  }
+
   async #start(options = {}, role) {
     const normalized = this.#validateStartOptions(options, role);
+    const policy = effectiveWorkerPolicy(options, role);
     const key = workerKey({ batchId: normalized.batchId, taskId: normalized.taskId, role });
-    const signature = JSON.stringify({ cwd: normalized.cwd, input: normalized.input });
+    const signature = JSON.stringify({
+      cwd: normalized.cwd,
+      input: normalized.input,
+      model: policy.model,
+      effort: policy.effort,
+      difficulty: policy.difficulty,
+      threadSandbox: policy.threadSandbox,
+      turnSandboxPolicy: policy.turnSandboxPolicy,
+    });
     const existing = this.inflight.get(key);
     if (existing) {
-      if (existing.signature !== signature) throw new Error("Concurrent worker starts for one durable worker must agree on cwd and input.");
+      if (existing.signature !== signature) {
+        throw new Error("Concurrent worker starts for one durable worker must agree on cwd, input, and effective model/effort/policy.");
+      }
       return existing.promise;
     }
-    const promise = this.#startOnce(options, role, normalized).finally(() => {
+    const promise = this.#startOnce(options, role, normalized, policy).finally(() => {
       if (this.inflight.get(key)?.promise === promise) this.inflight.delete(key);
     });
     this.inflight.set(key, { signature, promise });
     return promise;
   }
 
-  async #startOnce(options, role, normalized) {
-    if (role === ROLE_IMPLEMENTATION && options.difficulty !== undefined) {
-      throw new Error("Implementation starts do not accept review difficulty.");
-    }
+  async #startOnce(options, role, normalized, policy) {
     const { batch, task } = taskFromBatch(this.store, normalized.batchId, normalized.taskId);
     if (!isWithinRoot(batch.repository_root, normalized.cwd)) {
       throw new Error("Worker cwd must remain within the submitted repository root.");
     }
-    const difficulty = role === ROLE_REVIEW
-      ? (options.difficulty ?? REVIEW_DEFAULT_REASONING_EFFORT)
-      : null;
-    const model = role === ROLE_IMPLEMENTATION ? IMPLEMENTATION_MODEL_NAME : REVIEW_MODEL_NAME;
-    const effort = role === ROLE_IMPLEMENTATION
-      ? IMPLEMENTATION_REASONING_EFFORT
-      : reviewEffortForDifficulty(difficulty);
+    const { model, effort } = policy;
     const key = workerKey({ batchId: normalized.batchId, taskId: normalized.taskId, role });
     const clientUserMessageId = clientMessageId(batch, task, role);
     let mapping = this.store.getWorkerMapping(normalized.batchId, normalized.taskId, role);
@@ -340,6 +422,19 @@ export class ThreadBroker {
       if (!mapping.thread_id) throw new Error("Existing worker mapping is missing its durable thread id.");
       if (["COMPLETED", "FAILED"].includes(mapping.lifecycle_state)) return mapping;
       if (mapping.turn_id) return mapping;
+    }
+    const existingReservation = this.store.getWorkerReservation(batch.batch_id, task.task_id, role);
+    if (existingReservation?.turn_start_state === "TURN_START_AMBIGUOUS") {
+      return this.#recoverAmbiguousTurn({
+        batch,
+        task,
+        mapping,
+        reservation: existingReservation,
+        normalized,
+        role,
+        model,
+        effort,
+      });
     }
     const ownerToken = this.reservation_tokens.get(key) ?? `reservation_${crypto.randomUUID()}`;
     const reservationResult = this.store.reserveWorker({
@@ -357,6 +452,19 @@ export class ThreadBroker {
       throw new Error("Durable worker start is already reserved by another owner.");
     }
     if (reservationResult.status === "AMBIGUOUS") {
+      if (mapping?.thread_id
+        && ["TURN_START_IN_FLIGHT", "TURN_START_AMBIGUOUS"].includes(reservationResult.reservation?.turn_start_state)) {
+        return this.#recoverAmbiguousTurn({
+          batch,
+          task,
+          mapping,
+          reservation: reservationResult.reservation,
+          normalized,
+          role,
+          model,
+          effort,
+        });
+      }
       throw new Error("Worker thread/start is in-flight or ambiguous; recover the durable reservation before retrying.");
     }
     if (reservationResult.status === "MAPPED") {
@@ -370,6 +478,7 @@ export class ThreadBroker {
     let available;
     let leaseKeeper = null;
     let threadStartInFlight = false;
+    let turnStartAttempted = false;
     try {
       leaseKeeper = this.#beginReservationHeartbeat(batch.batch_id, task.task_id, role, ownerToken);
       available = await this.#validatePolicy(model, effort);
@@ -382,7 +491,7 @@ export class ThreadBroker {
         config: { model_reasoning_effort: effort },
         cwd: normalized.cwd,
         approvalPolicy: "never",
-        sandbox: role === ROLE_IMPLEMENTATION ? "workspace-write" : "read-only",
+        sandbox: policy.threadSandbox,
         ephemeral: false,
         allowProviderModelFallback: false,
       });
@@ -443,22 +552,22 @@ export class ThreadBroker {
         config: { model_reasoning_effort: effort },
         cwd: normalized.cwd,
         approvalPolicy: "never",
-        sandbox: role === ROLE_IMPLEMENTATION ? "workspace-write" : "read-only",
+        sandbox: policy.threadSandbox,
         allowProviderModelFallback: false,
       });
       assertReturnedPolicy(resumed, model, effort);
       assertReturnedThreadIdentity(resumed, mapping.thread_id);
     }
       leaseKeeper.assertOwned();
+      this.store.markWorkerTurnStartInFlight(batch.batch_id, task.task_id, role, ownerToken);
+      turnStartAttempted = true;
       const turnResponse = await this.client.turnStart({
         threadId: mapping.thread_id,
         input: normalized.input,
         model,
         effort,
         cwd: normalized.cwd,
-        sandboxPolicy: role === ROLE_IMPLEMENTATION
-          ? { type: "workspaceWrite" }
-          : { type: "readOnly" },
+        sandboxPolicy: policy.turnSandboxPolicy,
         clientUserMessageId: mapping.client_user_message_id,
       });
       assertReturnedPolicy(turnResponse, model, effort);
@@ -479,7 +588,13 @@ export class ThreadBroker {
     } catch (error) {
       leaseKeeper?.stop();
       if (reservationHeld) {
-        if (!threadStartInFlight) {
+        if (turnStartAttempted) {
+          try {
+            this.store.markWorkerTurnStartAmbiguous(batch.batch_id, task.task_id, role, ownerToken);
+          } catch (ambiguityError) {
+            error.reservationError = ambiguityError;
+          }
+        } else if (!threadStartInFlight) {
           try {
             this.store.releaseWorkerReservation(batch.batch_id, task.task_id, role, ownerToken);
           } catch (releaseError) {
@@ -503,13 +618,17 @@ export class ThreadBroker {
   startReview(options) { return this.#start(options, ROLE_REVIEW); }
 
   async readWorker({ batchId, batch_id: batchIdAlias, taskId, task_id: taskIdAlias, role }) {
-    const mapping = this.store.getWorkerMapping(batchId ?? batchIdAlias, taskId ?? taskIdAlias, role);
+    const resolvedBatchId = batchId ?? batchIdAlias;
+    const resolvedTaskId = taskId ?? taskIdAlias;
+    const { mapping } = this.#durableMapping(resolvedBatchId, resolvedTaskId, role);
     if (!mapping?.thread_id) throw new Error("Durable worker thread mapping is not available.");
     return this.client.threadRead(mapping.thread_id, { includeTurns: true });
   }
 
   async resumeWorker({ batchId, batch_id: batchIdAlias, taskId, task_id: taskIdAlias, role, ...params }) {
-    const mapping = this.store.getWorkerMapping(batchId ?? batchIdAlias, taskId ?? taskIdAlias, role);
+    const resolvedBatchId = batchId ?? batchIdAlias;
+    const resolvedTaskId = taskId ?? taskIdAlias;
+    const { mapping } = this.#durableMapping(resolvedBatchId, resolvedTaskId, role);
     if (!mapping?.thread_id) throw new Error("Durable worker thread mapping is not available.");
     const override = Object.keys(params)[0];
     if (override) {
@@ -527,6 +646,17 @@ export class ThreadBroker {
     assertReturnedPolicy(resumed, mapping.model, mapping.effort);
     assertReturnedThreadIdentity(resumed, mapping.thread_id);
     return resumed;
+  }
+
+  #durableMapping(batchId, taskId, role) {
+    const batch = this.store.getBatch(batchId);
+    if (!batch) throw new Error(`Cannot recover a worker without an explicit submitted batch: ${batchId}`);
+    assertCanonicalRuntimeStore(this.store, batch);
+    if (!batch.tasks.some((item) => item.task_id === taskId)) {
+      throw new Error(`Task is not part of submitted batch ${batchId}: ${taskId}`);
+    }
+    const mapping = this.store.getWorkerMapping(batchId, taskId, role);
+    return { batch, mapping };
   }
 
   async recoverWorker(options) {

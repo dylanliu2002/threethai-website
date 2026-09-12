@@ -30,12 +30,17 @@ const WORKER_FIELDS = new Set([
 ]);
 const RESERVATION_FIELDS = new Set([
   "schema_version", "batch_id", "task_id", "role", "model", "effort", "cwd", "client_user_message_id", "submission_id",
-  "owner_token", "owner_pid", "created_at", "lease_expires_at", "thread_start_state",
+  "owner_token", "owner_pid", "created_at", "lease_expires_at", "thread_start_state", "turn_start_state",
 ]);
 const RESERVATION_THREAD_START_STATES = new Set([
   "THREAD_START_IN_FLIGHT",
   "THREAD_START_AMBIGUOUS",
   "LIFECYCLE_ACTIVE",
+]);
+const RESERVATION_TURN_START_STATES = new Set([
+  "TURN_START_NOT_STARTED",
+  "TURN_START_IN_FLIGHT",
+  "TURN_START_AMBIGUOUS",
 ]);
 const RESERVATION_LEASE_MS = MVP_CONFIG.claim_lease_ms;
 
@@ -209,6 +214,10 @@ function validateReservation(reservation) {
     && !RESERVATION_THREAD_START_STATES.has(reservation.thread_start_state)) {
     throw new Error(`Unsupported worker reservation thread start state: ${String(reservation.thread_start_state)}`);
   }
+  if (reservation.turn_start_state !== undefined
+    && !RESERVATION_TURN_START_STATES.has(reservation.turn_start_state)) {
+    throw new Error(`Unsupported worker reservation turn start state: ${String(reservation.turn_start_state)}`);
+  }
   if (!["IMPLEMENTATION", "REVIEW"].includes(reservation.role)) {
     throw new Error(`Unsupported worker reservation role: ${String(reservation.role)}`);
   }
@@ -289,6 +298,14 @@ function validateState(state) {
     }
     if (reservation.submission_id !== undefined && reservation.submission_id !== batch.submission_id) {
       throw new Error("Worker reservation submission trace does not match its batch.");
+    }
+    const turnStartState = reservation.turn_start_state ?? "TURN_START_NOT_STARTED";
+    const mappedWorker = state.workers.find((worker) => workerKey(worker) === `${reservation.batch_id}\0${reservation.task_id}\0${reservation.role}`);
+    if (turnStartState !== "TURN_START_NOT_STARTED" && !mappedWorker?.thread_id) {
+      throw new Error("Worker turn-start reservation requires a durably mapped thread.");
+    }
+    if (turnStartState !== "TURN_START_NOT_STARTED" && mappedWorker?.turn_id) {
+      throw new Error("Worker turn-start reservation cannot remain after a durable turn mapping.");
     }
     const key = `${reservation.batch_id}\0${reservation.task_id}\0${reservation.role}`;
     if (reservationKeys.has(key)) throw new Error(`Duplicate worker reservation: ${key}`);
@@ -397,6 +414,9 @@ export class RuntimeStore {
       for (const reservation of parsed.reservations) {
         if (reservation && typeof reservation === "object" && reservation.thread_start_state === undefined) {
           reservation.thread_start_state = "THREAD_START_IN_FLIGHT";
+        }
+        if (reservation && typeof reservation === "object" && reservation.turn_start_state === undefined) {
+          reservation.turn_start_state = "TURN_START_NOT_STARTED";
         }
       }
     }
@@ -545,6 +565,16 @@ export class RuntimeStore {
       if (reservationIndex >= 0) {
         const existingReservation = state.reservations[reservationIndex];
         const startState = existingReservation.thread_start_state ?? "THREAD_START_IN_FLIGHT";
+        const turnStartState = existingReservation.turn_start_state ?? "TURN_START_NOT_STARTED";
+        if (turnStartState === "TURN_START_AMBIGUOUS") {
+          return { status: "AMBIGUOUS", reservation: clone(existingReservation) };
+        }
+        if (turnStartState === "TURN_START_IN_FLIGHT") {
+          if (!this.process_alive(existingReservation.owner_pid)) {
+            return { status: "AMBIGUOUS", reservation: clone(existingReservation) };
+          }
+          return { status: "BUSY", reservation: clone(existingReservation) };
+        }
         const ownerDead = !this.process_alive(existingReservation.owner_pid);
         if (startState === "THREAD_START_AMBIGUOUS") {
           return { status: "AMBIGUOUS", reservation: clone(existingReservation) };
@@ -594,7 +624,8 @@ export class RuntimeStore {
         owner_pid: process.pid,
         created_at: new Date(now).toISOString(),
         lease_expires_at: new Date(now + leaseMs).toISOString(),
-        thread_start_state: "THREAD_START_IN_FLIGHT",
+        thread_start_state: existingMapping?.thread_id ? "LIFECYCLE_ACTIVE" : "THREAD_START_IN_FLIGHT",
+        turn_start_state: "TURN_START_NOT_STARTED",
       };
       validateReservation(reservation);
       state.reservations.push(reservation);
@@ -629,6 +660,63 @@ export class RuntimeStore {
       const ambiguous = {
         ...current,
         thread_start_state: "THREAD_START_AMBIGUOUS",
+      };
+      validateReservation(ambiguous);
+      state.reservations[index] = ambiguous;
+      return ambiguous;
+    });
+  }
+
+  markWorkerTurnStartInFlight(batchId, taskId, role, ownerToken) {
+    if (typeof ownerToken !== "string" || ownerToken.length === 0) {
+      throw new Error("Reservation owner token is required.");
+    }
+    return this.mutate((state) => {
+      state.reservations ??= [];
+      const index = state.reservations.findIndex((item) => item.batch_id === batchId
+        && item.task_id === taskId && item.role === role);
+      if (index < 0) throw new Error("Worker reservation is not available.");
+      const current = state.reservations[index];
+      if (current.owner_token !== ownerToken) {
+        throw new Error("Worker reservation owner token does not match.");
+      }
+      if (current.thread_start_state !== "LIFECYCLE_ACTIVE") {
+        throw new Error("Worker turn/start requires a durably mapped thread.");
+      }
+      if ((current.turn_start_state ?? "TURN_START_NOT_STARTED") !== "TURN_START_NOT_STARTED") {
+        throw new Error("Worker turn/start is already in-flight or ambiguous.");
+      }
+      const inFlight = {
+        ...current,
+        turn_start_state: "TURN_START_IN_FLIGHT",
+      };
+      validateReservation(inFlight);
+      state.reservations[index] = inFlight;
+      return inFlight;
+    });
+  }
+
+  markWorkerTurnStartAmbiguous(batchId, taskId, role, ownerToken) {
+    if (typeof ownerToken !== "string" || ownerToken.length === 0) {
+      throw new Error("Reservation owner token is required.");
+    }
+    return this.mutate((state) => {
+      state.reservations ??= [];
+      const index = state.reservations.findIndex((item) => item.batch_id === batchId
+        && item.task_id === taskId && item.role === role);
+      if (index < 0) throw new Error("Worker reservation is not available.");
+      const current = state.reservations[index];
+      if (current.owner_token !== ownerToken) {
+        throw new Error("Worker reservation owner token does not match.");
+      }
+      const turnStartState = current.turn_start_state ?? "TURN_START_NOT_STARTED";
+      if (turnStartState === "TURN_START_AMBIGUOUS") return current;
+      if (turnStartState !== "TURN_START_IN_FLIGHT") {
+        throw new Error("Worker turn/start was not durably marked in-flight.");
+      }
+      const ambiguous = {
+        ...current,
+        turn_start_state: "TURN_START_AMBIGUOUS",
       };
       validateReservation(ambiguous);
       state.reservations[index] = ambiguous;

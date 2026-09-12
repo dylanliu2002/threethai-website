@@ -6,7 +6,7 @@ import { execFileSync } from "node:child_process";
 import test from "node:test";
 import { EventEmitter } from "node:events";
 import { MVP_CONFIG } from "../config.mjs";
-import { AppServerClient } from "../app-server-client.mjs";
+import { AppServerClient, createThreadBrokerClient } from "../app-server-client.mjs";
 import { FifoQueue } from "../queue.mjs";
 import { RuntimeStore } from "../runtime-store.mjs";
 import { NightWorkerService } from "../service.mjs";
@@ -19,7 +19,7 @@ const EPOCH = Date.parse("2026-09-11T00:00:00.000Z");
 function fixture({ processAliveFn } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "threethai-night-worker-"));
   execFileSync("git", ["init", "--quiet", root], { stdio: "ignore" });
-  const store = new RuntimeStore(path.join(root, "runtime", "state.json"), processAliveFn ? { processAliveFn } : undefined);
+  const store = new RuntimeStore(path.join(root, ".night-worker", "runtime.json"), processAliveFn ? { processAliveFn } : undefined);
   let now = EPOCH;
   const clock = { now: () => now };
   let id = 0;
@@ -463,6 +463,51 @@ test("broker validates exact models and creates no worker for a missing explicit
   }
 });
 
+test("broker requires the complete real canonical RuntimeStore before remote calls", async () => {
+  const f = fixture();
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "threethai-night-worker-broker-store-"));
+  try {
+    const batch = f.submit(["canonical store"]);
+    const client = new FakeBrokerClient();
+    assert.throws(
+      () => new ThreadBroker({
+        client,
+        store: {
+          getBatch: () => batch,
+          getWorkerMapping: () => null,
+          putWorkerMapping() {},
+          reserveWorker() {},
+          releaseWorkerReservation() {},
+          assertWorkerReservation() {},
+          renewWorkerReservation() {},
+          markWorkerThreadStartAmbiguous() {},
+        },
+      }),
+      /real RuntimeStore.*complete durable worker API/,
+    );
+    assert.equal(client.calls.length, 0);
+
+    const nonCanonicalPath = path.join(outside, "runtime.json");
+    const nonCanonicalStore = new RuntimeStore(nonCanonicalPath);
+    const copiedState = f.store.load();
+    nonCanonicalStore.replace(copiedState);
+    const nonCanonicalBroker = new ThreadBroker({ client, store: nonCanonicalStore, clock: f.clock });
+    await assert.rejects(
+      nonCanonicalBroker.startImplementation({
+        batchId: batch.batch_id,
+        taskId: batch.tasks[0].task_id,
+        cwd: f.root,
+        prompt: "canonical store",
+      }),
+      /canonical repository.*\.night-worker\/runtime\.json/,
+    );
+    assert.equal(client.calls.length, 0);
+  } finally {
+    f.cleanup();
+    fs.rmSync(outside, { recursive: true, force: true });
+  }
+});
+
 test("broker enforces the fixed parallel implementation limit", async () => {
   const f = fixture();
   try {
@@ -508,6 +553,47 @@ test("broker deduplicates concurrent starts for one worker through an in-flight 
     assert.equal(client.calls.filter((call) => call.method === "thread/start").length, 1);
     assert.equal(client.calls.filter((call) => call.method === "turn/start").length, 1);
     assert.equal(f.store.listWorkerReservations(batch.batch_id).length, 0);
+  } finally {
+    releaseThreadStart?.();
+    f.cleanup();
+  }
+});
+
+test("broker rejects concurrent review starts whose effective difficulty differs", async () => {
+  const f = fixture();
+  let releaseThreadStart;
+  const threadStartGate = new Promise((resolve) => { releaseThreadStart = resolve; });
+  try {
+    const batch = f.submit(["same review worker"]);
+    const client = new FakeBrokerClient({
+      catalog: modelCatalog({ sol: ["low", "high"] }),
+      threadStart: async (_params, brokerClient) => {
+        await threadStartGate;
+        brokerClient.threadNumber += 1;
+        return { thread: { id: `thread-${brokerClient.threadNumber}` } };
+      },
+    });
+    const broker = new ThreadBroker({ client, store: f.store, clock: f.clock });
+    const common = {
+      batchId: batch.batch_id,
+      taskId: batch.tasks[0].task_id,
+      cwd: f.root,
+      prompt: "same review worker",
+    };
+    const first = broker.startReview({ ...common, difficulty: "low" });
+    while (client.calls.filter((call) => call.method === "thread/start").length < 1) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    await assert.rejects(
+      broker.startReview({ ...common, difficulty: "high" }),
+      /effective model\/effort\/policy/,
+    );
+    releaseThreadStart();
+    const result = await first;
+    assert.equal(result.mapping.model, "gpt-5.6-sol");
+    assert.equal(result.mapping.effort, "low");
+    assert.equal(client.calls.filter((call) => call.method === "thread/start").length, 1);
+    assert.equal(client.calls.filter((call) => call.method === "turn/start").length, 1);
   } finally {
     releaseThreadStart?.();
     f.cleanup();
@@ -680,7 +766,7 @@ test("broker ordering durably persists thread before first turn and turn immedia
     const order = [];
     const originalPut = f.store.putWorkerMapping.bind(f.store);
     const originalPatch = f.store.patchWorkerMapping.bind(f.store);
-    f.store.putWorkerMapping = (mapping) => { order.push("durable-thread"); return originalPut(mapping); };
+    f.store.putWorkerMapping = (...args) => { order.push("durable-thread"); return originalPut(...args); };
     f.store.patchWorkerMapping = (...args) => { order.push("durable-turn"); return originalPatch(...args); };
     const originalModelList = client.modelList.bind(client);
     const originalThreadStart = client.threadStart.bind(client);
@@ -715,11 +801,19 @@ test("broker retries after durable thread persistence by resuming the same threa
   const f = fixture();
   try {
     const batch = f.submit(["retry this"]);
-    const firstClient = new FakeBrokerClient({ turnStart: async () => { throw new Error("simulated crash before response"); } });
+    const originalAssertReservation = f.store.assertWorkerReservation.bind(f.store);
+    let ownershipChecks = 0;
+    f.store.assertWorkerReservation = (...args) => {
+      ownershipChecks += 1;
+      if (ownershipChecks === 3) throw new Error("simulated crash before turn/start");
+      return originalAssertReservation(...args);
+    };
+    const firstClient = new FakeBrokerClient();
     const firstBroker = new ThreadBroker({ client: firstClient, store: f.store, clock: f.clock });
     await assert.rejects(firstBroker.startImplementation({
       batchId: batch.batch_id, taskId: batch.tasks[0].task_id, cwd: f.root, prompt: "retry this",
-    }), /simulated crash/);
+    }), /simulated crash before turn\/start/);
+    f.store.assertWorkerReservation = originalAssertReservation;
     assert.deepEqual(f.store.getWorkerMapping(batch.batch_id, batch.tasks[0].task_id, "IMPLEMENTATION"), {
       schema_version: 1,
       batch_id: batch.batch_id,
@@ -746,6 +840,55 @@ test("broker retries after durable thread persistence by resuming the same threa
     assert.equal(retryClient.calls.find((call) => call.method === "thread/resume").threadId, "thread-1");
     assert.equal(retryClient.calls.find((call) => call.method === "thread/resume").params.sandbox, "workspace-write");
     assert.equal(result.mapping.turn_id, "turn-1");
+  } finally {
+    f.cleanup();
+  }
+});
+
+test("broker fail-closes a lost turn/start response with an empty read and sends only one turn", async () => {
+  const f = fixture();
+  try {
+    const batch = f.submit(["lost response"]);
+    let remoteTurnAccepted = false;
+    const firstClient = new FakeBrokerClient({
+      turnStart: async () => {
+        remoteTurnAccepted = true;
+        throw new Error("simulated lost turn/start response");
+      },
+    });
+    const firstBroker = new ThreadBroker({ client: firstClient, store: f.store, clock: f.clock });
+    await assert.rejects(
+      firstBroker.startImplementation({
+        batchId: batch.batch_id,
+        taskId: batch.tasks[0].task_id,
+        cwd: f.root,
+        prompt: "lost response",
+      }),
+      /simulated lost turn\/start response/,
+    );
+    assert.equal(remoteTurnAccepted, true);
+    const reservation = f.store.getWorkerReservation(batch.batch_id, batch.tasks[0].task_id, "IMPLEMENTATION");
+    assert.equal(reservation.turn_start_state, "TURN_START_AMBIGUOUS");
+    assert.equal(firstClient.calls.filter((call) => call.method === "turn/start").length, 1);
+
+    const retryClient = new FakeBrokerClient({
+      threadRead: async (threadId) => ({ thread: { id: threadId, turns: [] } }),
+      turnStart: async () => { throw new Error("ambiguous recovery must not send turn/start"); },
+    });
+    const retryBroker = new ThreadBroker({ client: retryClient, store: f.store, clock: f.clock });
+    await assert.rejects(
+      retryBroker.startImplementation({
+        batchId: batch.batch_id,
+        taskId: batch.tasks[0].task_id,
+        cwd: f.root,
+        prompt: "lost response",
+      }),
+      /fail-closed.*no correlated turn/,
+    );
+    assert.equal(retryClient.calls.filter((call) => call.method === "thread/read").length, 1);
+    assert.equal(retryClient.calls.filter((call) => call.method === "turn/start").length, 0);
+    assert.equal(firstClient.calls.filter((call) => call.method === "turn/start").length, 1);
+    assert.equal(f.store.getWorkerReservation(batch.batch_id, batch.tasks[0].task_id, "IMPLEMENTATION").turn_start_state, "TURN_START_AMBIGUOUS");
   } finally {
     f.cleanup();
   }
@@ -921,12 +1064,13 @@ test("App Server JSONL client performs one handshake, correlates responses, stre
   const transport = new FakeTransport();
   const notifications = [];
   const client = new AppServerClient({ transport, onNotification: (notification) => notifications.push(notification) });
+  const brokerClient = createThreadBrokerClient(client);
   await client.connect();
   await client.connect();
   assert.equal(transport.messages.filter((message) => message.method === "initialize").length, 1);
   assert.equal(transport.messages.filter((message) => message.method === "initialized").length, 1);
   const first = client.modelList({ includeHidden: true });
-  const second = client.threadRead("thread-1");
+  const second = brokerClient.threadRead("thread-1");
   const requests = transport.messages.filter((message) => message.method === "model/list" || message.method === "thread/read");
   transport.deliver({ id: requests[1].id, result: { thread: { id: "thread-1" } } });
   transport.deliver({ id: requests[0].id, result: { data: [] } });
@@ -965,11 +1109,17 @@ test("App Server client rejects exec, ephemeral/fork paths, secrets, and fallbac
   assert.throws(() => new AppServerClient({ args: ["app-server"] }), /option is not permitted/);
   assert.throws(() => new AppServerClient({ spawnProcess: () => { spawnCalls += 1; } }), /option is not permitted/);
   assert.throws(() => new AppServerClient({ child: { kill() {} } }), /option is not permitted/);
+  assert.throws(() => new AppServerClient({ transport: { pid: 42, spawnfile: "codex", kill() {} } }), /Process handles/);
   const transport = new FakeTransport();
   const client = new AppServerClient({ transport });
-  assert.throws(() => client.threadStart({ ephemeral: true }), /ephemeral/);
-  assert.throws(() => client.threadStart({ fork: true }), /forbids fork/);
-  assert.throws(() => client.threadStart({ allowProviderModelFallback: true }), /fallback/);
+  assert.throws(() => client.threadStart({}), /reserved for Thread Broker/);
+  assert.throws(() => client.turnStart({}), /reserved for Thread Broker/);
+  assert.throws(() => client.threadRead("thread-1"), /reserved for Thread Broker/);
+  assert.throws(() => client.threadResume("thread-1"), /reserved for Thread Broker/);
+  const brokerClient = createThreadBrokerClient(client);
+  assert.throws(() => brokerClient.threadStart({ ephemeral: true }), /ephemeral/);
+  assert.throws(() => brokerClient.threadStart({ fork: true }), /forbids fork/);
+  assert.throws(() => brokerClient.threadStart({ allowProviderModelFallback: true }), /fallback/);
   assert.throws(() => client.request("exec", {}), /Raw App Server method is not permitted/);
   assert.throws(() => client.request("process", {}), /Raw App Server method is not permitted/);
   assert.throws(() => client.request("spawn", {}), /Raw App Server method is not permitted/);
@@ -981,11 +1131,11 @@ test("App Server client rejects exec, ephemeral/fork paths, secrets, and fallbac
   }
   assert.equal(spawnCalls, 0);
   assert.deepEqual(transport.messages, []);
-  assert.throws(() => client.threadStart({ model: "gpt-5.6-terra" }), /Forbidden model/);
-  assert.throws(() => client.threadStart({ sandbox: "workspaceWrite" }), /workspace-write or read-only/);
-  assert.throws(() => client.threadResume("thread-1", { sandbox: "readOnly" }), /workspace-write or read-only/);
+  assert.throws(() => brokerClient.threadStart({ model: "gpt-5.6-terra" }), /Forbidden model/);
+  assert.throws(() => brokerClient.threadStart({ sandbox: "workspaceWrite" }), /workspace-write or read-only/);
+  assert.throws(() => brokerClient.threadResume("thread-1", { sandbox: "readOnly" }), /workspace-write or read-only/);
   const fakeSecret = `sk-proj-${"x".repeat(32)}`;
-  assert.throws(() => client.turnStart({
+  assert.throws(() => brokerClient.turnStart({
     threadId: "thread-1",
     sandboxPolicy: { type: "workspaceWrite" },
     input: [{ type: "text", text: fakeSecret }],

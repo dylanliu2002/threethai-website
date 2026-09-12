@@ -75,6 +75,10 @@
 
 - The final local delivery-record descendant will contain this entry on top of implementation tip 4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf. It remains based on current origin/main aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4 and is preserved through the alternate Git object/index path.
 - Handoff is review-ready with independent SOL clean-build evidence, while local build transport remains blocked. No push, approval, merge, or protected-branch action is performed by this implementer.
+
+## 2026-09-12 — final tip identity
+
+- Final local handoff tip: b1608b6d0e48b3a40652491d88cb81c3a29f81b8, parent 4dacdd99d1ea6913f099dbca36cbfbb61e22c1bf. Both author and committer are exactly dylanliu2002 <dylanliu2002@gmail.com>. This tip is based on current origin/main aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4 and is preserved through the alternate object/index path.
 ## 2026-09-12 — correction cycle 2 ambiguity hardening
 
 - Hardened the deterministic post-response persistence failure path: the broker now atomically marks the pre-call reservation THREAD_START_AMBIGUOUS when thread/start was attempted but the thread mapping write did not complete. A later start fails closed on that durable state even if the simulated original process is still live; the original pre-call THREAD_START_IN_FLIGHT state remains fail-closed after actual process loss.
@@ -84,3 +88,25 @@
 - Final correction implementation tip: d7767434cdc15ba82532457e1f9638fb3419b853, parent aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4 (current origin/main). It includes the explicit THREAD_START_AMBIGUOUS hardening and the final Task 61 card/worklog record.
 - Focused tests PASS (26/26); npm run lint PASS. npm run build was rerun and remains environment-blocked by the existing Google Fonts fetch failure.
 - Final hash-qualified diff/scope/workflow gates PASS; exact tip author is dylanliu2002 <dylanliu2002@gmail.com>. Status is REVIEW for independent SOL review. Delivery remains with the SOL orchestrator; this implementer will not push, force-push, approve, or merge.
+
+## 2026-09-13 — bounded bootstrap correction cycle 4
+
+- Fresh independent SOL reviewer run `01a09574-c580-7802-9ac3-2892989a16e7` returned CHANGES_REQUESTED for reviewed base `aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4` and head `10a2933ff762a2e379dda842947e58fde918c017`.
+- Addressed all four concrete findings within the Task 61 allowlist. Turn dispatch now durably records `TURN_START_IN_FLIGHT` before the remote request and `TURN_START_AMBIGUOUS` on any uncertain response or post-response persistence failure; recovery reads the exact persisted `client_user_message_id` and remains fail-closed with an empty or unrelated read, never issuing a second `turn/start`.
+- Exported AppServerClient lifecycle methods now require a module-private broker capability; ThreadBroker uses the bound typed facade, direct lifecycle calls fail before transport writes, and injected process-shaped transports are rejected. ThreadBroker now requires the complete real RuntimeStore API and verifies the canonical submitted-Git-worktree `.night-worker/runtime.json` before model or lifecycle RPCs. Concurrent deduplication signatures include effective model, effort, difficulty, and sandbox policy.
+- Deterministic focused coverage now passes `31/31`, including lost-response/empty-read, pre-turn crash retry, broker authority/process transport rejection, canonical-store dependency rejection, and low-vs-high SOL race tests. `npm run lint` passes.
+- `npm run build` was rerun and remains blocked only because the restricted environment cannot fetch the existing Google Geist and Geist Mono fonts; independent SOL clean-build evidence for reviewed PR head `b9902288b4bf81781841c7fe4232b3b6ff63b207` remains recorded in the card.
+- Cycle-4 implementation commit: `771c4554d9272f6deb24efa0071e8933eda1a7a5`, parent `aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4`, exact author and committer `dylanliu2002 <dylanliu2002@gmail.com>`. The final administrative card/worklog descendant will be recorded after the final hash-qualified gates.
+- No push, approval, merge, force-push, workflow/**, package-file, SYS-AUTO-007, or external-worker action was performed.
+
+## 2026-09-13 — correction cycle 4 evidence handoff
+
+- Administrative evidence commit: `16c368aac9d77250e5e2889cc88cc37b76a06391`, parent `771c4554d9272f6deb24efa0071e8933eda1a7a5`, exact author and committer `dylanliu2002 <dylanliu2002@gmail.com>`.
+- The implementation and evidence trees remain linearly based on `origin/main` `aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4`. The final card/worklog delivery descendant will be recorded after the last scope and identity gates.
+
+## 2026-09-13 — correction cycle 4 final gate record
+
+- Final hash-qualified gates against handoff evidence commit `16c368aac9d77250e5e2889cc88cc37b76a06391` all pass: `git diff --check`, allowlist-only changed-path review, package-lock immutability, `workflow/**` immutability, and `origin/main` ancestry. The changed path set is exactly the nine Task 61 `night-worker` files, `tasks/61-night-worker-runtime.md`, and `worklog/agent-61-night-worker-runtime.md`.
+- `git log -1 --format='%an <%ae>' 16c368aac9d77250e5e2889cc88cc37b76a06391` and the committer check both equal exactly `dylanliu2002 <dylanliu2002@gmail.com>`.
+- Durable handoff identifiers: implementation `771c4554d9272f6deb24efa0071e8933eda1a7a5`; evidence handoff `16c368aac9d77250e5e2889cc88cc37b76a06391`; base/current `origin/main` `aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4`.
+- Task status remains `REVIEW` after the fresh SOL CHANGES_REQUESTED result; no approval, merge, push, force-push, PR mutation, or activation was performed. The shared worktree Git metadata remains unwritable, so the verified handoff objects are preserved through the task-scoped alternate index/object directory for orchestrator delivery.
