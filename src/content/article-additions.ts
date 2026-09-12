@@ -10,6 +10,8 @@ import { en as sewingThreadEn } from "./article-water-soluble-sewing-thread-guid
 import { zh as sewingThreadZh } from "./article-water-soluble-sewing-thread-guide-zh";
 import { en as pvaDissolutionEn } from "./article-pva-dissolution-in-textile-processing-en";
 import { zh as pvaDissolutionZh } from "./article-pva-dissolution-in-textile-processing-zh";
+import { en as pvaSampleEn } from "./article-pva-sample-to-production-testing-en";
+import { zh as pvaSampleZh } from "./article-pva-sample-to-production-testing-zh";
 
 /**
  * Knowledge articles written for this site, as opposed to migrated from the legacy one.
@@ -38,6 +40,9 @@ import { zh as pvaDissolutionZh } from "./article-pva-dissolution-in-textile-pro
  *   openwork single-jersey production device ......... patents.ts CN 218520715 U
  *   the dissolution variables, the read-more-than-disappearance sequence and the
  *     laboratory-to-production move .............. legacy-source.ts dissolution-guide article
+ *   the trial record, the four observation endpoints and the sample-to-production
+ *     validation move ........ legacy-source.ts products[0].processGuide + the answer
+ *                              sample-order-process-pva-water-soluble-yarn
  */
 export type NewArticleSpec = {
   category: Record<ContentLocale, string>;
@@ -150,6 +155,26 @@ export const newKnowledgeArticles: Record<string, NewArticleSpec> = {
     datePublished: "2026-09-11",
     dateModified: "2026-09-11",
     sections: { en: pvaDissolutionEn, zh: pvaDissolutionZh },
+  },
+  "pva-sample-to-production-testing": {
+    // Same approved category as the other guides, for the same reason: already approved in all
+    // four locales, and no new entry is needed in either version of the Resources grouping.
+    category: { en: "Technical guide", zh: "技术指南" },
+    title: {
+      en: "From Sample to Production: How to Test Water-Soluble PVA in Your Textile Process",
+      zh: "从样品到大货：如何在真实纺织工序中测试水溶性 PVA",
+    },
+    metaDescription: {
+      en: "How to plan a PVA trial that survives scale-up: write the brief, pick a candidate grade, reproduce the process at a small scale, read the result through four observation endpoints rather than final disappearance, move one variable at a time, and validate on the production structure.",
+      zh: "如何安排一次能经得起放大生产的 PVA 试做：写清需求、选定候选规格、在小规模上复现工序、按四个观察终点而不是只看是否消失来判断结果、每次只动一个变量，最后在大货结构上验证。",
+    },
+    intro: {
+      en: "A sample that dissolves on the bench is a candidate, not an approval. This article sets out the trial that turns a sample into a production decision: the brief behind it, the two-candidate rule, the record that captures more than disappearance, and the single-variable move that makes the second trial cheaper than the first.",
+      zh: "台面上能溶解的样品只是一个候选，不是批准。本文说明把样品变成生产决定的那次试做：它背后的需求说明、两选一的取规格方式、一份记的比“是否消失”更多的记录，以及那个让第二次试做比第一次更省的单一变量动作。",
+    },
+    datePublished: "2026-09-11",
+    dateModified: "2026-09-11",
+    sections: { en: pvaSampleEn, zh: pvaSampleZh },
   },
 };
 

@@ -155,6 +155,20 @@ const ARTICLE_RELATED: Record<string, ArticleRelated> = {
     answers: ["test-pva-yarn-dissolution-temperature", "20c-vs-90c-pva-yarn-difference"],
     articles: NONE,
   },
+  "pva-sample-to-production-testing": {
+    // The body is the sample-to-production trial, so the product it names is the yarn, and the
+    // two answers are the sample-order and dissolution-temperature questions its own reasoning
+    // rests on (`sample-order-process-pva-water-soluble-yarn` is the trial process, the other
+    // the temperature reading it calls for). The article-edge bucket stays empty for the same
+    // reason as the entry above: the related-article cards render in the footline, and the
+    // available candidates are titled after products and material forms this article does not
+    // declare, so a card would surface a product name the article never offers. The R7 and R1
+    // reading is linked in this body's own prose, where the link text is the article's.
+    products: ["water-soluble-pva-yarn"],
+    applications: NONE,
+    answers: ["sample-order-process-pva-water-soluble-yarn", "test-pva-yarn-dissolution-temperature"],
+    articles: NONE,
+  },
 };
 
 /**

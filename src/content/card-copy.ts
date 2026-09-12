@@ -267,6 +267,23 @@ const ARTICLE_TEASERS: Record<string, { category: CopyField<string>; title: Copy
       de: "Ein Entfernungsergebnis entsteht aus mehreren gleichzeitig wirkenden Variablen, und die Temperatur ist nur die erste davon. Dieser Beitrag geht jede Variable der Reihe nach durch und gibt dann eine Fehlerbehebungstabelle mit Fragen zum Nachgehen statt behaupteter Ursachen.",
     },
   },
+  "pva-sample-to-production-testing": {
+    // Authored for this site. `en`/`zh` are asserted equal to the entity in `article-additions.ts`;
+    // `es`/`de` are DRAFTED against this file's glossary comment and are PENDING TRANSLATOR REVIEW.
+    category: { en: "Technical guide", zh: "技术指南", es: "Guía técnica", de: "Fachleitfaden" },
+    title: {
+      en: "From Sample to Production: How to Test Water-Soluble PVA in Your Textile Process",
+      zh: "从样品到大货：如何在真实纺织工序中测试水溶性 PVA",
+      es: "De la muestra a la producción: cómo probar el PVA hidrosoluble en tu proceso textil",
+      de: "Vom Muster zur Produktion: Wie man wasserlösliches PVA im eigenen Textilprozess prüft",
+    },
+    intro: {
+      en: "A sample that dissolves on the bench is a candidate, not an approval. This article sets out the trial that turns a sample into a production decision: the brief behind it, the two-candidate rule, the record that captures more than disappearance, and the single-variable move that makes the second trial cheaper than the first.",
+      zh: "台面上能溶解的样品只是一个候选，不是批准。本文说明把样品变成生产决定的那次试做：它背后的需求说明、两选一的取规格方式、一份记的比“是否消失”更多的记录，以及那个让第二次试做比第一次更省的单一变量动作。",
+      es: "Una muestra que se disuelve en el banco es un candidato, no una aprobación. Este artículo expone el ensayo que convierte una muestra en una decisión de producción: el pliego que lo sustenta, la regla de dos candidatos, el registro que recoge más que la desaparición y el cambio de una sola variable que abarata el segundo ensayo.",
+      de: "Ein Muster, das auf dem Tisch in Lösung geht, ist ein Kandidat, keine Freigabe. Dieser Beitrag beschreibt den Versuch, der aus einem Muster eine Produktionsentscheidung macht: das zugrunde liegende Lastenheft, die Zwei-Kandidaten-Regel, die Aufzeichnung, die mehr als das Verschwinden festhält, und die Änderung einer einzigen Variablen, die den zweiten Versuch günstiger macht.",
+    },
+  },
 };
 
 export function articleCard(slug: string, locale: Locale): ArticleCardCopy {
