@@ -214,6 +214,23 @@ const ARTICLE_TEASERS: Record<string, { category: CopyField<string>; title: Copy
       de: "Ein Handtuch ohne Drehung kann seinen Flor nicht ohne Stütze halten, und ein dauerhaftes Stützgarn würde es ruinieren. Hier steht, wo ein wasserlösliches Garn im Handtuchprozess sitzt und wie der Versuch abläuft, der darüber entscheidet, ob er funktioniert.",
     },
   },
+  "water-soluble-pva-yarn-knitting": {
+    // Authored for this site. `en`/`zh` are asserted equal to the entity in `article-additions.ts`;
+    // `es`/`de` are DRAFTED against this file's glossary comment and are PENDING TRANSLATOR REVIEW.
+    category: { en: "Technical guide", zh: "技术指南", es: "Guía técnica", de: "Fachleitfaden" },
+    title: {
+      en: "Water-Soluble PVA Yarn in Knitting and Knitwear: How and Why It Is Used",
+      zh: "水溶性 PVA 纱线在针织与针织成衣中的用法与原因",
+      es: "Hilo de PVA hidrosoluble en el tejido de punto y las prendas de punto: cómo y por qué se usa",
+      de: "Wasserlösliches PVA-Garn beim Stricken und in Strickwaren: wie und warum es verwendet wird",
+    },
+    intro: {
+      en: "A knitted fabric or a plated structure can need support while it is being made, and that support has to be gone before the garment is worn. This is where a water-soluble PVA yarn sits in a knitwear route, the three ways it can enter a knit, and how to run the trial that decides whether it works.",
+      zh: "针织面料或添纱结构在成形过程中可能需要支撑，而这份支撑必须在成衣被穿着之前消失。本文说明水溶性 PVA 纱线在针织流程中的位置、它进入针织物的三条路径，以及如何做那次决定成败的打样。",
+      es: "Un tejido de punto o una estructura platinada puede necesitar soporte mientras se fabrica, y ese soporte debe desaparecer antes de que la prenda se use. Aquí se explica dónde encaja un hilo de PVA hidrosoluble en un proceso de punto, las tres formas en que puede entrar en un tejido de punto y cómo realizar el ensayo que decide si funciona.",
+      de: "Ein Gestrick oder eine platinierte Struktur kann während der Herstellung eine Stütze brauchen, und diese Stütze muss verschwunden sein, bevor das Kleidungsstück getragen wird. Hier steht, wo ein wasserlösliches PVA-Garn in einem Strickprozess sitzt, auf welchen drei Wegen es in ein Gestrick gelangen kann und wie der Versuch abläuft, der darüber entscheidet, ob er funktioniert.",
+    },
+  },
 };
 
 export function articleCard(slug: string, locale: Locale): ArticleCardCopy {

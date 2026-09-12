@@ -1,6 +1,6 @@
 {
   "$note": "Per-document byte budget, regenerated deliberately by the task that changed a route.",
-  "$baseCommit": "adb52cb5b2ca8d821739f3cdb75750540269a602",
+  "$baseCommit": "c1712131f00a6970bcbd9ce53f85e260c87ac9c7",
   "$toleranceBytes": 64,
   "documents": {
     "about.html": {
@@ -320,8 +320,8 @@
       "scriptBytes": 63143
     },
     "de/knowledge.html": {
-      "bytes": 79630,
-      "scriptBytes": 57195
+      "bytes": 83569,
+      "scriptBytes": 59631
     },
     "de/knowledge/pva-batch-dissolution-consistency.html": {
       "bytes": 95211,
@@ -338,6 +338,10 @@
     "de/knowledge/pva-yarn-dissolution-temperature-guide.html": {
       "bytes": 92288,
       "scriptBytes": 64667
+    },
+    "de/knowledge/water-soluble-pva-yarn-knitting.html": {
+      "bytes": 101947,
+      "scriptBytes": 70252
     },
     "de/knowledge/water-soluble-pva-yarn-towel-manufacturing.html": {
       "bytes": 88785,
@@ -548,8 +552,8 @@
       "scriptBytes": 64014
     },
     "es/knowledge.html": {
-      "bytes": 80374,
-      "scriptBytes": 57774
+      "bytes": 84249,
+      "scriptBytes": 60181
     },
     "es/knowledge/pva-batch-dissolution-consistency.html": {
       "bytes": 95764,
@@ -566,6 +570,10 @@
     "es/knowledge/pva-yarn-dissolution-temperature-guide.html": {
       "bytes": 92875,
       "scriptBytes": 65191
+    },
+    "es/knowledge/water-soluble-pva-yarn-knitting.html": {
+      "bytes": 102464,
+      "scriptBytes": 70741
     },
     "es/knowledge/water-soluble-pva-yarn-towel-manufacturing.html": {
       "bytes": 89346,
@@ -620,8 +628,8 @@
       "scriptBytes": 81868
     },
     "knowledge.html": {
-      "bytes": 78793,
-      "scriptBytes": 56583
+      "bytes": 82485,
+      "scriptBytes": 58885
     },
     "knowledge/pva-batch-dissolution-consistency.html": {
       "bytes": 95139,
@@ -638,6 +646,10 @@
     "knowledge/pva-yarn-dissolution-temperature-guide.html": {
       "bytes": 92156,
       "scriptBytes": 64516
+    },
+    "knowledge/water-soluble-pva-yarn-knitting.html": {
+      "bytes": 101664,
+      "scriptBytes": 70018
     },
     "knowledge/water-soluble-pva-yarn-towel-manufacturing.html": {
       "bytes": 88689,
@@ -848,8 +860,8 @@
       "scriptBytes": 42006
     },
     "zh/knowledge.html": {
-      "bytes": 74846,
-      "scriptBytes": 52840
+      "bytes": 78425,
+      "scriptBytes": 55070
     },
     "zh/knowledge/pva-batch-dissolution-consistency.html": {
       "bytes": 89791,
@@ -866,6 +878,10 @@
     "zh/knowledge/pva-yarn-dissolution-temperature-guide.html": {
       "bytes": 86891,
       "scriptBytes": 60176
+    },
+    "zh/knowledge/water-soluble-pva-yarn-knitting.html": {
+      "bytes": 96405,
+      "scriptBytes": 65759
     },
     "zh/knowledge/water-soluble-pva-yarn-towel-manufacturing.html": {
       "bytes": 84765,

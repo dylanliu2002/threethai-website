@@ -103,6 +103,22 @@ const ARTICLE_RELATED: Record<string, ArticleRelated> = {
     answers: ["source-water-soluble-yarn-zero-twist-towels"],
     articles: ["what-is-water-soluble-pva-yarn", "pva-yarn-dissolution-temperature-guide", "pva-yarn-buyer-specification-checklist"],
   },
+  "water-soluble-pva-yarn-knitting": {
+    // Every edge here is one this article's own body already travels. The products are the
+    // two `applications.ts` declares for its knitting entry, the application is the page the
+    // closing prose links, and the article edges are the three guides the removal section
+    // names — which is also why `applications` is not empty on this one: the knitting page
+    // is the article's subject rather than an inference about the process it covers.
+    products: ["water-soluble-pva-yarn", "pva-staple-fiber"],
+    applications: ["knitting"],
+    answers: ["test-pva-yarn-dissolution-temperature", "sample-order-process-pva-water-soluble-yarn"],
+    articles: [
+      "pva-yarn-dissolution-temperature-guide",
+      "water-soluble-pva-yarn-towel-manufacturing",
+      "pva-batch-dissolution-consistency",
+      "pva-yarn-buyer-specification-checklist",
+    ],
+  },
 };
 
 /**

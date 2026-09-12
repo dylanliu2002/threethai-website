@@ -4,6 +4,8 @@ import { en as whatIsPvaEn } from "./article-what-is-pva-en";
 import { zh as whatIsPvaZh } from "./article-what-is-pva-zh";
 import { en as towelEn } from "./article-towel-manufacturing-en";
 import { zh as towelZh } from "./article-towel-manufacturing-zh";
+import { en as pvaKnittingEn } from "./article-water-soluble-pva-yarn-knitting-en";
+import { zh as pvaKnittingZh } from "./article-water-soluble-pva-yarn-knitting-zh";
 
 /**
  * Knowledge articles written for this site, as opposed to migrated from the legacy one.
@@ -23,6 +25,7 @@ import { zh as towelZh } from "./article-towel-manufacturing-zh";
  * The copy follows `docs/audits/resources-editorial-voice.md`. Figures used:
  *   four product forms and their selection variables ... legacy-source.ts products[]
  *   seven dissolution process targets ................. products[0].technicalOverview
+ *   knitting routes in and the variables a knitwear trial settles ...... applications.ts knitting
  *   OEKO-TEX Standard 100 Class I, raw white, 2027-01-31 ... quality.ts certificates[2]
  *   ISO 9001 scope, yarn production and fibre sales ....... quality.ts certificates[0]
  *   openwork single-jersey production device ......... patents.ts CN 218520715 U
@@ -78,6 +81,26 @@ export const newKnowledgeArticles: Record<string, NewArticleSpec> = {
     datePublished: "2026-09-11",
     dateModified: "2026-09-11",
     sections: { en: towelEn, zh: towelZh },
+  },
+  "water-soluble-pva-yarn-knitting": {
+    // Same approved category as the other guides, for the same reason: it is already approved
+    // in all four locales and it needs no new entry in either version of the Resources grouping.
+    category: { en: "Technical guide", zh: "技术指南" },
+    title: {
+      en: "Water-Soluble PVA Yarn in Knitting and Knitwear: How and Why It Is Used",
+      zh: "水溶性 PVA 纱线在针织与针织成衣中的用法与原因",
+    },
+    metaDescription: {
+      en: "Why a knit needs a yarn that leaves: the three routes a water-soluble PVA takes into a knitted fabric, where the support sits in a knitwear route, what to settle before a knitting trial, and what a failed trial is telling you.",
+      zh: "针织物为什么需要一根会离开的纱：水溶性 PVA 进入针织物的三条路径、支撑在针织流程各段的位置、打样前要定下的内容，以及一次失败的打样说明了什么。",
+    },
+    intro: {
+      en: "A knitted fabric or a plated structure can need support while it is being made, and that support has to be gone before the garment is worn. This is where a water-soluble PVA yarn sits in a knitwear route, the three ways it can enter a knit, and how to run the trial that decides whether it works.",
+      zh: "针织面料或添纱结构在成形过程中可能需要支撑，而这份支撑必须在成衣被穿着之前消失。本文说明水溶性 PVA 纱线在针织流程中的位置、它进入针织物的三条路径，以及如何做那次决定成败的打样。",
+    },
+    datePublished: "2026-09-11",
+    dateModified: "2026-09-11",
+    sections: { en: pvaKnittingEn, zh: pvaKnittingZh },
   },
 };
 
