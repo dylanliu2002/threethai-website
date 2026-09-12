@@ -284,6 +284,23 @@ const ARTICLE_TEASERS: Record<string, { category: CopyField<string>; title: Copy
       de: "Ein Muster, das auf dem Tisch in Lösung geht, ist ein Kandidat, keine Freigabe. Dieser Beitrag beschreibt den Versuch, der aus einem Muster eine Produktionsentscheidung macht: das zugrunde liegende Lastenheft, die Zwei-Kandidaten-Regel, die Aufzeichnung, die mehr als das Verschwinden festhält, und die Änderung einer einzigen Variablen, die den zweiten Versuch günstiger macht.",
     },
   },
+  "how-to-evaluate-water-soluble-pva-supplier": {
+    // Authored for this site. `en`/`zh` are asserted equal to the entity in `article-additions.ts`;
+    // `es`/`de` are DRAFTED against this file's glossary comment and are PENDING TRANSLATOR REVIEW.
+    category: { en: "Technical guide", zh: "技术指南", es: "Guía técnica", de: "Fachleitfaden" },
+    title: {
+      en: "How to Evaluate a Water-Soluble PVA Supplier Before Placing an Order",
+      zh: "下订单前如何评估水溶性 PVA 供应商",
+      es: "Cómo evaluar a un proveedor de PVA hidrosoluble antes de realizar el pedido",
+      de: "Wie Sie einen Lieferanten für wasserlösliches PVA vor der Bestellung bewerten",
+    },
+    intro: {
+      en: "A supplier is comparable only when every candidate was asked the same question. This guide sets out the ten areas to compare, the questions that separate a document from a claim, and how Three Thai answers each point from its own published record.",
+      zh: "只有当每一家候选供应商都被问到同一个问题时，供应商之间才可比。本文给出应当比较的十个维度、能把一份文件与一个说法区分开的问题，以及荣沣如何用自己公开的记录回应每一点。",
+      es: "Un proveedor solo es comparable cuando a todos los candidatos se les planteó la misma pregunta. Esta guía expone las diez áreas que conviene comparar, las preguntas que separan un documento de una afirmación y cómo se responde a cada punto desde un registro publicado.",
+      de: "Ein Lieferant ist nur vergleichbar, wenn jedem Kandidaten dieselbe Frage gestellt wurde. Dieser Leitfaden stellt die zehn Vergleichsbereiche vor, die Fragen, die ein Dokument von einer Behauptung trennen, und wie jeder Punkt aus einem veröffentlichten Nachweis beantwortet wird.",
+    },
+  },
 };
 
 export function articleCard(slug: string, locale: Locale): ArticleCardCopy {

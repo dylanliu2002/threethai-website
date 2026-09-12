@@ -12,6 +12,8 @@ import { en as pvaDissolutionEn } from "./article-pva-dissolution-in-textile-pro
 import { zh as pvaDissolutionZh } from "./article-pva-dissolution-in-textile-processing-zh";
 import { en as pvaSampleEn } from "./article-pva-sample-to-production-testing-en";
 import { zh as pvaSampleZh } from "./article-pva-sample-to-production-testing-zh";
+import { en as pvaSupplierEn } from "./article-how-to-evaluate-water-soluble-pva-supplier-en";
+import { zh as pvaSupplierZh } from "./article-how-to-evaluate-water-soluble-pva-supplier-zh";
 
 /**
  * Knowledge articles written for this site, as opposed to migrated from the legacy one.
@@ -43,6 +45,10 @@ import { zh as pvaSampleZh } from "./article-pva-sample-to-production-testing-zh
  *   the trial record, the four observation endpoints and the sample-to-production
  *     validation move ........ legacy-source.ts products[0].processGuide + the answer
  *                              sample-order-process-pva-water-soluble-yarn
+ *   the supplier-evaluation framework, its ten comparison areas and the
+ *     no-public-price position ... quality.ts certificates[0][2][3], patents.ts granted
+ *                                   devices and foreign registrations, /quality,
+ *                                   /manufacturing and /request-sample
  */
 export type NewArticleSpec = {
   category: Record<ContentLocale, string>;
@@ -175,6 +181,26 @@ export const newKnowledgeArticles: Record<string, NewArticleSpec> = {
     datePublished: "2026-09-11",
     dateModified: "2026-09-11",
     sections: { en: pvaSampleEn, zh: pvaSampleZh },
+  },
+  "how-to-evaluate-water-soluble-pva-supplier": {
+    // Same approved category as the other guides, for the same reason: already approved in all
+    // four locales, and no new entry is needed in either version of the Resources grouping.
+    category: { en: "Technical guide", zh: "技术指南" },
+    title: {
+      en: "How to Evaluate a Water-Soluble PVA Supplier Before Placing an Order",
+      zh: "下订单前如何评估水溶性 PVA 供应商",
+    },
+    metaDescription: {
+      en: "Ten areas to compare PVA suppliers on the same brief — specification clarity, batch consistency, product range, technical communication, sampling, quality documentation, manufacturing capability, commercial communication, packaging and repeat-order support — plus the questions to ask, and how Three Thai publishes its own answers.",
+      zh: "用同一份需求说明比较 PVA 供应商的十个维度——规格清晰度、批次一致性、产品范围、技术沟通、打样、质量文件、制造能力、商务沟通、包装与物流、返单支持——以及应当提出的问题，和荣沣如何公开自己的回答。",
+    },
+    intro: {
+      en: "A supplier is comparable only when every candidate was asked the same question. This guide sets out the ten areas to compare, the questions that separate a document from a claim, and how Three Thai answers each point from its own published record.",
+      zh: "只有当每一家候选供应商都被问到同一个问题时，供应商之间才可比。本文给出应当比较的十个维度、能把一份文件与一个说法区分开的问题，以及荣沣如何用自己公开的记录回应每一点。",
+    },
+    datePublished: "2026-09-11",
+    dateModified: "2026-09-11",
+    sections: { en: pvaSupplierEn, zh: pvaSupplierZh },
   },
 };
 

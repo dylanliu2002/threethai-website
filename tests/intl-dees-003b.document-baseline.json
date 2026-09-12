@@ -1,6 +1,6 @@
 {
   "$note": "Per-document byte budget, regenerated deliberately by the task that changed a route.",
-  "$baseCommit": "ef541bd2b00f315e569f36f9700ab4554f116a36",
+  "$baseCommit": "30d9322047a5ff899b00edc015c9e6d29549bc62",
   "$toleranceBytes": 64,
   "documents": {
     "about.html": {
@@ -320,8 +320,12 @@
       "scriptBytes": 63143
     },
     "de/knowledge.html": {
-      "bytes": 95007,
-      "scriptBytes": 66718
+      "bytes": 98765,
+      "scriptBytes": 69081
+    },
+    "de/knowledge/how-to-evaluate-water-soluble-pva-supplier.html": {
+      "bytes": 96796,
+      "scriptBytes": 67183
     },
     "de/knowledge/pva-batch-dissolution-consistency.html": {
       "bytes": 95211,
@@ -564,8 +568,12 @@
       "scriptBytes": 64014
     },
     "es/knowledge.html": {
-      "bytes": 95541,
-      "scriptBytes": 67184
+      "bytes": 99296,
+      "scriptBytes": 69549
+    },
+    "es/knowledge/how-to-evaluate-water-soluble-pva-supplier.html": {
+      "bytes": 97361,
+      "scriptBytes": 67696
     },
     "es/knowledge/pva-batch-dissolution-consistency.html": {
       "bytes": 95764,
@@ -652,8 +660,12 @@
       "scriptBytes": 81868
     },
     "knowledge.html": {
-      "bytes": 93566,
-      "scriptBytes": 65787
+      "bytes": 97147,
+      "scriptBytes": 68019
+    },
+    "knowledge/how-to-evaluate-water-soluble-pva-supplier.html": {
+      "bytes": 96815,
+      "scriptBytes": 67114
     },
     "knowledge/pva-batch-dissolution-consistency.html": {
       "bytes": 95139,
@@ -896,8 +908,12 @@
       "scriptBytes": 42006
     },
     "zh/knowledge.html": {
-      "bytes": 89373,
-      "scriptBytes": 61940
+      "bytes": 92907,
+      "scriptBytes": 64146
+    },
+    "zh/knowledge/how-to-evaluate-water-soluble-pva-supplier.html": {
+      "bytes": 91762,
+      "scriptBytes": 62705
     },
     "zh/knowledge/pva-batch-dissolution-consistency.html": {
       "bytes": 89791,

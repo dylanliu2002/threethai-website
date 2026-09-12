@@ -169,6 +169,22 @@ const ARTICLE_RELATED: Record<string, ArticleRelated> = {
     answers: ["sample-order-process-pva-water-soluble-yarn", "test-pva-yarn-dissolution-temperature"],
     articles: NONE,
   },
+  "how-to-evaluate-water-soluble-pva-supplier": {
+    // The body is the supplier-evaluation framework, so the product it names is the yarn. The
+    // two answers are the edges this article is built on: it is the deep version of the
+    // manufacturer-comparison answer (`best-pva-water-soluble-yarn-manufacturers-china`, which
+    // already refuses a self-ranking) and its own argument rests on the factory-verification
+    // answer. The article-edge bucket stays empty for the same reason as the two entries above:
+    // the related-article cards render in the footline, and the available candidates are titled
+    // after products and material forms this article does not declare, so a card would surface a
+    // product name the article never offers. The quality, manufacturing and sampling routes the
+    // closing section names are linked in this body's own prose, where the link text is the
+    // article's.
+    products: ["water-soluble-pva-yarn"],
+    applications: NONE,
+    answers: ["best-pva-water-soluble-yarn-manufacturers-china", "verify-chinese-pva-yarn-factory"],
+    articles: NONE,
+  },
 };
 
 /**
