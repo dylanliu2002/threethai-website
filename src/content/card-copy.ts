@@ -231,6 +231,23 @@ const ARTICLE_TEASERS: Record<string, { category: CopyField<string>; title: Copy
       de: "Ein Gestrick oder eine platinierte Struktur kann während der Herstellung eine Stütze brauchen, und diese Stütze muss verschwunden sein, bevor das Kleidungsstück getragen wird. Hier steht, wo ein wasserlösliches PVA-Garn in einem Strickprozess sitzt, auf welchen drei Wegen es in ein Gestrick gelangen kann und wie der Versuch abläuft, der darüber entscheidet, ob er funktioniert.",
     },
   },
+  "water-soluble-sewing-thread-guide": {
+    // Authored for this site. `en`/`zh` are asserted equal to the entity in `article-additions.ts`;
+    // `es`/`de` are DRAFTED against this file's glossary comment and are PENDING TRANSLATOR REVIEW.
+    category: { en: "Technical guide", zh: "技术指南", es: "Guía técnica", de: "Fachleitfaden" },
+    title: {
+      en: "Water-Soluble Sewing Thread: What It Is, How It Works and Where It Is Used",
+      zh: "水溶性 PVA 缝纫线：是什么、怎么起作用、用在哪里",
+      es: "Hilo de coser de PVA hidrosoluble: qué es, cómo funciona y dónde se usa",
+      de: "Wasserlösliches PVA-Nähgarn: was es ist, wie es wirkt und wo es eingesetzt wird",
+    },
+    intro: {
+      en: "A water-soluble sewing thread holds a seam through stitching and handling and then leaves in the finishing bath. This guide covers the three positions it holds, why a bench tensile result does not predict a break on the machine, and what to write down so the second trial costs less than the first.",
+      zh: "水溶性 PVA 缝纫线在缝制与搬运中固定住一道缝线，随后在水洗工序里离开。本文说明它能承担的三种位置、为什么台面上的拉伸结果预测不了机器上的断线，以及该记下哪些内容才能让第二次打样比第一次更省事。",
+      es: "Un hilo de coser hidrosoluble sostiene una costura durante la confección y la manipulación y después desaparece en el baño de acabado. Esta guía explica las tres posiciones que puede ocupar, por qué un resultado de tracción en banco no predice una rotura en la máquina y qué anotar para que el segundo ensayo cueste menos que el primero.",
+      de: "Ein wasserlösliches Nähgarn hält eine Naht beim Nähen und Handhaben und verschwindet anschließend im Ausrüstungsbad. Dieser Leitfaden erklärt die drei Positionen, die es einnehmen kann, warum ein Zugversuch auf dem Tisch keinen Fadenbruch an der Maschine vorhersagt und was festzuhalten ist, damit der zweite Versuch weniger kostet als der erste.",
+    },
+  },
 };
 
 export function articleCard(slug: string, locale: Locale): ArticleCardCopy {

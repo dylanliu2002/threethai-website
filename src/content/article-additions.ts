@@ -6,6 +6,8 @@ import { en as towelEn } from "./article-towel-manufacturing-en";
 import { zh as towelZh } from "./article-towel-manufacturing-zh";
 import { en as pvaKnittingEn } from "./article-water-soluble-pva-yarn-knitting-en";
 import { zh as pvaKnittingZh } from "./article-water-soluble-pva-yarn-knitting-zh";
+import { en as sewingThreadEn } from "./article-water-soluble-sewing-thread-guide-en";
+import { zh as sewingThreadZh } from "./article-water-soluble-sewing-thread-guide-zh";
 
 /**
  * Knowledge articles written for this site, as opposed to migrated from the legacy one.
@@ -26,6 +28,9 @@ import { zh as pvaKnittingZh } from "./article-water-soluble-pva-yarn-knitting-z
  *   four product forms and their selection variables ... legacy-source.ts products[]
  *   seven dissolution process targets ................. products[0].technicalOverview
  *   knitting routes in and the variables a knitwear trial settles ...... applications.ts knitting
+ *   sewing-thread uses, selection variables, break-cause and OEM notes ... legacy-source.ts sewing-thread product
+ *   where a sewing thread sits, why it is temporary, what to test ..... applications.ts embroidery-sewing
+ *   40S/2 thread in the 20 °C group and PVA sewing thread in the 60 °C group ... catalog.ts
  *   OEKO-TEX Standard 100 Class I, raw white, 2027-01-31 ... quality.ts certificates[2]
  *   ISO 9001 scope, yarn production and fibre sales ....... quality.ts certificates[0]
  *   openwork single-jersey production device ......... patents.ts CN 218520715 U
@@ -101,6 +106,26 @@ export const newKnowledgeArticles: Record<string, NewArticleSpec> = {
     datePublished: "2026-09-11",
     dateModified: "2026-09-11",
     sections: { en: pvaKnittingEn, zh: pvaKnittingZh },
+  },
+  "water-soluble-sewing-thread-guide": {
+    // Same approved category as the other guides, for the same reason: already approved in all
+    // four locales, and no new entry is needed in either version of the Resources grouping.
+    category: { en: "Technical guide", zh: "技术指南" },
+    title: {
+      en: "Water-Soluble Sewing Thread: What It Is, How It Works and Where It Is Used",
+      zh: "水溶性 PVA 缝纫线：是什么、怎么起作用、用在哪里",
+    },
+    metaDescription: {
+      en: "What a water-soluble PVA sewing thread is, the three positions it holds in a sewing or embroidery line, why it can break while its tensile result looks fine, and what to settle before a first trial.",
+      zh: "水溶性 PVA 缝纫线是什么、它在缝纫或刺绣工序中承担的三种位置、为什么拉伸结果合格它仍会断线，以及首次打样前要定下的内容。",
+    },
+    intro: {
+      en: "A water-soluble sewing thread holds a seam through stitching and handling and then leaves in the finishing bath. This guide covers the three positions it holds, why a bench tensile result does not predict a break on the machine, and what to write down so the second trial costs less than the first.",
+      zh: "水溶性 PVA 缝纫线在缝制与搬运中固定住一道缝线，随后在水洗工序里离开。本文说明它能承担的三种位置、为什么台面上的拉伸结果预测不了机器上的断线，以及该记下哪些内容才能让第二次打样比第一次更省事。",
+    },
+    datePublished: "2026-09-11",
+    dateModified: "2026-09-11",
+    sections: { en: sewingThreadEn, zh: sewingThreadZh },
   },
 };
 

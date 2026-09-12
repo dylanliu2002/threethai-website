@@ -119,6 +119,24 @@ const ARTICLE_RELATED: Record<string, ArticleRelated> = {
       "pva-yarn-buyer-specification-checklist",
     ],
   },
+  "water-soluble-sewing-thread-guide": {
+    // The products are the two `applications.ts` declares for its embroidery-sewing entry, the
+    // application is the page the closing prose links, and the three guides are the removal,
+    // batch and enquiry pages the middle section names. The answer edges are the sewing-thread
+    // questions the body's own reasoning rests on, so nothing here is inferred from the topic.
+    products: ["water-soluble-pva-sewing-thread", "water-soluble-pva-yarn"],
+    applications: ["embroidery-sewing"],
+    answers: [
+      "pva-sewing-thread-temporary-stitching-garments",
+      "reliable-oem-pva-water-soluble-sewing-thread-factory",
+      "minimum-order-quantity-pva-water-soluble-thread",
+    ],
+    articles: [
+      "pva-yarn-dissolution-temperature-guide",
+      "pva-batch-dissolution-consistency",
+      "pva-yarn-buyer-specification-checklist",
+    ],
+  },
 };
 
 /**
@@ -134,9 +152,9 @@ const PRODUCT_ARTICLES: Record<string, readonly string[]> = {
   // The comparison names both forms, so it is the reading that belongs on each.
   "pva-staple-fiber": ["pva-staple-fiber-vs-filament-yarn"],
   "pva-filament-yarn": ["pva-staple-fiber-vs-filament-yarn"],
-  // Sewing thread has no article written about it yet. Showing the yarn guide
-  // there was the old fallback; an empty list is the honest current state.
-  "water-soluble-pva-sewing-thread": NONE,
+  // The sewing-thread guide is written about this product, so it is the reading that belongs
+  // here. Showing the yarn guide was the old fallback and named a different construction.
+  "water-soluble-pva-sewing-thread": ["water-soluble-sewing-thread-guide"],
 };
 
 const knownProducts = new Set(products.map((product) => product.slug));
