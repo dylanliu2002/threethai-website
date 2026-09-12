@@ -53,8 +53,19 @@ function clone(value) {
 
 function assertPlainObject(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${label} must be an object.`);
+    throw new Error(label + " must be an object.");
   }
+}
+
+export function parsePersistedTimestamp(value, label = "timestamp") {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(label + " must be a non-empty timestamp string.");
+  }
+  const epoch = Date.parse(value);
+  if (!Number.isFinite(epoch) || new Date(epoch).toISOString() !== value) {
+    throw new Error(label + " must be a valid canonical ISO timestamp.");
+  }
+  return epoch;
 }
 
 function emptyState() {
@@ -80,7 +91,12 @@ function validateBatch(batch) {
       throw new Error(`Batch ${field} is required.`);
     }
   }
-  if (!BATCH_STATES.has(batch.state)) throw new Error(`Unsupported batch state: ${String(batch.state)}`);
+  const submittedAt = parsePersistedTimestamp(batch.submitted_at, "Batch submitted_at");
+  const expiresAt = parsePersistedTimestamp(batch.expires_at, "Batch expires_at");
+  if (expiresAt - submittedAt !== MVP_CONFIG.batch_expiry_ms) {
+    throw new Error("Batch expiry must be exactly eight hours after submission.");
+  }
+  if (!BATCH_STATES.has(batch.state)) throw new Error("Unsupported batch state: " + String(batch.state));
   if (!Array.isArray(batch.tasks) || batch.tasks.length < 1 || batch.tasks.length > MVP_CONFIG.max_tasks_per_batch) {
     throw new Error("Batch tasks must contain between one and four tasks.");
   }
@@ -104,8 +120,14 @@ function validateBatch(batch) {
     assertKnownFields(batch.claim, CLAIM_FIELDS, "batch claim");
     for (const field of ["owner_token", "claimed_at", "heartbeat_at", "lease_expires_at"]) {
       if (typeof batch.claim[field] !== "string" || batch.claim[field].length === 0) {
-        throw new Error(`Batch claim ${field} is required.`);
+        throw new Error("Batch claim " + field + " is required.");
       }
+    }
+    const claimedAt = parsePersistedTimestamp(batch.claim.claimed_at, "Batch claim claimed_at");
+    const heartbeatAt = parsePersistedTimestamp(batch.claim.heartbeat_at, "Batch claim heartbeat_at");
+    const leaseExpiresAt = parsePersistedTimestamp(batch.claim.lease_expires_at, "Batch claim lease_expires_at");
+    if (heartbeatAt < claimedAt || leaseExpiresAt <= heartbeatAt) {
+      throw new Error("Batch claim timestamps are not ordered.");
     }
   }
   if (batch.queue_sequence !== null && batch.queue_sequence !== undefined
@@ -146,6 +168,8 @@ function validateWorker(worker) {
   if (typeof worker.cwd !== "string" || !path.isAbsolute(worker.cwd)) {
     throw new Error("Worker cwd must be an absolute path.");
   }
+  parsePersistedTimestamp(worker.created_at, "Worker created_at");
+  parsePersistedTimestamp(worker.updated_at, "Worker updated_at");
   for (const field of ["thread_id", "turn_id"]) {
     if (worker[field] !== null && worker[field] !== undefined && typeof worker[field] !== "string") {
       throw new Error(`Worker ${field} must be a string or null.`);
@@ -172,9 +196,12 @@ function validateReservation(reservation) {
   }
   for (const field of ["batch_id", "task_id", "role", "model", "effort", "cwd", "client_user_message_id", "submission_id", "owner_token", "created_at", "lease_expires_at"]) {
     if (typeof reservation[field] !== "string" || reservation[field].length === 0) {
-      throw new Error(`Worker reservation ${field} is required.`);
+      throw new Error("Worker reservation " + field + " is required.");
     }
   }
+  const createdAt = parsePersistedTimestamp(reservation.created_at, "Worker reservation created_at");
+  const leaseExpiresAt = parsePersistedTimestamp(reservation.lease_expires_at, "Worker reservation lease_expires_at");
+  if (leaseExpiresAt <= createdAt) throw new Error("Worker reservation lease must be after creation.");
   if (!Number.isInteger(reservation.owner_pid) || reservation.owner_pid <= 0) {
     throw new Error("Worker reservation owner_pid is invalid.");
   }
@@ -215,6 +242,7 @@ function validateState(state) {
   if (state.reservations !== undefined && !Array.isArray(state.reservations)) {
     throw new Error("Runtime reservations must be an array.");
   }
+  if (state.updated_at !== undefined) parsePersistedTimestamp(state.updated_at, "Runtime updated_at");
   for (const batch of state.batches) validateBatch(batch);
   for (const worker of state.workers) validateWorker(worker);
   for (const reservation of state.reservations ?? []) validateReservation(reservation);

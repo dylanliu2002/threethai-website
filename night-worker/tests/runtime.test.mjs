@@ -10,7 +10,7 @@ import { AppServerClient } from "../app-server-client.mjs";
 import { FifoQueue } from "../queue.mjs";
 import { RuntimeStore } from "../runtime-store.mjs";
 import { NightWorkerService } from "../service.mjs";
-import { createBatch, submitBatch } from "../submission.mjs";
+import { createBatch, defaultRuntimeStorePath, submitBatch } from "../submission.mjs";
 import { ThreadBroker } from "../thread-broker.mjs";
 import { runCli, runServe } from "../cli.mjs";
 
@@ -25,11 +25,11 @@ function fixture({ processAliveFn } = {}) {
   let id = 0;
   const idFactory = (prefix) => `${prefix}-${++id}`;
   function submit(tasks = ["first task"]) {
-    return submitBatch({ repositoryRoot: root, tasks }, {
-      store,
+    const batch = createBatch({ repositoryRoot: root, tasks }, {
       clock,
       idFactory,
     });
+    return store.enqueueBatch(batch);
   }
   return {
     root,
@@ -117,6 +117,44 @@ test("valid submission is atomically durable, bounded, and submission-backed", (
   }
 });
 
+test("production submitBatch uses only the canonical internal RuntimeStore", () => {
+  const f = fixture();
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "threethai-night-worker-submit-outside-"));
+  try {
+    const batch = submitBatch({
+      repositoryRoot: f.root,
+      tasks: ["canonical production submission"],
+    }, {
+      clock: f.clock,
+      idFactory: (prefix) => prefix + "-production",
+    });
+    const canonicalPath = defaultRuntimeStorePath(f.root);
+    assert.equal(canonicalPath, path.join(f.root, ".night-worker", "runtime.json"));
+    assert.equal(new RuntimeStore(canonicalPath).getBatch(batch.batch_id).submission_id, batch.submission_id);
+    assert.throws(
+      () => submitBatch({ repositoryRoot: f.root, tasks: ["fake store"] }, {
+        store: { enqueueBatch: () => { throw new Error("fake store was used"); } },
+      }),
+      /canonical internal RuntimeStore/,
+    );
+    assert.throws(
+      () => submitBatch({ repositoryRoot: f.root, tasks: ["out of root store"] }, {
+        storePath: path.join(outside, "runtime.json"),
+      }),
+      /canonical internal RuntimeStore/,
+    );
+    assert.throws(
+      () => submitBatch({ repositoryRoot: f.root, tasks: ["noncanonical store"] }, {
+        storePath: path.join(f.root, "runtime", "state.json"),
+      }),
+      /canonical internal RuntimeStore/,
+    );
+  } finally {
+    f.cleanup();
+    fs.rmSync(outside, { recursive: true, force: true });
+  }
+});
+
 test("submission rejects empty, authority-bearing, secret-bearing, and oversized input without a batch", () => {
   const f = fixture();
   try {
@@ -129,7 +167,7 @@ test("submission rejects empty, authority-bearing, secret-bearing, and oversized
       [{ repositoryRoot: f.root, tasks: ["work"], replyMetadata: { password: "not-accepted" } }, /authority field|Possible secret/],
       [{ repositoryRoot: f.root, tasks: ["x".repeat(MVP_CONFIG.max_task_description_chars + 1)] }, /oversized/],
     ];
-    for (const [input, pattern] of cases) assert.throws(() => submitBatch(input, { store: f.store }), pattern);
+    for (const [input, pattern] of cases) assert.throws(() => submitBatch(input), pattern);
     assert.equal(f.store.load().batches.length, 0);
   } finally {
     f.cleanup();
@@ -142,7 +180,7 @@ test("submission and broker reject non-Git roots, symlink escapes, and external 
   const escaped = path.join(f.root, "escaped-worktree");
   try {
     assert.throws(
-      () => submitBatch({ repositoryRoot: outside, tasks: ["not a repository"] }, { store: f.store }),
+      () => submitBatch({ repositoryRoot: outside, tasks: ["not a repository"] }),
       /genuine Git worktree/,
     );
     execFileSync("git", ["init", "--quiet", outside], { stdio: "ignore" });
@@ -214,6 +252,56 @@ test("runtime store rejects corrupt and unsupported state and round-trips restar
     assert.throws(() => reloaded.load(), /corrupt/);
     fs.writeFileSync(f.store.filePath, JSON.stringify({ schema_version: 999 }), "utf8");
     assert.throws(() => reloaded.load(), /Unsupported runtime schema version/);
+  } finally {
+    f.cleanup();
+  }
+});
+
+test("runtime store and FIFO queue reject invalid timestamps and enforce eight-hour expiry", () => {
+  const f = fixture();
+  try {
+    const batch = f.submit(["timestamp validation"]);
+    const validState = f.store.load();
+    const invalidBatchCases = [
+      ["submitted_at", "not-a-timestamp", /Batch submitted_at.*valid canonical ISO timestamp/],
+      ["expires_at", "not-a-timestamp", /Batch expires_at.*valid canonical ISO timestamp/],
+    ];
+    for (const [field, value, pattern] of invalidBatchCases) {
+      const state = structuredClone(validState);
+      state.batches[0][field] = value;
+      fs.writeFileSync(f.store.filePath, JSON.stringify(state), "utf8");
+      assert.throws(() => f.store.load(), pattern);
+    }
+    const wrongExpiry = structuredClone(validState);
+    wrongExpiry.batches[0].expires_at = new Date(EPOCH + MVP_CONFIG.batch_expiry_ms - 1).toISOString();
+    fs.writeFileSync(f.store.filePath, JSON.stringify(wrongExpiry), "utf8");
+    assert.throws(() => f.store.load(), /exactly eight hours/);
+
+    f.store.replace(validState);
+    const queue = new FifoQueue({ store: f.store, clock: f.clock, ownerTokenFactory: () => "timestamp-owner" });
+    queue.claimNext();
+    const claimState = f.store.load();
+    claimState.batches[0].claim.lease_expires_at = "not-a-timestamp";
+    fs.writeFileSync(f.store.filePath, JSON.stringify(claimState), "utf8");
+    assert.throws(() => f.store.load(), /Batch claim lease_expires_at.*valid canonical ISO timestamp/);
+    assert.throws(() => queue.requeueStale(), /Batch claim lease_expires_at.*valid canonical ISO timestamp/);
+
+    f.store.replace(validState);
+    f.store.reserveWorker({
+      batchId: batch.batch_id,
+      taskId: batch.tasks[0].task_id,
+      role: "IMPLEMENTATION",
+      model: "gpt-5.6-luna",
+      effort: "max",
+      cwd: f.root,
+      clientUserMessageId: "timestamp-client-message",
+      ownerToken: "timestamp-reservation",
+      clock: f.clock,
+    });
+    const reservationState = f.store.load();
+    reservationState.reservations[0].created_at = "not-a-timestamp";
+    fs.writeFileSync(f.store.filePath, JSON.stringify(reservationState), "utf8");
+    assert.throws(() => f.store.load(), /Worker reservation created_at.*valid canonical ISO timestamp/);
   } finally {
     f.cleanup();
   }
@@ -872,19 +960,27 @@ test("App Server client fails closed after rejected initialize and requires a fr
 });
 
 test("App Server client rejects exec, ephemeral/fork paths, secrets, and fallback", () => {
-  assert.throws(() => new AppServerClient({ command: "codex exec" }), /app-server command/);
+  let spawnCalls = 0;
+  assert.throws(() => new AppServerClient({ command: "codex exec" }), /option is not permitted/);
+  assert.throws(() => new AppServerClient({ args: ["app-server"] }), /option is not permitted/);
+  assert.throws(() => new AppServerClient({ spawnProcess: () => { spawnCalls += 1; } }), /option is not permitted/);
+  assert.throws(() => new AppServerClient({ child: { kill() {} } }), /option is not permitted/);
   const transport = new FakeTransport();
   const client = new AppServerClient({ transport });
   assert.throws(() => client.threadStart({ ephemeral: true }), /ephemeral/);
   assert.throws(() => client.threadStart({ fork: true }), /forbids fork/);
   assert.throws(() => client.threadStart({ allowProviderModelFallback: true }), /fallback/);
-  assert.throws(() => client.request("exec", {}), /exec.*worker mechanism/);
-  assert.throws(() => client.request("thread/fork", {}), /validated typed client method/);
-  assert.throws(() => client.request("thread/start", {}), /validated typed client method/);
-  assert.throws(() => client.request("turn/start", {}), /validated typed client method/);
+  assert.throws(() => client.request("exec", {}), /Raw App Server method is not permitted/);
+  assert.throws(() => client.request("process", {}), /Raw App Server method is not permitted/);
+  assert.throws(() => client.request("spawn", {}), /Raw App Server method is not permitted/);
+  assert.throws(() => client.request("thread/fork", {}), /Raw App Server method is not permitted/);
+  assert.throws(() => client.request("thread/start", {}), /Raw App Server method is not permitted/);
+  assert.throws(() => client.request("turn/start", {}), /Raw App Server method is not permitted/);
   for (const method of ["turn/steer", "thread/archive", "review/start", "review/anything", "thread/unknown"]) {
-    assert.throws(() => client.request(method, {}), /validated typed client method/);
+    assert.throws(() => client.request(method, {}), /Raw App Server method is not permitted/);
   }
+  assert.equal(spawnCalls, 0);
+  assert.deepEqual(transport.messages, []);
   assert.throws(() => client.threadStart({ model: "gpt-5.6-terra" }), /Forbidden model/);
   assert.throws(() => client.threadStart({ sandbox: "workspaceWrite" }), /workspace-write or read-only/);
   assert.throws(() => client.threadResume("thread-1", { sandbox: "readOnly" }), /workspace-write or read-only/);

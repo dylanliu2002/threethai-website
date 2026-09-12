@@ -12,6 +12,16 @@ const DEFAULT_CLIENT_INFO = Object.freeze({
 const MAX_JSON_LINE_BYTES = 2 * 1024 * 1024;
 const MAX_DIAGNOSTIC_BYTES = 4_000;
 const LIFECYCLE_METHOD_PATTERN = /^(?:thread|turn|review)\//i;
+const PUBLIC_RAW_METHODS = new Set(["model/list"]);
+const CLIENT_OPTION_KEYS = new Set([
+  "transport",
+  "cwd",
+  "clientInfo",
+  "capabilities",
+  "onNotification",
+  "onDiagnostic",
+  "requestTimeoutMs",
+]);
 const THREAD_SANDBOXES = new Set(["workspace-write", "read-only"]);
 const TURN_SANDBOX_TYPES = new Set(["workspaceWrite", "readOnly"]);
 
@@ -57,43 +67,34 @@ export class AppServerRpcError extends Error {
 }
 
 export class AppServerClient extends EventEmitter {
-  constructor({
-    child = null,
-    transport = null,
-    input = null,
-    output = null,
-    stderr = null,
-    spawnProcess = nodeSpawn,
-    command = "codex",
-    args = ["app-server"],
-    cwd,
-    env,
-    clientInfo = DEFAULT_CLIENT_INFO,
-    capabilities = { experimentalApi: true },
-    onNotification,
-    onDiagnostic,
-    requestTimeoutMs = 0,
-  } = {}) {
+  constructor(options = {}) {
     super();
-    if (typeof command !== "string" || command.trim().length === 0
-      || /(?:^|[\\/\s_-])exec(?:$|[\\/\s_-])/i.test(command)
-      || !Array.isArray(args)
-      || args.some((arg) => /(?:^|[-_\s/])exec(?:$|[-_\s/])/i.test(String(arg)))) {
-      throw new Error("App Server client accepts only the app-server command.");
+    if (!options || typeof options !== "object" || Array.isArray(options)) {
+      throw new Error("App Server client options must be an object.");
     }
+    for (const key of Object.keys(options)) {
+      if (!CLIENT_OPTION_KEYS.has(key)) {
+        throw new Error("App Server client option is not permitted: " + key);
+      }
+    }
+    const {
+      transport = null,
+      cwd,
+      clientInfo = DEFAULT_CLIENT_INFO,
+      capabilities = { experimentalApi: true },
+      onNotification,
+      onDiagnostic,
+      requestTimeoutMs = 0,
+    } = options;
     if (!Number.isInteger(requestTimeoutMs) || requestTimeoutMs < 0) {
       throw new Error("requestTimeoutMs must be a non-negative integer.");
     }
-    this.child = child;
+    this.child = null;
     this.transport = transport;
-    this.input = input ?? child?.stdout ?? null;
-    this.output = output ?? child?.stdin ?? null;
-    this.stderr = stderr ?? child?.stderr ?? null;
-    this.spawn_process = spawnProcess;
-    this.command = command;
-    this.args = [...args];
+    this.input = null;
+    this.output = null;
+    this.stderr = null;
     this.cwd = cwd;
-    this.env = env;
     this.client_info = { ...DEFAULT_CLIENT_INFO, ...clientInfo };
     this.capabilities = sanitizeForLog(capabilities);
     this.request_timeout_ms = requestTimeoutMs;
@@ -140,10 +141,9 @@ export class AppServerClient extends EventEmitter {
     this.connection_state = "CONNECTING";
     try {
       this.#attachTransport();
-      if (!this.child && !this.transport && !this.input && !this.output) {
-        this.child = this.spawn_process(this.command, this.args, {
+      if (!this.transport) {
+        this.child = nodeSpawn("codex", ["app-server"], {
           cwd: this.cwd,
-          env: this.env,
           stdio: ["pipe", "pipe", "pipe"],
           windowsHide: true,
         });
@@ -303,13 +303,19 @@ export class AppServerClient extends EventEmitter {
 
   request(method, params = {}) {
     if (typeof method !== "string" || method.length === 0) throw new Error("App Server method is required.");
-    if (LIFECYCLE_METHOD_PATTERN.test(method)) {
-      throw new Error(`Use a validated typed client method for lifecycle RPC ${method}.`);
+    if (!PUBLIC_RAW_METHODS.has(method)) {
+      throw new Error("Raw App Server method is not permitted: " + method + ".");
     }
     return this.#request(method, params);
   }
 
-  #request(method, params = {}) {
+  #request(method, params = {}, { lifecycle = false } = {}) {
+    if (!lifecycle && !PUBLIC_RAW_METHODS.has(method)) {
+      throw new Error("Raw App Server method is not permitted: " + method + ".");
+    }
+    if (lifecycle && !LIFECYCLE_METHOD_PATTERN.test(method)) {
+      throw new Error("Invalid typed lifecycle method: " + method + ".");
+    }
     if (/(?:^|[\\/\s:_-])exec(?:$|[\\/\s:_-])/i.test(method)) {
       throw new Error("Codex exec is not an App Server worker mechanism.");
     }
@@ -331,7 +337,7 @@ export class AppServerClient extends EventEmitter {
       if (params[field]) throw new Error(`Night Worker thread/start forbids ${field}.`);
     }
     assertThreadSandbox(params.sandbox);
-    return this.#request("thread/start", params);
+    return this.#request("thread/start", params, { lifecycle: true });
   }
 
   turnStart(params) {
@@ -340,23 +346,23 @@ export class AppServerClient extends EventEmitter {
     }
     assertThreadId(params.threadId ?? params.thread_id);
     assertTurnSandboxPolicy(params.sandboxPolicy ?? params.sandbox_policy);
-    return this.#request("turn/start", params);
+    return this.#request("turn/start", params, { lifecycle: true });
   }
 
   threadRead(threadId, options = {}) {
     if (threadId && typeof threadId === "object") {
       assertThreadId(threadId.threadId ?? threadId.thread_id);
-      return this.#request("thread/read", threadId);
+      return this.#request("thread/read", threadId, { lifecycle: true });
     }
     assertThreadId(threadId);
-    return this.#request("thread/read", { threadId, ...options });
+    return this.#request("thread/read", { threadId, ...options }, { lifecycle: true });
   }
 
   threadResume(threadId, params = {}) {
     assertThreadId(threadId);
     if (!params || typeof params !== "object" || Array.isArray(params)) throw new Error("thread/resume parameters must be an object.");
     assertThreadSandbox(params.sandbox);
-    return this.#request("thread/resume", { threadId, ...params });
+    return this.#request("thread/resume", { threadId, ...params }, { lifecycle: true });
   }
 
   #diagnostic(value) {

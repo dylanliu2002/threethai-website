@@ -57,6 +57,24 @@ function samePath(left, right) {
   return relative === "";
 }
 
+function internalRuntimeStorePath(repositoryRoot) {
+  const runtimeDirectory = path.join(repositoryRoot, ".night-worker");
+  const runtimeFile = path.join(runtimeDirectory, "runtime.json");
+  for (const [candidate, label] of [[runtimeDirectory, "internal runtime directory"], [runtimeFile, "internal runtime state"]]) {
+    if (!fs.existsSync(candidate)) continue;
+    let stat;
+    try { stat = fs.lstatSync(candidate); } catch { throw new Error(label + " cannot be inspected."); }
+    if (stat.isSymbolicLink()) throw new Error(label + " cannot be a symbolic link.");
+    if (label === "internal runtime directory" && !stat.isDirectory()) {
+      throw new Error("Internal runtime path must be a directory.");
+    }
+    if (label === "internal runtime state" && !stat.isFile()) {
+      throw new Error("Internal runtime state must be a file.");
+    }
+  }
+  return runtimeFile;
+}
+
 export function canonicalDirectory(value, label = "directory") {
   if (typeof value !== "string" || value.trim().length === 0 || value.includes("\0")) {
     throw new Error(`${label} must be a non-empty path without NUL bytes.`);
@@ -214,19 +232,24 @@ export function createBatch(input, {
   return batch;
 }
 
-export function submitBatch(input, {
-  store,
-  storePath,
-  clock = Date,
-  idFactory,
-  requireExistingRepositoryRoot = true,
-  requireGitRepository = true,
-} = {}) {
-  const batch = createBatch(input, { clock, idFactory, requireExistingRepositoryRoot, requireGitRepository });
-  const runtimeStore = store ?? new RuntimeStore(
-    storePath ?? path.join(batch.repository_root, ".night-worker", "runtime.json"),
-    { clock },
-  );
+export function submitBatch(input, options = {}) {
+  if (!options || typeof options !== "object" || Array.isArray(options)) {
+    throw new Error("submitBatch options must be an object.");
+  }
+  const allowedOptions = new Set(["clock", "idFactory"]);
+  for (const key of Object.keys(options)) {
+    if (!allowedOptions.has(key)) {
+      throw new Error("submitBatch does not permit custom " + key + "; use the canonical internal RuntimeStore.");
+    }
+  }
+  const { clock = Date, idFactory } = options;
+  const batch = createBatch(input, {
+    clock,
+    idFactory,
+    requireExistingRepositoryRoot: true,
+    requireGitRepository: true,
+  });
+  const runtimeStore = new RuntimeStore(internalRuntimeStorePath(batch.repository_root), { clock });
   const stored = runtimeStore.enqueueBatch(batch);
   return sanitizeForLog(stored);
 }
@@ -235,5 +258,5 @@ export const submit = submitBatch;
 export const acceptSubmission = submitBatch;
 
 export function defaultRuntimeStorePath(repositoryRoot) {
-  return path.join(assertGitWorktree(repositoryRoot, "repository root"), ".night-worker", "runtime.json");
+  return internalRuntimeStorePath(assertGitWorktree(repositoryRoot, "repository root"));
 }

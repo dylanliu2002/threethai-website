@@ -124,12 +124,12 @@ export async function runCli(argv = process.argv.slice(2), { store, handler } = 
     case "submit": {
       const repositoryRoot = requireRepositoryRoot(options);
       if (options.tasks.length === 0) throw new Error("submit requires at least one --task or --tasks-json.");
-      const runtimeStore = store ?? storeFor(options);
+      storeFor(options);
       output(submitBatch({
         repositoryRoot,
         tasks: options.tasks,
         replyMetadata: options.replyMetadata,
-      }, { store: runtimeStore }));
+      }));
       return;
     }
     case "status": {

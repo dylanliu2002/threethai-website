@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { redactSecrets } from "../workflow/secrets.mjs";
 import { MVP_CONFIG, clockEpoch } from "./config.mjs";
+import { parsePersistedTimestamp } from "./runtime-store.mjs";
 
 function iso(epoch) { return new Date(epoch).toISOString(); }
 
@@ -11,7 +12,9 @@ function requireOwner(ownerToken) {
   return ownerToken;
 }
 
-function isExpired(batch, now) { return now >= Date.parse(batch.expires_at); }
+function isExpired(batch, now) {
+  return now >= parsePersistedTimestamp(batch.expires_at, "Batch expires_at");
+}
 
 function clearActiveIf(state, batchId) {
   if (state.active_batch_id === batchId) state.active_batch_id = null;
@@ -31,7 +34,7 @@ function sweep(state, now) {
       continue;
     }
     if (!["CLAIMED", "RUNNING"].includes(batch.state) || !batch.claim) continue;
-    const leaseExpiry = Date.parse(batch.claim.lease_expires_at);
+    const leaseExpiry = parsePersistedTimestamp(batch.claim.lease_expires_at, "Batch claim lease_expires_at");
     if (now < leaseExpiry) continue;
     if (isExpired(batch, now)) expireBatch(state, batch);
     else {
@@ -51,7 +54,9 @@ function claimedBatch(state, batchId, ownerToken, now) {
     throw new Error(`Batch is not actively claimed: ${batchId}`);
   }
   if (batch.claim.owner_token !== ownerToken) throw new Error("Claim owner token does not match.");
-  if (now >= Date.parse(batch.claim.lease_expires_at)) throw new Error("Claim lease is stale.");
+  if (now >= parsePersistedTimestamp(batch.claim.lease_expires_at, "Batch claim lease_expires_at")) {
+    throw new Error("Claim lease is stale.");
+  }
   if (isExpired(batch, now)) throw new Error("Batch has expired.");
   return batch;
 }
