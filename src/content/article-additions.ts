@@ -8,6 +8,8 @@ import { en as pvaKnittingEn } from "./article-water-soluble-pva-yarn-knitting-e
 import { zh as pvaKnittingZh } from "./article-water-soluble-pva-yarn-knitting-zh";
 import { en as sewingThreadEn } from "./article-water-soluble-sewing-thread-guide-en";
 import { zh as sewingThreadZh } from "./article-water-soluble-sewing-thread-guide-zh";
+import { en as pvaDissolutionEn } from "./article-pva-dissolution-in-textile-processing-en";
+import { zh as pvaDissolutionZh } from "./article-pva-dissolution-in-textile-processing-zh";
 
 /**
  * Knowledge articles written for this site, as opposed to migrated from the legacy one.
@@ -34,6 +36,8 @@ import { zh as sewingThreadZh } from "./article-water-soluble-sewing-thread-guid
  *   OEKO-TEX Standard 100 Class I, raw white, 2027-01-31 ... quality.ts certificates[2]
  *   ISO 9001 scope, yarn production and fibre sales ....... quality.ts certificates[0]
  *   openwork single-jersey production device ......... patents.ts CN 218520715 U
+ *   the dissolution variables, the read-more-than-disappearance sequence and the
+ *     laboratory-to-production move .............. legacy-source.ts dissolution-guide article
  */
 export type NewArticleSpec = {
   category: Record<ContentLocale, string>;
@@ -126,6 +130,26 @@ export const newKnowledgeArticles: Record<string, NewArticleSpec> = {
     datePublished: "2026-09-11",
     dateModified: "2026-09-11",
     sections: { en: sewingThreadEn, zh: sewingThreadZh },
+  },
+  "pva-dissolution-in-textile-processing": {
+    // Same approved category as the other guides, for the same reason: already approved in all
+    // four locales, and no new entry is needed in either version of the Resources grouping.
+    category: { en: "Technical guide", zh: "技术指南" },
+    title: {
+      en: "What Determines How Water-Soluble PVA Dissolves in Real Textile Processing?",
+      zh: "什么决定水溶性 PVA 在真实纺织加工中的溶解表现？",
+    },
+    metaDescription: {
+      en: "The variables that decide a PVA removal result — temperature, time at temperature, water movement, access to the fibre, material quantity, construction, prior processing and grade — and a troubleshooting table of questions to investigate when a trial does not behave as expected.",
+      zh: "决定 PVA 去除结果的各项变量——温度、在温时间、水的流动、纤维的可及性、材料用量、组织结构、前道加工与规格——以及试验不符合预期时值得逐一查证的排查表。",
+    },
+    intro: {
+      en: "A removal result comes out of several variables acting at once, and temperature is only the first of them. This article works through each variable in turn, then gives a troubleshooting table of questions to investigate rather than asserted causes.",
+      zh: "去除结果是几个变量同时作用的结果，温度只是其中第一个。本文依次说明各个变量，然后给出一张排查表——列的是值得查证的问题，而不是断言的成因。",
+    },
+    datePublished: "2026-09-11",
+    dateModified: "2026-09-11",
+    sections: { en: pvaDissolutionEn, zh: pvaDissolutionZh },
   },
 };
 

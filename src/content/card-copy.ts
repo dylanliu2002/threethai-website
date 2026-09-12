@@ -250,6 +250,23 @@ const ARTICLE_TEASERS: Record<string, { category: CopyField<string>; title: Copy
       de: "Ein wasserlösliches Nähgarn hält eine Naht beim Nähen und Handhaben und verschwindet anschließend im Ausrüstungsbad. Dieser Leitfaden erklärt die drei Positionen, die es einnehmen kann, warum ein Zugversuch auf dem Tisch keinen Fadenbruch an der Maschine vorhersagt und was festzuhalten ist, damit der zweite Versuch weniger kostet als der erste.",
     },
   },
+  "pva-dissolution-in-textile-processing": {
+    // Authored for this site. `en`/`zh` are asserted equal to the entity in `article-additions.ts`;
+    // `es`/`de` are DRAFTED against this file's glossary comment and are PENDING TRANSLATOR REVIEW.
+    category: { en: "Technical guide", zh: "技术指南", es: "Guía técnica", de: "Fachleitfaden" },
+    title: {
+      en: "What Determines How Water-Soluble PVA Dissolves in Real Textile Processing?",
+      zh: "什么决定水溶性 PVA 在真实纺织加工中的溶解表现？",
+      es: "¿Qué determina cómo se disuelve el PVA hidrosoluble en el procesamiento textil real?",
+      de: "Was bestimmt, wie sich wasserlösliches PVA in der realen Textilverarbeitung auflöst?",
+    },
+    intro: {
+      en: "A removal result comes out of several variables acting at once, and temperature is only the first of them. This article works through each variable in turn, then gives a troubleshooting table of questions to investigate rather than asserted causes.",
+      zh: "去除结果是几个变量同时作用的结果，温度只是其中第一个。本文依次说明各个变量，然后给出一张排查表——列的是值得查证的问题，而不是断言的成因。",
+      es: "Un resultado de eliminación surge de varias variables que actúan a la vez, y la temperatura es solo la primera de ellas. Este artículo revisa cada variable y ofrece una tabla de resolución de problemas con preguntas que investigar en lugar de causas afirmadas.",
+      de: "Ein Entfernungsergebnis entsteht aus mehreren gleichzeitig wirkenden Variablen, und die Temperatur ist nur die erste davon. Dieser Beitrag geht jede Variable der Reihe nach durch und gibt dann eine Fehlerbehebungstabelle mit Fragen zum Nachgehen statt behaupteter Ursachen.",
+    },
+  },
 };
 
 export function articleCard(slug: string, locale: Locale): ArticleCardCopy {

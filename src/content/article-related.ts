@@ -142,6 +142,19 @@ const ARTICLE_RELATED: Record<string, ArticleRelated> = {
       "pva-yarn-buyer-specification-checklist",
     ],
   },
+  "pva-dissolution-in-textile-processing": {
+    // The body is about the removal variables themselves, so the product it names is the
+    // yarn, and the two answers are the temperature questions its own reasoning rests on.
+    // The article-edge bucket stays empty on purpose: the related-article cards render in
+    // the footline, and the available candidates are titled after a PVA yarn and a material
+    // form this article does not declare, so listing one would surface a product name the
+    // article never offers. The beaker-versus-production discussion links to R1 and R3 in
+    // its own prose instead, where the link text is the article's, not a card's.
+    products: ["water-soluble-pva-yarn"],
+    applications: NONE,
+    answers: ["test-pva-yarn-dissolution-temperature", "20c-vs-90c-pva-yarn-difference"],
+    articles: NONE,
+  },
 };
 
 /**

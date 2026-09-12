@@ -1,6 +1,6 @@
 {
   "$note": "Per-document byte budget, regenerated deliberately by the task that changed a route.",
-  "$baseCommit": "58dec64c833468d870a4b7ea9ecb4fa22e9d20e9",
+  "$baseCommit": "2bed364efd05ca559b21b9de05f242d4011027ef",
   "$toleranceBytes": 64,
   "documents": {
     "about.html": {
@@ -320,12 +320,16 @@
       "scriptBytes": 63143
     },
     "de/knowledge.html": {
-      "bytes": 87424,
-      "scriptBytes": 62022
+      "bytes": 91074,
+      "scriptBytes": 64281
     },
     "de/knowledge/pva-batch-dissolution-consistency.html": {
       "bytes": 95211,
       "scriptBytes": 66212
+    },
+    "de/knowledge/pva-dissolution-in-textile-processing.html": {
+      "bytes": 101624,
+      "scriptBytes": 69822
     },
     "de/knowledge/pva-staple-fiber-vs-filament-yarn.html": {
       "bytes": 95076,
@@ -556,12 +560,16 @@
       "scriptBytes": 64014
     },
     "es/knowledge.html": {
-      "bytes": 88058,
-      "scriptBytes": 62539
+      "bytes": 91715,
+      "scriptBytes": 64809
     },
     "es/knowledge/pva-batch-dissolution-consistency.html": {
       "bytes": 95764,
       "scriptBytes": 66719
+    },
+    "es/knowledge/pva-dissolution-in-textile-processing.html": {
+      "bytes": 102187,
+      "scriptBytes": 70334
     },
     "es/knowledge/pva-staple-fiber-vs-filament-yarn.html": {
       "bytes": 95659,
@@ -636,12 +644,16 @@
       "scriptBytes": 81868
     },
     "knowledge.html": {
-      "bytes": 86168,
-      "scriptBytes": 61170
+      "bytes": 89788,
+      "scriptBytes": 63438
     },
     "knowledge/pva-batch-dissolution-consistency.html": {
       "bytes": 95139,
       "scriptBytes": 66095
+    },
+    "knowledge/pva-dissolution-in-textile-processing.html": {
+      "bytes": 101584,
+      "scriptBytes": 69716
     },
     "knowledge/pva-staple-fiber-vs-filament-yarn.html": {
       "bytes": 95042,
@@ -872,12 +884,16 @@
       "scriptBytes": 42006
     },
     "zh/knowledge.html": {
-      "bytes": 82160,
-      "scriptBytes": 57421
+      "bytes": 85695,
+      "scriptBytes": 59654
     },
     "zh/knowledge/pva-batch-dissolution-consistency.html": {
       "bytes": 89791,
       "scriptBytes": 61672
+    },
+    "zh/knowledge/pva-dissolution-in-textile-processing.html": {
+      "bytes": 95073,
+      "scriptBytes": 64582
     },
     "zh/knowledge/pva-staple-fiber-vs-filament-yarn.html": {
       "bytes": 88659,
