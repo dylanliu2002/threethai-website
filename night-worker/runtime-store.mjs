@@ -30,7 +30,12 @@ const WORKER_FIELDS = new Set([
 ]);
 const RESERVATION_FIELDS = new Set([
   "schema_version", "batch_id", "task_id", "role", "model", "effort", "cwd", "client_user_message_id", "submission_id",
-  "owner_token", "owner_pid", "created_at", "lease_expires_at",
+  "owner_token", "owner_pid", "created_at", "lease_expires_at", "thread_start_state",
+]);
+const RESERVATION_THREAD_START_STATES = new Set([
+  "THREAD_START_IN_FLIGHT",
+  "THREAD_START_AMBIGUOUS",
+  "LIFECYCLE_ACTIVE",
 ]);
 const RESERVATION_LEASE_MS = MVP_CONFIG.claim_lease_ms;
 
@@ -172,6 +177,10 @@ function validateReservation(reservation) {
   }
   if (!Number.isInteger(reservation.owner_pid) || reservation.owner_pid <= 0) {
     throw new Error("Worker reservation owner_pid is invalid.");
+  }
+  if (reservation.thread_start_state !== undefined
+    && !RESERVATION_THREAD_START_STATES.has(reservation.thread_start_state)) {
+    throw new Error(`Unsupported worker reservation thread start state: ${String(reservation.thread_start_state)}`);
   }
   if (!["IMPLEMENTATION", "REVIEW"].includes(reservation.role)) {
     throw new Error(`Unsupported worker reservation role: ${String(reservation.role)}`);
@@ -325,7 +334,12 @@ function assertWorkerIdentityUnchanged(existing, next) {
 }
 
 export class RuntimeStore {
-  constructor(filePath, { lockTimeoutMs = 5_000, clock = Date, lockOwnerTokenFactory = () => makeId("lock") } = {}) {
+  constructor(filePath, {
+    lockTimeoutMs = 5_000,
+    clock = Date,
+    lockOwnerTokenFactory = () => makeId("lock"),
+    processAliveFn = processIsAlive,
+  } = {}) {
     if (typeof filePath !== "string" || filePath.length === 0 || filePath.includes("\0")) {
       throw new Error("Runtime store path must be a non-empty string without NUL bytes.");
     }
@@ -334,6 +348,8 @@ export class RuntimeStore {
     this.lock_timeout_ms = lockTimeoutMs;
     this.clock = clock;
     this.lock_owner_token_factory = lockOwnerTokenFactory;
+    if (typeof processAliveFn !== "function") throw new Error("Runtime process liveness checker is invalid.");
+    this.process_alive = processAliveFn;
   }
 
   get filePath() { return this.file_path; }
@@ -348,6 +364,13 @@ export class RuntimeStore {
       parsed = JSON.parse(fs.readFileSync(this.file_path, "utf8"));
     } catch (error) {
       throw new Error(`Runtime state is corrupt: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (Array.isArray(parsed.reservations)) {
+      for (const reservation of parsed.reservations) {
+        if (reservation && typeof reservation === "object" && reservation.thread_start_state === undefined) {
+          reservation.thread_start_state = "THREAD_START_IN_FLIGHT";
+        }
+      }
     }
     validateState(parsed);
     if (parsed.reservations === undefined) parsed.reservations = [];
@@ -493,16 +516,31 @@ export class RuntimeStore {
       const reservationIndex = state.reservations.findIndex((item) => workerKey(item) === key);
       if (reservationIndex >= 0) {
         const existingReservation = state.reservations[reservationIndex];
-        const expired = now >= Date.parse(existingReservation.lease_expires_at);
-        const ownerDead = !processIsAlive(existingReservation.owner_pid);
-        if (!expired && existingReservation.owner_token === ownerToken) return {
+        const startState = existingReservation.thread_start_state ?? "THREAD_START_IN_FLIGHT";
+        const ownerDead = !this.process_alive(existingReservation.owner_pid);
+        if (startState === "THREAD_START_AMBIGUOUS") {
+          return { status: "AMBIGUOUS", reservation: clone(existingReservation) };
+        }
+        if (startState === "THREAD_START_IN_FLIGHT" && !existingMapping?.thread_id) {
+          if (ownerDead) return { status: "AMBIGUOUS", reservation: clone(existingReservation) };
+        }
+        if (startState === "LIFECYCLE_ACTIVE" && !existingMapping?.thread_id) {
+          return { status: "AMBIGUOUS", reservation: clone(existingReservation) };
+        }
+        if (startState === "THREAD_START_IN_FLIGHT" && existingMapping?.thread_id) {
+          existingReservation.thread_start_state = "LIFECYCLE_ACTIVE";
+        }
+        if (existingReservation.owner_token === ownerToken) return {
           status: "RESERVED",
           reservation: clone(existingReservation),
         };
-        if (!expired && !ownerDead) return {
+        if (!ownerDead) return {
           status: "BUSY",
           reservation: clone(existingReservation),
         };
+        if ((existingReservation.thread_start_state ?? startState) === "THREAD_START_IN_FLIGHT") {
+          return { status: "AMBIGUOUS", reservation: clone(existingReservation) };
+        }
         state.reservations.splice(reservationIndex, 1);
       }
       if (role === "IMPLEMENTATION") {
@@ -528,10 +566,73 @@ export class RuntimeStore {
         owner_pid: process.pid,
         created_at: new Date(now).toISOString(),
         lease_expires_at: new Date(now + leaseMs).toISOString(),
+        thread_start_state: "THREAD_START_IN_FLIGHT",
       };
       validateReservation(reservation);
       state.reservations.push(reservation);
       return { status: "RESERVED", reservation: clone(reservation), mapping: existingMapping ? clone(existingMapping) : null };
+    });
+  }
+
+  assertWorkerReservation(batchId, taskId, role, ownerToken) {
+    if (typeof ownerToken !== "string" || ownerToken.length === 0) {
+      throw new Error("Reservation owner token is required.");
+    }
+    const reservation = this.getWorkerReservation(batchId, taskId, role);
+    if (!reservation || reservation.owner_token !== ownerToken) {
+      throw new Error("Worker reservation owner token does not match.");
+    }
+    return reservation;
+  }
+
+  markWorkerThreadStartAmbiguous(batchId, taskId, role, ownerToken) {
+    if (typeof ownerToken !== "string" || ownerToken.length === 0) {
+      throw new Error("Reservation owner token is required.");
+    }
+    return this.mutate((state) => {
+      state.reservations ??= [];
+      const index = state.reservations.findIndex((item) => item.batch_id === batchId
+        && item.task_id === taskId && item.role === role);
+      if (index < 0) throw new Error("Worker reservation is not available.");
+      const current = state.reservations[index];
+      if (current.owner_token !== ownerToken) {
+        throw new Error("Worker reservation owner token does not match.");
+      }
+      const ambiguous = {
+        ...current,
+        thread_start_state: "THREAD_START_AMBIGUOUS",
+      };
+      validateReservation(ambiguous);
+      state.reservations[index] = ambiguous;
+      return ambiguous;
+    });
+  }
+
+  renewWorkerReservation(batchId, taskId, role, ownerToken, {
+    leaseMs = RESERVATION_LEASE_MS,
+    clock = this.clock,
+  } = {}) {
+    if (typeof ownerToken !== "string" || ownerToken.length === 0) {
+      throw new Error("Reservation owner token is required.");
+    }
+    if (!Number.isInteger(leaseMs) || leaseMs <= 0) throw new Error("Worker reservation lease must be positive.");
+    const now = clockEpoch(clock);
+    return this.mutate((state) => {
+      state.reservations ??= [];
+      const index = state.reservations.findIndex((item) => item.batch_id === batchId
+        && item.task_id === taskId && item.role === role);
+      if (index < 0) throw new Error("Worker reservation is not available.");
+      const current = state.reservations[index];
+      if (current.owner_token !== ownerToken) {
+        throw new Error("Worker reservation owner token does not match.");
+      }
+      const renewed = {
+        ...current,
+        lease_expires_at: new Date(now + leaseMs).toISOString(),
+      };
+      validateReservation(renewed);
+      state.reservations[index] = renewed;
+      return renewed;
     });
   }
 
@@ -561,8 +662,10 @@ export class RuntimeStore {
         throw new Error(`Unknown task for worker mapping: ${mapping.batch_id}/${mapping.task_id}`);
       }
       const reservations = state.reservations ?? [];
+      let reservationIndex = -1;
       if (reservationToken !== undefined) {
-        const reservation = reservations.find((item) => workerKey(item) === workerKey(mapping));
+        reservationIndex = reservations.findIndex((item) => workerKey(item) === workerKey(mapping));
+        const reservation = reservationIndex < 0 ? null : reservations[reservationIndex];
         if (!reservation || reservation.owner_token !== reservationToken) {
           throw new Error("Worker mapping reservation owner token does not match.");
         }
@@ -575,6 +678,12 @@ export class RuntimeStore {
         state.workers[index] = clone(mapping);
       } else {
         state.workers.push(clone(mapping));
+      }
+      if (reservationIndex >= 0) {
+        state.reservations[reservationIndex] = {
+          ...state.reservations[reservationIndex],
+          thread_start_state: "LIFECYCLE_ACTIVE",
+        };
       }
       return mapping;
     });

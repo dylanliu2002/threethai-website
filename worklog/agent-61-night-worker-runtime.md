@@ -41,3 +41,21 @@
 ## 2026-09-11 — rebase branch topology note
 
 - The local `origin/codex/61-night-worker-runtime` tracking ref remains `d4d1178e4150de8c4f7c815eacdccd1e0f3c8e4b`; required base `aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4` is not its ancestor. Once transport is available, a non-force push of the rebased Task 61 tip may therefore be rejected as non-fast-forward and requires repository-owner coordination; no force-push was attempted.
+## 2026-09-12 — correction cycle 2
+
+- Fixed the unresolved thread/start crash boundary: every reservation durably records THREAD_START_IN_FLIGHT before remote lifecycle work; a restart with no persisted thread mapping fails closed as ambiguous and never calls thread/start blindly. A successful mapping atomically advances the reservation to LIFECYCLE_ACTIVE.
+- Fixed live reservation takeover: ownership is busy while the owner process is live even after lease expiry; the broker renews the reservation heartbeat throughout model/list, thread/read, thread/resume, thread/start, and turn/start work and verifies ownership before every mapping write.
+- Restricted raw AppServerClient.request lifecycle namespaces thread/*, turn/*, and review/*; only validated typed methods reach private lifecycle dispatch. Rejected initialize now transitions to FAILED and requires a fresh client, preventing a false uninitialized reconnect.
+- Removed unrelated-turn inference: recovery requires the persisted client_user_message_id exactly, rejects missing or duplicate correlations, and fails closed when thread/read returns only unrelated turns. Installed thread sandbox strings remain workspace-write/read-only and turn sandboxPolicy remains object-valued workspaceWrite/readOnly.
+- Added deterministic tests for the pre-mapping thread crash/restart state, fake-clock lease renewal and capacity/deduplication, all lifecycle namespace bypasses, rejected initialize retry, and unrelated single-turn recovery. Focused tests PASS (26/26); npm run lint PASS.
+- npm run build was attempted and remains blocked by the restricted environment because Next.js cannot fetch existing Google Geist and Geist Mono from Google Fonts (Failed to fetch Geist from Google Fonts). No shared layout/font file changed.
+- Current origin/main is aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4. PR #44 currently exposes prior non-force delivery head 9e316a78106448293b013abe9ad531df2428a3ed; this correction will be committed on the current base and handed to the SOL orchestrator for safe non-force delivery. No push, force-push, approval, or merge is authorized for this correction cycle.
+## 2026-09-12 — correction cycle 2 review handoff
+
+- Correction implementation tip: 96b73da873086b0ea35cb0f39d51cdfa6839a151, with parent aa5c2bc7f3f52cb291e516b3ff1a473316c38aa4 (current origin/main). Scoped card delivery-record descendant: c87d9f0f87e50dd17f1085faf4d3f31c3933cb0b.
+- Focused tests pass 26/26 and npm run lint passes. The production build remains blocked only by the environment’s Google Fonts fetch failure; no shared file was changed.
+- Final status is REVIEW pending independent SOL review. The corrected tip is handed to the SOL orchestrator for safe non-force delivery of PR #44; this implementer will not push, force-push, approve, or merge.
+## 2026-09-12 — correction cycle 2 ambiguity hardening
+
+- Hardened the deterministic post-response persistence failure path: the broker now atomically marks the pre-call reservation THREAD_START_AMBIGUOUS when thread/start was attempted but the thread mapping write did not complete. A later start fails closed on that durable state even if the simulated original process is still live; the original pre-call THREAD_START_IN_FLIGHT state remains fail-closed after actual process loss.
+- Focused tests remain PASS (26/26) after this hardening; the final lint/build/hash evidence will be recorded on the rebuilt tip.

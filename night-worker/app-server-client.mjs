@@ -11,10 +11,9 @@ const DEFAULT_CLIENT_INFO = Object.freeze({
 
 const MAX_JSON_LINE_BYTES = 2 * 1024 * 1024;
 const MAX_DIAGNOSTIC_BYTES = 4_000;
-const TYPED_LIFECYCLE_METHODS = new Set([
-  "thread/start", "thread/fork", "thread/read", "thread/resume", "turn/start",
-]);
+const LIFECYCLE_METHOD_PATTERN = /^(?:thread|turn|review)\//i;
 const THREAD_SANDBOXES = new Set(["workspace-write", "read-only"]);
+const TURN_SANDBOX_TYPES = new Set(["workspaceWrite", "readOnly"]);
 
 function idKey(id) { return `${typeof id}:${String(id)}`; }
 
@@ -34,6 +33,17 @@ function isStream(value) { return value && typeof value.on === "function"; }
 function assertThreadSandbox(value) {
   if (value !== undefined && !THREAD_SANDBOXES.has(value)) {
     throw new Error("Thread sandbox must be workspace-write or read-only.");
+  }
+}
+
+function assertThreadId(value) {
+  if (typeof value !== "string" || value.length === 0) throw new Error("threadId is required.");
+}
+
+function assertTurnSandboxPolicy(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || Object.keys(value).length !== 1 || !TURN_SANDBOX_TYPES.has(value.type)) {
+    throw new Error("turn/start sandboxPolicy must be {type: workspaceWrite} or {type: readOnly}.");
   }
 }
 
@@ -96,16 +106,23 @@ export class AppServerClient extends EventEmitter {
     this.connected = false;
     this.initialization_started = false;
     this.initialized = false;
+    this.connection_state = "NEW";
     this.connect_promise = null;
     this.close_promise = null;
     this.unsubscribe_transport = [];
   }
 
   get isInitialized() { return this.initialized; }
+  get connectionState() { return this.connection_state; }
 
   async connect() {
     if (this.initialized) return this;
-    if (this.closed) throw new Error("App Server client is closed.");
+    if (this.closed) {
+      if (this.connection_state === "FAILED") {
+        throw new Error("App Server client initialization failed; create a new client to retry.");
+      }
+      throw new Error("App Server client is closed.");
+    }
     if (this.connect_promise) return this.connect_promise;
     this.connect_promise = this.#connectAndInitialize();
     try {
@@ -120,29 +137,40 @@ export class AppServerClient extends EventEmitter {
   start() { return this.connect(); }
 
   async #connectAndInitialize() {
-    this.#attachTransport();
-    if (!this.child && !this.transport && !this.input && !this.output) {
-      this.child = this.spawn_process(this.command, this.args, {
-        cwd: this.cwd,
-        env: this.env,
-        stdio: ["pipe", "pipe", "pipe"],
-        windowsHide: true,
-      });
-      this.input = this.child.stdout;
-      this.output = this.child.stdin;
-      this.stderr = this.child.stderr;
-      this.#attachProcess(this.child);
-      this.#attachStreamInputs();
-    }
-    if (!this.initialization_started) {
-      this.initialization_started = true;
-      await this.#sendRequest("initialize", {
-        clientInfo: this.client_info,
-        capabilities: this.capabilities,
-      }, { beforeHandshake: true });
-      this.#write({ method: "initialized", params: {} });
-      this.initialized = true;
-      this.connected = true;
+    this.connection_state = "CONNECTING";
+    try {
+      this.#attachTransport();
+      if (!this.child && !this.transport && !this.input && !this.output) {
+        this.child = this.spawn_process(this.command, this.args, {
+          cwd: this.cwd,
+          env: this.env,
+          stdio: ["pipe", "pipe", "pipe"],
+          windowsHide: true,
+        });
+        this.input = this.child.stdout;
+        this.output = this.child.stdin;
+        this.stderr = this.child.stderr;
+        this.#attachProcess(this.child);
+        this.#attachStreamInputs();
+      }
+      if (!this.initialization_started) {
+        this.initialization_started = true;
+        await this.#sendRequest("initialize", {
+          clientInfo: this.client_info,
+          capabilities: this.capabilities,
+        }, { beforeHandshake: true });
+        this.#write({ method: "initialized", params: {} });
+        this.initialized = true;
+        this.connected = true;
+      }
+      if (!this.initialized) throw new Error("App Server connection is not initialized.");
+      this.connection_state = "READY";
+    } catch (error) {
+      this.initialized = false;
+      this.connected = false;
+      this.connection_state = "FAILED";
+      if (!this.closed) this.#handleExit(error);
+      throw error;
     }
   }
 
@@ -275,8 +303,8 @@ export class AppServerClient extends EventEmitter {
 
   request(method, params = {}) {
     if (typeof method !== "string" || method.length === 0) throw new Error("App Server method is required.");
-    if (TYPED_LIFECYCLE_METHODS.has(method)) {
-      throw new Error(`Use the validated typed client method for ${method}.`);
+    if (LIFECYCLE_METHOD_PATTERN.test(method)) {
+      throw new Error(`Use a validated typed client method for lifecycle RPC ${method}.`);
     }
     return this.#request(method, params);
   }
@@ -306,16 +334,26 @@ export class AppServerClient extends EventEmitter {
     return this.#request("thread/start", params);
   }
 
-  turnStart(params) { return this.#request("turn/start", params); }
+  turnStart(params) {
+    if (!params || typeof params !== "object" || Array.isArray(params)) {
+      throw new Error("turn/start parameters must be an object.");
+    }
+    assertThreadId(params.threadId ?? params.thread_id);
+    assertTurnSandboxPolicy(params.sandboxPolicy ?? params.sandbox_policy);
+    return this.#request("turn/start", params);
+  }
 
   threadRead(threadId, options = {}) {
-    if (threadId && typeof threadId === "object") return this.#request("thread/read", threadId);
-    if (typeof threadId !== "string" || threadId.length === 0) throw new Error("threadId is required.");
+    if (threadId && typeof threadId === "object") {
+      assertThreadId(threadId.threadId ?? threadId.thread_id);
+      return this.#request("thread/read", threadId);
+    }
+    assertThreadId(threadId);
     return this.#request("thread/read", { threadId, ...options });
   }
 
   threadResume(threadId, params = {}) {
-    if (typeof threadId !== "string" || threadId.length === 0) throw new Error("threadId is required.");
+    assertThreadId(threadId);
     if (!params || typeof params !== "object" || Array.isArray(params)) throw new Error("thread/resume parameters must be an object.");
     assertThreadSandbox(params.sandbox);
     return this.#request("thread/resume", { threadId, ...params });
@@ -331,6 +369,7 @@ export class AppServerClient extends EventEmitter {
     if (this.closed) return;
     this.closed = true;
     this.connected = false;
+    if (this.connection_state !== "FAILED") this.connection_state = "CLOSED";
     const detail = safeText(reason);
     const error = new Error(`App Server connection closed${detail ? `: ${detail}` : "."}`);
     for (const pending of this.pending.values()) {

@@ -140,18 +140,23 @@ function turnClientMessageId(turn) {
 }
 
 function reconcileTurnId(response, expectedClientMessageId) {
+  if (typeof expectedClientMessageId !== "string" || expectedClientMessageId.length === 0) {
+    throw new Error("App Server thread/read reconciliation requires the persisted client_user_message_id.");
+  }
   const turns = turnsFromRead(response);
   const correlated = turns.filter((turn) => turnClientMessageId(turn) === expectedClientMessageId);
-  if (correlated.length > 0) {
-    const turn = correlated.at(-1);
+  if (correlated.length > 1) {
+    throw new Error("App Server thread/read returned multiple turns for the persisted client_user_message_id.");
+  }
+  if (correlated.length === 1) {
+    const turn = correlated[0];
     if (typeof turn.id !== "string" || turn.id.length === 0) {
       throw new Error("App Server thread/read returned a correlated turn without a durable id.");
     }
     return turn.id;
   }
   if (turns.length === 0) return null;
-  if (turns.length === 1 && typeof turns[0]?.id === "string" && turns[0].id.length > 0) return turns[0].id;
-  throw new Error("App Server thread/read could not unambiguously reconcile the durable turn.");
+  throw new Error("App Server thread/read returned turns without the persisted client_user_message_id.");
 }
 
 function isWithinRoot(root, candidate) {
@@ -189,17 +194,41 @@ function assertReturnedThreadIdentity(response, expectedThreadId) {
 }
 
 export class ThreadBroker {
-  constructor({ client, store, clock = Date } = {}) {
+  constructor({
+    client,
+    store,
+    clock = Date,
+    reservationLeaseMs = MVP_CONFIG.claim_lease_ms,
+    heartbeatIntervalMs = Math.max(1, Math.floor(MVP_CONFIG.claim_lease_ms / 3)),
+    setIntervalFn = setInterval,
+    clearIntervalFn = clearInterval,
+  } = {}) {
     if (!(client instanceof AppServerClient) && (!client || typeof client.modelList !== "function")) {
       throw new Error("Thread Broker requires an App Server client.");
     }
     if (!store || typeof store.getWorkerMapping !== "function" || typeof store.putWorkerMapping !== "function"
-      || typeof store.reserveWorker !== "function" || typeof store.releaseWorkerReservation !== "function") {
+      || typeof store.reserveWorker !== "function" || typeof store.releaseWorkerReservation !== "function"
+      || typeof store.assertWorkerReservation !== "function" || typeof store.renewWorkerReservation !== "function"
+      || typeof store.markWorkerThreadStartAmbiguous !== "function") {
       throw new Error("Thread Broker requires a RuntimeStore.");
+    }
+    if (!Number.isInteger(reservationLeaseMs) || reservationLeaseMs <= 0) {
+      throw new Error("Thread Broker reservation lease must be positive.");
+    }
+    if (!Number.isInteger(heartbeatIntervalMs) || heartbeatIntervalMs <= 0
+      || heartbeatIntervalMs >= reservationLeaseMs) {
+      throw new Error("Thread Broker heartbeat interval must be positive and shorter than its lease.");
+    }
+    if (typeof setIntervalFn !== "function" || typeof clearIntervalFn !== "function") {
+      throw new Error("Thread Broker heartbeat scheduler is invalid.");
     }
     this.client = client;
     this.store = store;
     this.clock = clock;
+    this.reservation_lease_ms = reservationLeaseMs;
+    this.heartbeat_interval_ms = heartbeatIntervalMs;
+    this.set_interval = setIntervalFn;
+    this.clear_interval = clearIntervalFn;
     this.inflight = new Map();
     this.reservation_tokens = new Map();
   }
@@ -241,6 +270,35 @@ export class ThreadBroker {
     return { batchId, taskId, cwd, input, metadata: options.metadata === undefined ? null : sanitizeForLog(options.metadata) };
   }
 
+  #beginReservationHeartbeat(batchId, taskId, role, ownerToken) {
+    let stopped = false;
+    let failure = null;
+    const beat = () => {
+      if (stopped || failure) return;
+      try {
+        this.store.renewWorkerReservation(batchId, taskId, role, ownerToken, {
+          leaseMs: this.reservation_lease_ms,
+          clock: this.clock,
+        });
+      } catch (error) {
+        failure = error;
+      }
+    };
+    const timer = this.set_interval(beat, this.heartbeat_interval_ms);
+    timer?.unref?.();
+    return {
+      assertOwned: () => {
+        if (failure) throw failure;
+        return this.store.assertWorkerReservation(batchId, taskId, role, ownerToken);
+      },
+      stop: () => {
+        if (stopped) return;
+        stopped = true;
+        this.clear_interval(timer);
+      },
+    };
+  }
+
   async #start(options = {}, role) {
     const normalized = this.#validateStartOptions(options, role);
     const key = workerKey({ batchId: normalized.batchId, taskId: normalized.taskId, role });
@@ -272,7 +330,6 @@ export class ThreadBroker {
     const effort = role === ROLE_IMPLEMENTATION
       ? IMPLEMENTATION_REASONING_EFFORT
       : reviewEffortForDifficulty(difficulty);
-    const available = await this.#validatePolicy(model, effort);
     const key = workerKey({ batchId: normalized.batchId, taskId: normalized.taskId, role });
     const clientUserMessageId = clientMessageId(batch, task, role);
     let mapping = this.store.getWorkerMapping(normalized.batchId, normalized.taskId, role);
@@ -299,6 +356,9 @@ export class ThreadBroker {
     if (reservationResult.status === "BUSY") {
       throw new Error("Durable worker start is already reserved by another owner.");
     }
+    if (reservationResult.status === "AMBIGUOUS") {
+      throw new Error("Worker thread/start is in-flight or ambiguous; recover the durable reservation before retrying.");
+    }
     if (reservationResult.status === "MAPPED") {
       mapping = reservationResult.mapping;
       if (mapping.lifecycle_state === "COMPLETED" || mapping.lifecycle_state === "FAILED" || mapping.turn_id) return mapping;
@@ -307,8 +367,15 @@ export class ThreadBroker {
       if (reservationResult.mapping) mapping = reservationResult.mapping;
     }
     const reservationHeld = reservationResult.status === "RESERVED";
+    let available;
+    let leaseKeeper = null;
+    let threadStartInFlight = false;
     try {
+      leaseKeeper = this.#beginReservationHeartbeat(batch.batch_id, task.task_id, role, ownerToken);
+      available = await this.#validatePolicy(model, effort);
       if (!mapping) {
+      leaseKeeper.assertOwned();
+      threadStartInFlight = true;
       const started = await this.client.threadStart({
         model,
         modelProvider: MVP_CONFIG.model_provider,
@@ -341,17 +408,25 @@ export class ThreadBroker {
         client_user_message_id: clientUserMessageId,
       };
       // This write is deliberately separate and precedes the first turn/start.
+      leaseKeeper.assertOwned();
       mapping = this.store.putWorkerMapping(mapping, { reservationToken: ownerToken });
+      threadStartInFlight = false;
       } else if (!mapping.turn_id) {
+      if (typeof mapping.client_user_message_id !== "string" || mapping.client_user_message_id.length === 0) {
+        throw new Error("Existing worker mapping is missing its persisted client_user_message_id.");
+      }
+      leaseKeeper.assertOwned();
       const read = await this.client.threadRead(mapping.thread_id, { includeTurns: true });
-      const recoveredTurnId = reconcileTurnId(read, mapping.client_user_message_id ?? clientUserMessageId);
+      const recoveredTurnId = reconcileTurnId(read, mapping.client_user_message_id);
       if (recoveredTurnId) {
+        leaseKeeper.assertOwned();
         const updated = this.store.patchWorkerMapping(mapping.batch_id, mapping.task_id, mapping.role, {
-          client_user_message_id: mapping.client_user_message_id ?? clientUserMessageId,
+          client_user_message_id: mapping.client_user_message_id,
           turn_id: recoveredTurnId,
           lifecycle_state: "TURN_STARTED",
           updated_at: timestampFrom(this.clock),
         }, { reservationToken: ownerToken });
+        leaseKeeper.stop();
         this.reservation_tokens.delete(key);
         return {
           mapping: updated,
@@ -361,6 +436,7 @@ export class ThreadBroker {
           recovered: true,
         };
       }
+      leaseKeeper.assertOwned();
       const resumed = await this.client.threadResume(mapping.thread_id, {
         model,
         modelProvider: MVP_CONFIG.model_provider,
@@ -373,6 +449,7 @@ export class ThreadBroker {
       assertReturnedPolicy(resumed, model, effort);
       assertReturnedThreadIdentity(resumed, mapping.thread_id);
     }
+      leaseKeeper.assertOwned();
       const turnResponse = await this.client.turnStart({
         threadId: mapping.thread_id,
         input: normalized.input,
@@ -382,27 +459,38 @@ export class ThreadBroker {
         sandboxPolicy: role === ROLE_IMPLEMENTATION
           ? { type: "workspaceWrite" }
           : { type: "readOnly" },
-        clientUserMessageId: mapping.client_user_message_id ?? clientUserMessageId,
+        clientUserMessageId: mapping.client_user_message_id,
       });
       assertReturnedPolicy(turnResponse, model, effort);
       const turnId = turnResponse?.turn?.id;
       if (typeof turnId !== "string" || turnId.length === 0) {
         throw new Error("App Server turn/start did not return a durable turn id.");
       }
+      leaseKeeper.assertOwned();
       const updated = this.store.patchWorkerMapping(mapping.batch_id, mapping.task_id, mapping.role, {
         turn_id: turnId,
-        client_user_message_id: mapping.client_user_message_id ?? clientUserMessageId,
+        client_user_message_id: mapping.client_user_message_id,
         lifecycle_state: "TURN_STARTED",
         updated_at: timestampFrom(this.clock),
       }, { reservationToken: ownerToken });
+      leaseKeeper.stop();
       this.reservation_tokens.delete(key);
       return { mapping: updated, turn: sanitizeForLog(turnResponse.turn), model: available.model, effort: available.effort };
     } catch (error) {
+      leaseKeeper?.stop();
       if (reservationHeld) {
-        try {
-          this.store.releaseWorkerReservation(batch.batch_id, task.task_id, role, ownerToken);
-        } catch (releaseError) {
-          error.reservationError = releaseError;
+        if (!threadStartInFlight) {
+          try {
+            this.store.releaseWorkerReservation(batch.batch_id, task.task_id, role, ownerToken);
+          } catch (releaseError) {
+            error.reservationError = releaseError;
+          }
+        } else {
+          try {
+            this.store.markWorkerThreadStartAmbiguous(batch.batch_id, task.task_id, role, ownerToken);
+          } catch (ambiguityError) {
+            error.reservationError = ambiguityError;
+          }
         }
         this.reservation_tokens.delete(key);
       }
