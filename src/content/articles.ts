@@ -10,6 +10,7 @@ import {
 import { assertArticleRelated, relatedFor, type ArticleRelated } from "./article-related";
 import { reAuthoredBodies } from "./article-body-patches";
 import { newKnowledgeArticles, type NewArticleSpec } from "./article-additions";
+import { articleTitlePatches } from "./article-title-patches";
 
 /**
  * Technical knowledge articles — English copy migrated verbatim from the
@@ -154,7 +155,9 @@ function build(slug: string): Article {
     datePublished: src.datePublished,
     dateModified: reAuthoredOn[slug] ?? src.dateModified,
     category: { en: src.category, zh: zh.category },
-    title: { en: src.title, zh: zh.title },
+    // A migrated headline is frozen unless `article-title-patches.ts` names this slug,
+    // with a reason, which keeps the exception visible in review.
+    title: articleTitlePatches[slug]?.title ?? { en: src.title, zh: zh.title },
     metaDescription: { en: src.metaDescription, zh: zh.metaDescription },
     intro: { en: src.intro, zh: zh.intro },
     // A re-authored body is already in blocks. Anything else folds each legacy
@@ -199,5 +202,13 @@ export const articles: readonly Article[] = [
 // Every declared related edge is checked against the live content arrays here, so a
 // retired slug fails at load with the offending pair named.
 assertArticleRelated(articles.map((article) => article.slug));
+
+// A declared title patch that names nothing would never apply, and the headline it was
+// written for would stay frozen without anyone noticing.
+for (const slug of Object.keys(articleTitlePatches)) {
+  if (!articles.some((article) => article.slug === slug)) {
+    throw new Error(`articles: a title patch names "${slug}", which is not a published article.`);
+  }
+}
 
 export const articleBySlug = (slug: string) => articles.find((a) => a.slug === slug);

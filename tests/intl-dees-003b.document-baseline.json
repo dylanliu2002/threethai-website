@@ -1,6 +1,6 @@
 {
   "$note": "Per-document byte budget, regenerated deliberately by the task that changed a route.",
-  "$baseCommit": "84a5ed783d8e6f2a08f75d5216c8ae28c05c8c8a",
+  "$baseCommit": "adb52cb5b2ca8d821739f3cdb75750540269a602",
   "$toleranceBytes": 64,
   "documents": {
     "about.html": {
@@ -160,8 +160,8 @@
       "scriptBytes": 45642
     },
     "de.html": {
-      "bytes": 135605,
-      "scriptBytes": 82893
+      "bytes": 135601,
+      "scriptBytes": 82891
     },
     "de/about.html": {
       "bytes": 84221,
@@ -320,12 +320,12 @@
       "scriptBytes": 63143
     },
     "de/knowledge.html": {
-      "bytes": 79638,
-      "scriptBytes": 57201
+      "bytes": 79630,
+      "scriptBytes": 57195
     },
     "de/knowledge/pva-batch-dissolution-consistency.html": {
-      "bytes": 95215,
-      "scriptBytes": 66214
+      "bytes": 95211,
+      "scriptBytes": 66212
     },
     "de/knowledge/pva-staple-fiber-vs-filament-yarn.html": {
       "bytes": 72618,
@@ -336,16 +336,16 @@
       "scriptBytes": 53546
     },
     "de/knowledge/pva-yarn-dissolution-temperature-guide.html": {
-      "bytes": 92096,
-      "scriptBytes": 64547
+      "bytes": 92288,
+      "scriptBytes": 64667
     },
     "de/knowledge/water-soluble-pva-yarn-towel-manufacturing.html": {
-      "bytes": 88789,
-      "scriptBytes": 63014
+      "bytes": 88785,
+      "scriptBytes": 63012
     },
     "de/knowledge/what-is-water-soluble-pva-yarn.html": {
-      "bytes": 101719,
-      "scriptBytes": 70579
+      "bytes": 101715,
+      "scriptBytes": 70577
     },
     "de/manufacturing.html": {
       "bytes": 87905,
@@ -372,8 +372,8 @@
       "scriptBytes": 72814
     },
     "de/products/water-soluble-pva-yarn.html": {
-      "bytes": 109494,
-      "scriptBytes": 75441
+      "bytes": 109490,
+      "scriptBytes": 75439
     },
     "de/quality.html": {
       "bytes": 177836,
@@ -388,8 +388,8 @@
       "scriptBytes": 61183
     },
     "es.html": {
-      "bytes": 136508,
-      "scriptBytes": 83570
+      "bytes": 136524,
+      "scriptBytes": 83578
     },
     "es/about.html": {
       "bytes": 85078,
@@ -548,12 +548,12 @@
       "scriptBytes": 64014
     },
     "es/knowledge.html": {
-      "bytes": 80342,
-      "scriptBytes": 57750
+      "bytes": 80374,
+      "scriptBytes": 57774
     },
     "es/knowledge/pva-batch-dissolution-consistency.html": {
-      "bytes": 95748,
-      "scriptBytes": 66711
+      "bytes": 95764,
+      "scriptBytes": 66719
     },
     "es/knowledge/pva-staple-fiber-vs-filament-yarn.html": {
       "bytes": 73201,
@@ -564,16 +564,16 @@
       "scriptBytes": 54054
     },
     "es/knowledge/pva-yarn-dissolution-temperature-guide.html": {
-      "bytes": 92683,
-      "scriptBytes": 65071
+      "bytes": 92875,
+      "scriptBytes": 65191
     },
     "es/knowledge/water-soluble-pva-yarn-towel-manufacturing.html": {
-      "bytes": 89330,
-      "scriptBytes": 63515
+      "bytes": 89346,
+      "scriptBytes": 63523
     },
     "es/knowledge/what-is-water-soluble-pva-yarn.html": {
-      "bytes": 102302,
-      "scriptBytes": 71100
+      "bytes": 102318,
+      "scriptBytes": 71108
     },
     "es/manufacturing.html": {
       "bytes": 88871,
@@ -600,8 +600,8 @@
       "scriptBytes": 73717
     },
     "es/products/water-soluble-pva-yarn.html": {
-      "bytes": 110338,
-      "scriptBytes": 76103
+      "bytes": 110354,
+      "scriptBytes": 76111
     },
     "es/quality.html": {
       "bytes": 179034,
@@ -616,16 +616,16 @@
       "scriptBytes": 62038
     },
     "index.html": {
-      "bytes": 133726,
-      "scriptBytes": 81856
+      "bytes": 133750,
+      "scriptBytes": 81868
     },
     "knowledge.html": {
-      "bytes": 78745,
-      "scriptBytes": 56547
+      "bytes": 78793,
+      "scriptBytes": 56583
     },
     "knowledge/pva-batch-dissolution-consistency.html": {
-      "bytes": 95115,
-      "scriptBytes": 66083
+      "bytes": 95139,
+      "scriptBytes": 66095
     },
     "knowledge/pva-staple-fiber-vs-filament-yarn.html": {
       "bytes": 72654,
@@ -636,16 +636,16 @@
       "scriptBytes": 53481
     },
     "knowledge/pva-yarn-dissolution-temperature-guide.html": {
-      "bytes": 91964,
-      "scriptBytes": 64396
+      "bytes": 92156,
+      "scriptBytes": 64516
     },
     "knowledge/water-soluble-pva-yarn-towel-manufacturing.html": {
-      "bytes": 88665,
-      "scriptBytes": 62865
+      "bytes": 88689,
+      "scriptBytes": 62877
     },
     "knowledge/what-is-water-soluble-pva-yarn.html": {
-      "bytes": 101281,
-      "scriptBytes": 70226
+      "bytes": 101305,
+      "scriptBytes": 70238
     },
     "manufacturing.html": {
       "bytes": 87107,
@@ -672,8 +672,8 @@
       "scriptBytes": 71638
     },
     "products/water-soluble-pva-yarn.html": {
-      "bytes": 107197,
-      "scriptBytes": 74019
+      "bytes": 107221,
+      "scriptBytes": 74031
     },
     "quality.html": {
       "bytes": 174802,
@@ -848,12 +848,12 @@
       "scriptBytes": 42006
     },
     "zh/knowledge.html": {
-      "bytes": 74838,
-      "scriptBytes": 52834
+      "bytes": 74846,
+      "scriptBytes": 52840
     },
     "zh/knowledge/pva-batch-dissolution-consistency.html": {
-      "bytes": 89787,
-      "scriptBytes": 61670
+      "bytes": 89791,
+      "scriptBytes": 61672
     },
     "zh/knowledge/pva-staple-fiber-vs-filament-yarn.html": {
       "bytes": 67885,
@@ -864,16 +864,16 @@
       "scriptBytes": 49728
     },
     "zh/knowledge/pva-yarn-dissolution-temperature-guide.html": {
-      "bytes": 86872,
-      "scriptBytes": 60169
+      "bytes": 86891,
+      "scriptBytes": 60176
     },
     "zh/knowledge/water-soluble-pva-yarn-towel-manufacturing.html": {
-      "bytes": 84761,
-      "scriptBytes": 59281
+      "bytes": 84765,
+      "scriptBytes": 59283
     },
     "zh/knowledge/what-is-water-soluble-pva-yarn.html": {
-      "bytes": 96695,
-      "scriptBytes": 66345
+      "bytes": 96699,
+      "scriptBytes": 66347
     },
     "zh/manufacturing.html": {
       "bytes": 82780,
@@ -900,8 +900,8 @@
       "scriptBytes": 66823
     },
     "zh/products/water-soluble-pva-yarn.html": {
-      "bytes": 101016,
-      "scriptBytes": 68935
+      "bytes": 101020,
+      "scriptBytes": 68937
     },
     "zh/quality.html": {
       "bytes": 170887,

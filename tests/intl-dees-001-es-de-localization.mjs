@@ -735,6 +735,7 @@ test("TASK 61 · the articles this pass left alone still render their legacy tex
 
 const { reAuthoredBodies } = await importSource("src/content/article-body-patches.ts");
 const { newKnowledgeArticles, newArticleBodies } = await importSource("src/content/article-additions.ts");
+const { articleTitlePatches } = await importSource("src/content/article-title-patches.ts");
 
 /**
  * Every body authored on the block model, whatever its provenance: an article rewritten from
@@ -854,7 +855,10 @@ test("TASK 62 · re-authoring kept the headlines and gave the bodies real struct
     if (!isAuthored) {
       // card-copy mirrors these four in en/zh/es/de, so a rewrite may not move them. An
       // article written for this site has no legacy row, so there is nothing to freeze.
-      assert.equal(article.title.en, before.title, `${article.slug}: English title changed`);
+      // `article-title-patches.ts` is the one declared way through, and it carries a reason.
+      const patched = Object.prototype.hasOwnProperty.call(articleTitlePatches, article.slug);
+      assert.equal(article.title.en, patched ? articleTitlePatches[article.slug].title.en : before.title,
+        `${article.slug}: English title changed${patched ? "" : " without a declared patch"}`);
       assert.equal(article.intro.en, before.intro, `${article.slug}: English intro changed`);
       assert.equal(article.category.en, before.category, `${article.slug}: category changed`);
       assert.equal(article.metaDescription.en, before.metaDescription, `${article.slug}: description changed`);

@@ -116,11 +116,13 @@ export function applicationCard(slug: string, locale: Locale): ApplicationCardCo
 const ARTICLE_TEASERS: Record<string, { category: CopyField<string>; title: CopyField<string>; intro: CopyField<string> }> = {
   "pva-yarn-dissolution-temperature-guide": {
     category: { en: "Technical guide", zh: "技术指南", es: "Guía técnica", de: "Fachleitfaden" },
+    // Retitled by `article-title-patches.ts`, with the reason recorded there. `en`/`zh` are
+    // asserted equal to the entity; `es`/`de` are DRAFTED and pending translator review.
     title: {
-      en: "PVA Yarn Dissolution Temperature Guide: 20°C, 40°C and 90°C",
-      zh: "PVA 纱线溶解温度指南：20°C、40°C 与 90°C",
-      es: "Guía de temperatura de disolución del hilo de PVA: 20 °C, 40 °C y 90 °C",
-      de: "Leitfaden zur Auflösungstemperatur von PVA-Garn: 20 °C, 40 °C und 90 °C",
+      en: "How to Choose the Right Dissolution Temperature for Water-Soluble PVA Yarn",
+      zh: "如何为水溶性 PVA 纱线选择合适的溶解温度",
+      es: "Cómo elegir la temperatura de disolución adecuada para el hilo de PVA hidrosoluble",
+      de: "Die richtige Auflösungstemperatur für wasserlösliches PVA-Garn wählen",
     },
     intro: {
       en: "A quoted dissolution temperature is a starting point, not a complete process specification. Buyers should evaluate the full removal cycle under repeatable conditions.",
