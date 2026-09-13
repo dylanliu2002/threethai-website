@@ -185,13 +185,19 @@ required: both edited test files are already registered in `test:seo` and
 
 ## Validation
 
+Runs under `cmd.exe`, which is this host's shell.
+
 ```bash
 npm run typecheck
 npm run lint
 npm run build
-REQUIRE_BUILD_OUTPUT=1 npm run test:seo
-REQUIRE_BROWSER=1 REQUIRE_BUILD_OUTPUT=1 npm run test:browser
+set REQUIRE_BUILD_OUTPUT=1 && npm run test:seo
+set REQUIRE_BROWSER=1 && set REQUIRE_BUILD_OUTPUT=1 && npm run test:browser
 ```
+
+The `VAR=1 command` form does not work here: `cmd.exe` answers
+`'REQUIRE_BUILD_OUTPUT' is not recognized as an internal or external command`
+and the suite never runs. Use `set VAR=1 &&` instead.
 
 Both `node --test` invocations need the repository's TS resolution hook
 (`--import ./tests/support/ts-extension-hooks.mjs`, which the scripts already

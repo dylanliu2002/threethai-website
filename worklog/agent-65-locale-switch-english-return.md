@@ -217,3 +217,36 @@ exactly the five files and five line counts listed below.
   `AGENTS.md` identity check was run as `git log -1 --pretty=fuller`.
 - A byte backup of the five edited files lives outside the repository at
   `%TEMP%\qwen-65-prefix-backup-20260914\`. It is not committed and must not be.
+
+## 2026-09-14 — Environment variables, and the gates re-run on the reinstalled tree
+
+Two corrections/additions to the notes above.
+
+- **The `VAR=1 command` form does not work on this host.** `REQUIRE_BUILD_OUTPUT=1
+  npm run test:seo` is answered with
+  `'REQUIRE_BUILD_OUTPUT' is not recognized as an internal or external command`
+  and the suite never runs — the shell is `cmd.exe`, so the variable must be set
+  first. The working forms are `set REQUIRE_BUILD_OUTPUT=1 && npm run test:seo`
+  and `set REQUIRE_BROWSER=1 && set REQUIRE_BUILD_OUTPUT=1 && npm run
+  test:browser`. The card's Validation block was corrected to the working form.
+  Every number previously recorded on this page was measured with the variable
+  actually set, so no result above is affected; only the transcribed command
+  form was wrong.
+- **A stray background `npm ci` (exit 0, 844 packages) and a background
+  `npm run build` landed after the delivery commit**, replacing `node_modules`
+  from the same lockfile. `git status --short` stayed empty and no lockfile or
+  manifest moved, so nothing durable changed. Because the dependency tree was
+  rebuilt, every gate was re-run on the reinstalled tree rather than assuming
+  equivalence:
+
+  | Gate | Result on the reinstalled tree |
+  | --- | --- |
+  | `npm run build` | `Compiled successfully in 7.3s`, **253/253**, `ƒ Proxy (Middleware)`, exit 0 |
+  | `npm run typecheck` | exit 0 |
+  | `npm run lint` | exit 0 |
+  | `test:seo` | **245 pass / 0 fail / 0 skipped**, 3.0s |
+  | `test:browser` | **10 pass / 0 fail / 0 skipped**, 17.0s |
+
+  This is a re-measurement, not a new claim: it reproduces the delivery numbers
+  exactly. The two commits `5319ab4` (fix) and `10a62e3` (card + worklog) are
+  unchanged and the tree is clean.
