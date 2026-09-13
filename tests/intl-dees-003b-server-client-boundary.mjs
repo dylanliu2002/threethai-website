@@ -1,8 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { gzipSync } from "node:zlib";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { NOISE_TOLERANCE_BYTES, baselineFixture, budgetReport, measureDocuments } from "./support/document-budget.mjs";
+
+/** Per-document byte baseline; regenerate only via `UPDATE_DOCUMENT_BUDGET=1`. */
+const BASELINE_FILE = "tests/intl-dees-003b.document-baseline.json";
 
 /**
  * INTL-DEES-003B — server/client boundary for translation availability.
@@ -389,6 +395,20 @@ test("build: the client bundle returns to its INTL-DEES-002B size", buildOptions
     + `baseline (tolerance ${TOLERANCE} B + ${CLIENT_LABELS_001} B labels + ${LOCALE_NOTICE} B notice)`);
   assert.ok(total > BASE_002B_TOTAL - 20_000,
     `the bundle lost far more than this task can explain: ${total} B vs ${BASE_002B_TOTAL} B baseline`);
+
+  // The leak this file was written against cost 1,684 B raw but 586 B gzip, and
+  // gzip is what a buyer over a slow connection waits for. The raw ceiling above
+  // could be satisfied by code that compresses badly; the transfer actually sent
+  // cannot, so the compressed total is pinned as well. Measured at the committed
+  // state: 833,313 B raw / 264,793 B gzip across 15 chunks, with zero page-level
+  // chunks under `chunks/app/` — every knowledge and product page is server-only,
+  // so article prose cannot enter either number at all.
+  const BASE_GZIP_TOTAL = 264_793;
+  const gzipped = walkFiles(chunksRoot, new Set([".js"]))
+    .reduce((sum, file) => sum + gzipSync(readFileSync(file)).length, 0);
+  assert.ok(gzipped <= BASE_GZIP_TOTAL + TOLERANCE,
+    `client bundle is ${gzipped} B gzipped against the ${BASE_GZIP_TOTAL} B pinned total `
+    + `(tolerance ${TOLERANCE} B); the raw ceiling alone cannot see code that compresses poorly`);
 });
 
 test("build: every switcher document resolves to an inventoried path", buildOptions, () => {
@@ -422,39 +442,144 @@ test("build: every switcher document resolves to an inventoried path", buildOpti
   assert.deepEqual(missing, [], "the inventory lists paths that render no switcher document");
 });
 
+/**
+ * The byte budget is a per-route regression guard, so its value is entirely in what
+ * it rejects. Each case below drives the real `budgetReport` with synthetic
+ * documents — the only way to show a guard bites without mutating a build, and
+ * without deleting the content growth it is supposed to permit.
+ *
+ * Why a population ceiling could not stay. An aggregate cannot answer the question
+ * the guard exists to answer, because two different events move it the same way: a
+ * **leak**, which adds bytes to every page (the rejected complete-map encoding cost
+ * +3,210 B per document; the 003B policy leak cost +1,684 B raw / +586 B gzip on a
+ * chunk loaded by 220 of 222 pages), and **content**, which adds bytes to the few
+ * documents that carry it. Measured on 2026-09-11: nine planned Resources articles
+ * would have left 142 B of margin on a median whose build-to-build movement is
+ * itself tens of bytes — so the only ways to pass would have been to delete the
+ * content or to raise the number, and neither is a guard.
+ */
+
+const budgetFixture = (count = 40) => {
+  const documents = Array.from({ length: count }, (_, i) => ({
+    rel: `answers/a${i}.html`,
+    bytes: 60_000 + i * 37,
+    scriptBytes: 55_000,
+  }));
+  const baseline = Object.fromEntries(
+    documents.map(({ rel, bytes, scriptBytes }) => [rel, { bytes, scriptBytes }]),
+  );
+  return { documents, baseline };
+};
+
+const budgetOf = ({ documents, baseline }, allowedGrowth = []) =>
+  budgetReport({ entries: documents, baseline, allowedGrowth, toleranceBytes: NOISE_TOLERANCE_BYTES });
+
+test(`byte budget: movement within the measured ${NOISE_TOLERANCE_BYTES} B tolerance is not a failure`, () => {
+  const fixture = budgetFixture();
+  const bump = (rel, bytes, scriptBytes) => {
+    const doc = fixture.documents.find((d) => d.rel === rel);
+    doc.bytes += bytes;
+    doc.scriptBytes += scriptBytes;
+  };
+  bump("answers/a1.html", 40, 20);
+  bump("answers/a2.html", NOISE_TOLERANCE_BYTES, NOISE_TOLERANCE_BYTES);
+  assert.deepEqual(budgetOf(fixture).violations, [],
+    "a document may move by up to the tolerance; anything tighter makes the guard flaky");
+});
+
+test("byte budget: a long article may grow without failing the guard", () => {
+  const fixture = budgetFixture();
+  const grown = "/knowledge/pva-yarn-dissolution-temperature-guide";
+  for (const rel of ["knowledge/pva-yarn-dissolution-temperature-guide.html", "zh/knowledge/pva-yarn-dissolution-temperature-guide.html"]) {
+    fixture.documents.push({ rel, bytes: 300_000, scriptBytes: 55_000 });
+    fixture.baseline[rel] = { bytes: 95_000, scriptBytes: 55_000 };
+  }
+  const report = budgetOf(fixture, [grown]);
+  assert.deepEqual(report.violations, [], "a 205 KB article on an allowed route must not be a regression");
+  assert.equal(report.grew.length, 2, "both locales of the allowed route should be recognised as grown");
+});
+
+test("byte budget: an allowance is only valid on a knowledge route that renders a document", () => {
+  const fixture = budgetFixture();
+  assert.ok(budgetOf(fixture, ["/answers/a0"]).violations.some((v) => v.kind === "allowlist-not-knowledge"),
+    "a non-knowledge route must not be able to buy itself an exemption");
+  assert.ok(budgetOf(fixture, ["/knowledge/never-rendered"]).violations.some((v) => v.kind === "allowlist-stale"),
+    "an allowance naming a route with no document must fail, or the list rots into a wildcard");
+});
+
+test("byte budget: one unrelated route growing is a failure", () => {
+  const fixture = budgetFixture();
+  fixture.documents.find((d) => d.rel === "answers/a7.html").bytes += 3_000;
+  const hit = budgetOf(fixture).violations.find((v) => v.kind === "unchanged-route-grew");
+  assert.ok(hit, "a 3 KB surprise on one pinned page is exactly what this guard exists to catch");
+  assert.equal(hit.route, "/answers/a7");
+});
+
+test("byte budget: shared inline payload reaching every page is a failure", () => {
+  // The dictionary and the flight data ride in on every document. Growing them
+  // 1,500 B site-wide is the INTL-DEES-003B leak, and it must be caught even
+  // though no single document's total moves at all.
+  const fixture = budgetFixture();
+  for (const doc of fixture.documents) doc.scriptBytes += 1_500;
+  const report = budgetOf(fixture);
+  assert.equal(report.violations.filter((v) => v.kind === "shared-payload-grew").length, fixture.documents.length,
+    "every document must report shared payload growth, not just the largest one");
+  assert.equal(report.medianSharedDelta, 1_500);
+});
+
+test("byte budget: a new document cannot arrive unbudgeted", () => {
+  const fixture = budgetFixture();
+  fixture.documents.push({ rel: "sneaky.html", bytes: 70_000, scriptBytes: 55_000 });
+  assert.ok(budgetOf(fixture).violations.some((v) => v.kind === "unbaselined-document"),
+    "a document with no baseline and no allowance must be explained, not ignored");
+});
+
 test("build: documents did not grow to pay for the boundary", buildOptions, () => {
-  // The byte guard lives here, where it measures the thing that actually costs
-  // money per request. The rejected complete-map encoding measured +3,210 B raw
-  // per document; the shipped one costs tens of bytes.
+  // The per-route byte budget, replacing the population ceiling. See
+  // tests/support/document-budget.mjs for why an aggregate could not stay.
   //
-  // INTL-DEES-001 split the measurement by language. A global average cannot tell
-  // a leak from a localization: translating a page legitimately makes that page
-  // bigger, and Spanish and German documents now carry their own longer text. The
-  // languages this task does NOT translate are the ones that would grow if the
-  // boundary leaked, so they are pinned at the size they had before it, byte for
-  // byte. English and Chinese measured 0 B of change at the INTL-DEES-001 head.
-  const byLanguage = (predicate) =>
-    walkFiles(PRERENDER_ROOT, new Set([".html"]))
-      .map((file) => path.relative(PRERENDER_ROOT, file).split(path.sep).join("/"))
-      .filter(predicate)
-      .map((rel) => statSync(path.join(PRERENDER_ROOT, rel)).size);
-  const average = (sizes) => sizes.reduce((a, b) => a + b, 0) / sizes.length;
+  // Routes this task is allowed to grow. Explicit, narrow, and knowledge-only:
+  // budgetReport refuses any other shape, and refuses an entry that renders no
+  // document, so the list cannot quietly rot into a wildcard. It is empty now
+  // because the guard is being landed before the content batch that needs it;
+  // Tasks 62/63 add entries here as they rewrite articles.
+  const CONTENT_GROWTH = [];
 
-  const localized = (rel) => rel === "es.html" || rel === "de.html"
-    || rel.startsWith("es/") || rel.startsWith("de/");
-  const untouched = byLanguage((rel) => !localized(rel));
-  const averageUntouched = average(untouched);
-  // Measured at the INTL-DEES-001 head: the 110 untranslated documents this file walks average 76,384 B —
-  // byte-for-byte the size they had before this task, because localization added
-  // no text to a page whose language it did not change. The ceiling below is that
-  // measured number plus 416 B of headroom: a prop carrying a rule, or copy landing in the
-  // dictionary for a language nobody translated, moves it by kilobytes.
-  assert.ok(averageUntouched < 76_800,
-    `untranslated (EN/ZH) documents average ${Math.round(averageUntouched)} B against the 76,384 B they measured before INTL-DEES-001 — text reached pages this task does not translate`);
+  const entries = measureDocuments(PRERENDER_ROOT);
 
-  const all = average(byLanguage(() => true));
-  assert.ok(all < 79_200,
-    `average prerendered document is ${Math.round(all)} B against the ${76_751} B the leaked build measured; INTL-DEES-001 raised the ceiling from 78,000 to cover Spanish and German text on the pages that now carry it, and any further growth must be explained by more localized copy, not by a policy reaching the browser`);
+  // Regenerate deliberately, never silently: a task that legitimately changes a
+  // route re-runs this with the flag, and the resulting fixture diff is what the
+  // reviewer reads. Nothing here rewrites a number to get to green.
+  if (process.env.UPDATE_DOCUMENT_BUDGET === "1") {
+    writeFileSync(path.join(repoRoot, BASELINE_FILE), baselineFixture(entries, {
+      baseCommit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: repoRoot, encoding: "utf8" }).trim(),
+      toleranceBytes: NOISE_TOLERANCE_BYTES,
+    }));
+    console.log(`  byte budget: baseline rewritten from ${entries.length} documents`);
+    return;
+  }
+
+  const baseline = JSON.parse(read(BASELINE_FILE)).documents;
+  const report = budgetReport({
+    entries,
+    baseline,
+    allowedGrowth: CONTENT_GROWTH,
+    toleranceBytes: NOISE_TOLERANCE_BYTES,
+  });
+
+  assert.deepEqual(report.violations, [],
+    `document byte budget failed:\n${report.violations
+      .map((v) => `  [${v.kind}] ${v.detail}`).join("\n")}`);
+
+  // A passing run still reports what it measured, so a growth that only *almost*
+  // fits cannot pass unnoticed into a review.
+  console.log(
+    `  byte budget: ${report.unchangedDocuments} pinned documents, ${report.movedDocuments} moved; ` +
+    `unchanged-route median Δ${report.medianUnchangedDelta} B, largest movement ` +
+    `${report.maxAbsUnchangedDelta} B (growth max Δ${report.maxUnchangedDelta} B); inline payload ` +
+    `median Δ${report.medianSharedDelta} B, largest ${report.maxAbsSharedDelta} B ` +
+    `(mean ${report.meanSharedPayload} B/document); ${report.grew.length} growth-allowed documents`,
+  );
 });
 
 test("build: consolidation and head alternates are untouched by the boundary", buildOptions, () => {

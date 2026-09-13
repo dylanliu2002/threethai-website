@@ -83,6 +83,106 @@ const ARTICLE_RELATED: Record<string, ArticleRelated> = {
     products: ["pva-staple-fiber", "pva-filament-yarn"],
     applications: NONE,
     answers: ["pva-staple-fiber-vs-filament-yarn-difference"],
+    // The article-edge bucket stays NONE, as it was when the page migrated. Row 43's other
+    // half is "product pages", and the two product cards plus the decision answer are the
+    // navigation this article owns; the cards it could hand on to in this bucket are titled
+    // after a PVA yarn the comparison does not declare, so listing them would surface a
+    // product name the article never offers.
+    articles: NONE,
+  },
+  "what-is-water-soluble-pva-yarn": {
+    // The category cornerpiece, so all four forms and all five application pages are its
+    // actual subject rather than a dump: the body describes the four forms in a table and
+    // links each application page by name. The answer and article edges are the ones the
+    // body itself points at, plus the sampling route a first-time buyer needs next.
+    products: ["water-soluble-pva-yarn", "water-soluble-pva-sewing-thread", "pva-staple-fiber", "pva-filament-yarn"],
+    applications: ["towel-weaving", "embroidery-sewing", "knitting", "papermaking", "technical-textiles"],
+    answers: ["20c-vs-90c-pva-yarn-difference", "test-pva-yarn-dissolution-temperature", "sample-order-process-pva-water-soluble-yarn"],
+    articles: ["pva-yarn-dissolution-temperature-guide", "pva-staple-fiber-vs-filament-yarn", "pva-yarn-buyer-specification-checklist"],
+  },
+  "water-soluble-pva-yarn-towel-manufacturing": {
+    // The product set is the one `applications.ts` declares for towel-weaving, and the answer
+    // edge is the existing zero-twist question. Nothing here is inferred from the towel topic.
+    products: ["water-soluble-pva-yarn", "pva-filament-yarn"],
+    applications: ["towel-weaving"],
+    answers: ["source-water-soluble-yarn-zero-twist-towels"],
+    articles: ["what-is-water-soluble-pva-yarn", "pva-yarn-dissolution-temperature-guide", "pva-yarn-buyer-specification-checklist"],
+  },
+  "water-soluble-pva-yarn-knitting": {
+    // Every edge here is one this article's own body already travels. The products are the
+    // two `applications.ts` declares for its knitting entry, the application is the page the
+    // closing prose links, and the article edges are the three guides the removal section
+    // names — which is also why `applications` is not empty on this one: the knitting page
+    // is the article's subject rather than an inference about the process it covers.
+    products: ["water-soluble-pva-yarn", "pva-staple-fiber"],
+    applications: ["knitting"],
+    answers: ["test-pva-yarn-dissolution-temperature", "sample-order-process-pva-water-soluble-yarn"],
+    articles: [
+      "pva-yarn-dissolution-temperature-guide",
+      "water-soluble-pva-yarn-towel-manufacturing",
+      "pva-batch-dissolution-consistency",
+      "pva-yarn-buyer-specification-checklist",
+    ],
+  },
+  "water-soluble-sewing-thread-guide": {
+    // The products are the two `applications.ts` declares for its embroidery-sewing entry, the
+    // application is the page the closing prose links, and the three guides are the removal,
+    // batch and enquiry pages the middle section names. The answer edges are the sewing-thread
+    // questions the body's own reasoning rests on, so nothing here is inferred from the topic.
+    products: ["water-soluble-pva-sewing-thread", "water-soluble-pva-yarn"],
+    applications: ["embroidery-sewing"],
+    answers: [
+      "pva-sewing-thread-temporary-stitching-garments",
+      "reliable-oem-pva-water-soluble-sewing-thread-factory",
+      "minimum-order-quantity-pva-water-soluble-thread",
+    ],
+    articles: [
+      "pva-yarn-dissolution-temperature-guide",
+      "pva-batch-dissolution-consistency",
+      "pva-yarn-buyer-specification-checklist",
+    ],
+  },
+  "pva-dissolution-in-textile-processing": {
+    // The body is about the removal variables themselves, so the product it names is the
+    // yarn, and the two answers are the temperature questions its own reasoning rests on.
+    // The article-edge bucket stays empty on purpose: the related-article cards render in
+    // the footline, and the available candidates are titled after a PVA yarn and a material
+    // form this article does not declare, so listing one would surface a product name the
+    // article never offers. The beaker-versus-production discussion links to R1 and R3 in
+    // its own prose instead, where the link text is the article's, not a card's.
+    products: ["water-soluble-pva-yarn"],
+    applications: NONE,
+    answers: ["test-pva-yarn-dissolution-temperature", "20c-vs-90c-pva-yarn-difference"],
+    articles: NONE,
+  },
+  "pva-sample-to-production-testing": {
+    // The body is the sample-to-production trial, so the product it names is the yarn, and the
+    // two answers are the sample-order and dissolution-temperature questions its own reasoning
+    // rests on (`sample-order-process-pva-water-soluble-yarn` is the trial process, the other
+    // the temperature reading it calls for). The article-edge bucket stays empty for the same
+    // reason as the entry above: the related-article cards render in the footline, and the
+    // available candidates are titled after products and material forms this article does not
+    // declare, so a card would surface a product name the article never offers. The R7 and R1
+    // reading is linked in this body's own prose, where the link text is the article's.
+    products: ["water-soluble-pva-yarn"],
+    applications: NONE,
+    answers: ["sample-order-process-pva-water-soluble-yarn", "test-pva-yarn-dissolution-temperature"],
+    articles: NONE,
+  },
+  "how-to-evaluate-water-soluble-pva-supplier": {
+    // The body is the supplier-evaluation framework, so the product it names is the yarn. The
+    // two answers are the edges this article is built on: it is the deep version of the
+    // manufacturer-comparison answer (`best-pva-water-soluble-yarn-manufacturers-china`, which
+    // already refuses a self-ranking) and its own argument rests on the factory-verification
+    // answer. The article-edge bucket stays empty for the same reason as the two entries above:
+    // the related-article cards render in the footline, and the available candidates are titled
+    // after products and material forms this article does not declare, so a card would surface a
+    // product name the article never offers. The quality, manufacturing and sampling routes the
+    // closing section names are linked in this body's own prose, where the link text is the
+    // article's.
+    products: ["water-soluble-pva-yarn"],
+    applications: NONE,
+    answers: ["best-pva-water-soluble-yarn-manufacturers-china", "verify-chinese-pva-yarn-factory"],
     articles: NONE,
   },
 };
@@ -100,9 +200,9 @@ const PRODUCT_ARTICLES: Record<string, readonly string[]> = {
   // The comparison names both forms, so it is the reading that belongs on each.
   "pva-staple-fiber": ["pva-staple-fiber-vs-filament-yarn"],
   "pva-filament-yarn": ["pva-staple-fiber-vs-filament-yarn"],
-  // Sewing thread has no article written about it yet. Showing the yarn guide
-  // there was the old fallback; an empty list is the honest current state.
-  "water-soluble-pva-sewing-thread": NONE,
+  // The sewing-thread guide is written about this product, so it is the reading that belongs
+  // here. Showing the yarn guide was the old fallback and named a different construction.
+  "water-soluble-pva-sewing-thread": ["water-soluble-sewing-thread-guide"],
 };
 
 const knownProducts = new Set(products.map((product) => product.slug));
