@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
-import Link from "next/link";
 import { localePath, type Locale } from "@/content/company";
 import {
   CHOSEN_LOCALE_COOKIE,
@@ -52,7 +51,8 @@ const subscribe = (notify: () => void) => {
  * which is the shape GSC LOCALE-003A removed a geo rule for. Here the initial HTML
  * is byte-identical for every visitor (verified: EN 57/57 and ZH 55/55 documents
  * unchanged, 0 dynamic routes), the suggestion cannot become a redirect because
- * this file holds no way to navigate, and dismissal never reaches a server.
+ * the only thing it can do is offer an anchor the visitor has to click, and
+ * dismissal never reaches a server.
  *
  * Standing down after an explicit choice reads localStorage, not the picker's
  * cookie: that cookie is httpOnly, so `document.cookie` can never see it and the
@@ -93,9 +93,16 @@ export default function LocaleSuggestion({ locale }: { locale: Locale }) {
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-4 shadow-lg">
           <p className="text-sm leading-relaxed text-foreground">
             {copy.localeNotice}
-            <Link href={href} className="ml-1 font-semibold text-primary hover:underline">
+            {/* A real anchor, the same way the header's picker offers a language, and
+                for the same measured reason: this href crosses locales, so the client
+                router prefetched it the moment the notice came on screen — and that
+                background request recorded the language being *offered* as the
+                visitor's own choice, which then decided where their next unprefixed
+                URL was served. An anchor asks the proxy, and the proxy writes nothing
+                for a link nobody clicked. */}
+            <a href={href} className="ml-1 font-semibold text-primary hover:underline">
               {copy.localeNoticeLink}
-            </Link>
+            </a>
           </p>
           <button
             type="button"

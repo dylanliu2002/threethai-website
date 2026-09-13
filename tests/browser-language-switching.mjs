@@ -30,8 +30,12 @@ import { pathToFileURL, fileURLToPath } from "node:url";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const { Browser, findBrowser, freePort } = await import(pathToFileURL(path.join(repoRoot, "tests/support/chrome-cdp.mjs")).href);
 const { locales, localePath, htmlLang } = await import(pathToFileURL(path.join(repoRoot, "src/content/company.ts")).href);
+const { LOCALE_COOKIE } = await import(pathToFileURL(path.join(repoRoot, "src/content/locale-routing.ts")).href);
 
 const requireBrowser = process.env.REQUIRE_BROWSER === "1";
+// The HTTP checks below need the build and nothing else, so they are guarded the
+// way the SEO suites are rather than by REQUIRE_BROWSER.
+const requireBuildOutput = process.env.REQUIRE_BUILD_OUTPUT === "1";
 const standaloneEntry = path.join(repoRoot, ".next", "standalone", "server.js");
 const executable = findBrowser();
 
@@ -57,7 +61,10 @@ async function waitForServer(url, ms = 30_000) {
 }
 
 before(async () => {
-  if (!existsSync(standaloneEntry) || !executable) return;
+  // The server is started whenever the build exists, not only when a browser does:
+  // the HTTP checks below measure the response the proxy writes, and a host without
+  // Chrome can still make that statement.
+  if (!existsSync(standaloneEntry)) return;
   const port = await freePort();
   base = `http://127.0.0.1:${port}`;
   // The entrypoint production actually runs. `next start` warns it is unsupported
@@ -90,6 +97,23 @@ function guard(t) {
     !server && "standalone server did not answer",
   ].filter(Boolean).join("; ");
   if (requireBrowser) assert.fail(`REQUIRE_BROWSER=1: ${missing}`);
+  t.skip(missing);
+  return false;
+}
+
+/**
+ * True when the built artefact is answering, whether or not a browser exists here.
+ * The HTTP checks need only this, so a host without Chrome still runs them;
+ * REQUIRE_BUILD_OUTPUT=1 turns the skip into a failure, the same convention the SEO
+ * suites use.
+ */
+function guardServer(t) {
+  if (server && existsSync(standaloneEntry)) return true;
+  const missing = [
+    !existsSync(standaloneEntry) && "no .next/standalone build (run `npm run build`)",
+    !server && "standalone server did not answer",
+  ].filter(Boolean).join("; ");
+  if (requireBuildOutput) assert.fail(`REQUIRE_BUILD_OUTPUT=1: ${missing}`);
   t.skip(missing);
   return false;
 }
@@ -258,4 +282,104 @@ test("nothing advertises an /en URL to crawlers", async (t) => {
     const canonical = /<link rel="canonical" href="([^"]+)"/.exec(html)?.[1] ?? "";
     assert.ok(!/\/en(\/|$)/.test(canonical), `${file} canonicalises to an /en URL: ${canonical}`);
   }
+});
+
+// ------------------------------------------------- who may write the preference
+/*
+ * `Set-Cookie` on the routing response is the whole subject here, and it is the one
+ * layer nobody had measured: the checks above all assert where a *click* lands, and
+ * every one of them stayed green while a background request was rewriting the stored
+ * preference underneath them. The browser's own timing — which of two concurrent
+ * requests answers last — decided the visitor's language, which is why the symptom
+ * was "sometimes" and why a browser-only check of it is worth less than this.
+ */
+test("only a request the visitor made may rewrite the stored language", async (t) => {
+  if (!guardServer(t)) return;
+  const cases = [
+    // [URL, cookie sent, locale the response serves] — one per rule that persists:
+    // 4 (a prefixed URL records itself), 2 (the alias records English), 6 (the
+    // prefix-free owner records English).
+    ["/de/products", "en", "de"],
+    ["/en/products", "de", "en"],
+    ["/products", null, "en"],
+  ];
+  for (const [url, cookie, served] of cases) {
+    const headers = cookie ? { cookie: `${LOCALE_COOKIE}=${cookie}` } : {};
+    const document = await fetch(base + url, { redirect: "manual", headers });
+    const written = document.headers.get("set-cookie") ?? "";
+    assert.match(written, new RegExp(`(^|,\\s*)${LOCALE_COOKIE}=${served}(;|$)`),
+      `${url} with cookie=${cookie ?? "none"} serves ${served} but wrote "${written}"`);
+
+    // What the client router's requests look like by the time they reach this
+    // layer: every one of them is a `fetch()`, and a browser reports a page's own
+    // fetch as `sec-fetch-dest: empty`. This shape has to withhold the write.
+    const router = await fetch(base + url, { redirect: "manual", headers: { ...headers, "sec-fetch-dest": "empty" } });
+    assert.equal(router.status, document.status,
+      `${url} answered ${router.status} to a router fetch but ${document.status} to a page load`);
+    assert.equal(router.headers.get("set-cookie"), null,
+      `${url} let a router fetch record a preference — a request nobody made may not choose the visitor's language`);
+
+    // Note what is deliberately *not* asserted here: `RSC`, `Next-Router-Prefetch`
+    // and `?_rsc=…`. Next removes them before the proxy runs, so a request bearing
+    // them is answered exactly like a page load — no assertion about that shape can
+    // tell a working gate from a dead one. What catches a dead gate is the fetch
+    // above, which carries the Fetch Metadata a real router request has. The
+    // prohibition on writing the gate against those markers is pinned instead at
+    // the source level, in tests/language-switcher-roundtrip.mjs, where a stripped
+    // marker and an ignored marker are visibly different things.
+  }
+});
+
+test("a language chosen once survives an in-site click, not just the landing", async (t) => {
+  if (!guard(t)) return;
+  // The owner's report, end to end: switch to English, then use the site — and the
+  // next page is still English. The link below is a client-router transition, so this
+  // is the check that a chosen language survives the router's own requests, which is
+  // exactly the layer the switcher checks above never exercised.
+  const b = await fresh();
+  await b.navigate(base + "/de/applications");
+  assert.ok(await b.waitFor(`document.documentElement.lang === ${JSON.stringify(htmlLang.de)}`),
+    `the German page declared "${await b.evaluate("document.documentElement.lang")}"`);
+
+  assert.ok(await pick(b, "English"), "no English item on the German page");
+  assert.ok(await b.waitFor(`location.pathname === "/applications"`, 9000),
+    `the English click landed on ${await b.path}`);
+  assert.ok(await b.waitFor(`document.documentElement.lang === ${JSON.stringify(htmlLang.en)}`, 9000),
+    `the English landing declared "${await b.evaluate("document.documentElement.lang")}"`);
+
+  // The click under test. `navItems` renders /manufacturing for the current locale,
+  // so an English page carries the prefix-free href and this anchor is unambiguous.
+  assert.ok(await b.click('header nav a[href="/manufacturing"]'), "no visible Manufacturing link");
+  assert.ok(await b.waitFor(`location.pathname === "/manufacturing"`, 9000),
+    `Manufacturing landed on ${await b.path}`);
+  assert.ok(await b.waitFor(`document.documentElement.lang === ${JSON.stringify(htmlLang.en)}`, 9000),
+    `the in-site click arrived in "${await b.evaluate("document.documentElement.lang")}" — the reported symptom`);
+
+  // And the choice still holds for an address typed afterwards, which is the rule
+  // that made the wrong preference visible in the first place.
+  await b.navigate(base + "/quality");
+  assert.equal(await b.evaluate("document.documentElement.lang"), htmlLang.en,
+    `a later URL fell back to the language the visitor left (landed on ${await b.path})`);
+});
+
+test("a prefetch nobody clicked may not move where the next URL resolves", async (t) => {
+  if (!guard(t)) return;
+  // The mechanism in one browser: the notice offers Chinese on a German page, its
+  // link is therefore on screen, and the router prefetches it — with no click
+  // anywhere. Pre-fix that prefetch recorded `zh` on the visitor's behalf, and the
+  // next unprefixed URL followed it to /zh/products. The page's own navigation links
+  // all point inside /de, so rule 4 has nothing to record for them and the notice's
+  // cross-locale link is the only writer left in the frame.
+  const b = await fresh();
+  await b.navigate(base + "/de/products");
+  assert.ok(await b.waitFor(NOTICE), "the notice never appeared on the German page");
+  // The prefetch is issued after hydration and answers asynchronously; wait out the
+  // window rather than asserting the instant the notice is visible.
+  await new Promise((r) => setTimeout(r, 2500));
+
+  await b.navigate(base + "/products");
+  assert.equal(await b.evaluate("location.pathname"), "/de/products",
+    `an unprefixed URL followed a preference nobody chose (landed on ${await b.path})`);
+  assert.equal(await b.evaluate("document.documentElement.lang"), htmlLang.de,
+    "the landing declared a language the visitor never chose");
 });
