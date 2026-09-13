@@ -152,3 +152,8 @@
 
 - Rebuilt the full nine-file Task 61 source/test tree from exact fresh `origin/main` `14a658961855f8e0b5cdce6a3c63867ff95dc51b`. Source commit `75c38d946fe7adffe0d34284dce9a6a10b1eeea1` is linearly based on that SHA and has exact author/committer `dylanliu2002 <dylanliu2002@gmail.com>`.
 - The lifecycle correction remains limited to removal of public binding/facade access, private opaque ThreadBroker dispatch, genuine-client/prototype-forgery rejection, and the already-passing mutex protections. Focused lifecycle regressions pass 2/2; full tests pass 33/33; lint passes.
+
+## 2026-09-14 — final fresh-main gate record
+
+- Final Task 61 delivery is based exactly on fresh `origin/main` `14a658961855f8e0b5cdce6a3c63867ff95dc51b`; source commit `75c38d946fe7adffe0d34284dce9a6a10b1eeea1` is its direct child and the final card/worklog commit follows it. Focused lifecycle regressions pass 2/2; full tests pass 33/33; lint passes.
+- The final fresh-main handoff gates pass: `git diff --check`, exact nine source files plus this card/worklog, `workflow/**` immutability, package immutability, merge-base equal to fresh `origin/main`, and exact author/committer `dylanliu2002 <dylanliu2002@gmail.com>`. No push, review creation, approval, merge, or unrelated file change was performed.

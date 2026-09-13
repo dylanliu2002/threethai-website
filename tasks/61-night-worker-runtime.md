@@ -225,3 +225,8 @@ integration.
 
 - Rebuilt the complete Task 61 delivery from fresh `origin/main` `14a658961855f8e0b5cdce6a3c63867ff95dc51b`; targeted source head is `75c38d946fe7adffe0d34284dce9a6a10b1eeea1` and the final card/worklog descendant is recorded in the task-owned worklog.
 - Focused lifecycle regressions pass 2/2; full `node --test night-worker/tests/*.test.mjs` passes 33/33; `npm run lint` passes. The delivery remains `REVIEW` pending fresh independent SOL review.
+
+## 2026-09-14 — final fresh-main gate evidence
+
+- Final delivery is linearly rebuilt from fresh `origin/main` `14a658961855f8e0b5cdce6a3c63867ff95dc51b`; source parent is `75c38d946fe7adffe0d34284dce9a6a10b1eeea1`, and the final card/worklog descendant is the local handoff tip.
+- Hash-qualified `git diff --check`, exact 11-path allowlist, `workflow/**` and package immutability, exact fresh merge-base, and required Git identity all pass. Status remains `REVIEW` pending fresh independent SOL review.
