@@ -69,7 +69,8 @@ export type RoutingDecision =
       kind: "redirect";
       locale: Locale;
       target: string;
-      persist: Locale;
+      /** `null` when the request may not record the choice it is being sent to. */
+      persist: Locale | null;
       permanent: boolean;
       stripLocaleParam: boolean;
     };
@@ -164,10 +165,37 @@ export function englishOwnerOf(pathname: string): string {
 }
 
 /**
- * Decide how to answer a request. Pure: same input always yields the same
- * output, independent of geography, user agent or cookie support.
+ * Decide how to answer a request, and whether that answer is allowed to record
+ * the visitor's language. Pure: same input always yields the same output,
+ * independent of geography, user agent or cookie support.
+ *
+ * `documentRequest` gates the preference *write* and nothing else. The client
+ * router does not ask only for pages the visitor navigated to: every link on
+ * screen is prefetched, and each of those background requests used to rewrite
+ * `threethai_locale` on behalf of a visitor who had clicked nothing. Because the
+ * stored preference decides which locale serves the next *unprefixed* URL, a
+ * prefetch could move a visitor who had already chosen a language — the reported
+ * symptom, where switching to English and then clicking an in-site link arrived
+ * in German again.
+ *
+ * Omitting the field means "an ordinary page load", so curl, crawlers and any
+ * browser that sends neither router markers nor Fetch Metadata keep exactly the
+ * behaviour every earlier assertion measured. `false` means "a request the
+ * router made for itself", which may not record anything: the routing decision
+ * it receives is byte-identical, only the write is withheld.
  */
 export function routeFor(input: {
+  pathname: string;
+  selectedLocale?: string | null;
+  savedLocale?: string | null;
+  documentRequest?: boolean;
+}): RoutingDecision {
+  const decision = decideRoute(input);
+  return input.documentRequest === false ? { ...decision, persist: null } : decision;
+}
+
+/** The precedence order, without the write gate. See the six numbered rules below. */
+function decideRoute(input: {
   pathname: string;
   selectedLocale?: string | null;
   savedLocale?: string | null;

@@ -282,6 +282,20 @@ test("REQ 6 · the notice can only ever be a link, never a navigation", () => {
     "the notice must not carry render-time state; it subscribes to the browser instead");
   assert.doesNotMatch(notice, /document\.cookie\s*=/,
     "dismissal belongs in localStorage; a cookie the server would then read is a request-time signal again");
+  // Its offer must travel as a document navigation, for the same reason the
+  // header's picker does. Measured in Chrome: this link's href crosses locales
+  // (`/en/<path>` from a German page, `/zh/<path>` from the same page offering
+  // Chinese), the client router prefetches it because it is on screen, and that
+  // background request used to carry the same preference rewrite as a page load —
+  // so being *shown* the notice could move where the visitor's next unprefixed URL
+  // resolved. An anchor goes through the proxy, and the proxy writes nothing for a
+  // link nobody clicked.
+  assert.doesNotMatch(notice, /from ["']next\/link["']/,
+    "the notice must not import next/link; a prefetched locale switch writes a preference nobody chose");
+  assert.doesNotMatch(notice, /<Link/,
+    "the notice must express its offer as a real anchor, like the header's picker");
+  assert.match(notice, /<a\s+href=\{href\}/,
+    "the notice's offer must be a plain anchor to its own href");
   // Its module graph must stop short of the gate: this is browser code, and
   // INTL-DEES-003B measured what it costs when the gate is reachable from here.
   for (const rel of ["src/components/layout/locale-suggestion.tsx", "src/content/locale-suggestion.ts"]) {
@@ -372,15 +386,130 @@ test("REQ 5 · the proxy executes the decision without adding a rule of its own"
   assert.doesNotMatch(proxy, /accept-language|Accept-Language|x-vercel-ip-country|geo/i,
     "no browser header or geography may choose a locale");
   // Both branches must persist what was served, or the next unprefixed visit
-  // re-decides from a stale cookie.
-  assert.match(proxy, /decision\.persist === null \? response : persistLocale/,
-    "serve branch must write the cookie unless the decision says leave it");
-  assert.match(proxy, /return persistLocale\(response, decision\.persist\)/,
-    "redirect branch must write the cookie");
+  // re-decides from a stale cookie — and both must do it through one writer, so
+  // that "the decision persists nothing" has exactly one meaning everywhere.
+  //
+  // Measured before this was tightened: the serve branch was guarded inline
+  // (`decision.persist === null ? response : persistLocale(...)`) while the
+  // redirect branch always wrote, so which requests could write a preference was
+  // a property of the branch rather than of the decision. The write gate this task
+  // adds is only sound if both branches consult `persist`, so the count is asserted
+  // rather than described.
+  assert.equal((proxy.match(/persistLocale\(response, decision\.persist\)/g) || []).length, 2,
+    "serve and redirect must each persist through persistLocale with the decision's own value");
+  assert.match(proxy, /if \(locale === null\) return response;/,
+    "persistLocale must leave the stored preference untouched when the decision persists nothing");
+  // And the request kind has to reach the decision, not stay in the proxy: which
+  // requests may write a preference is a policy, so it belongs in the pure module
+  // beside the precedence order, not in Next-facing plumbing.
+  assert.match(proxy, /documentRequest: isDocumentNavigation\(request\)/,
+    "the proxy must tell routeFor whether this request is a document navigation");
   // The matcher has to cover the prefix-free owner, or English is unpolicied.
   const matcher = /matcher:\s*\[([^\]]+)\]/.exec(proxy)?.[1] ?? "";
   assert.match(matcher, /\.\*/, `matcher is empty or malformed: ${matcher}`);
   assert.doesNotMatch(matcher, /\[\^.*\bde\b/, "the matcher must not exclude locale prefixes");
   assert.equal(LOCALE_COOKIE, "threethai_locale");
   assert.equal(LOCALE_PARAM, "_locale");
+});
+
+/* --------------------------------------------------- who may write the choice */
+test("the stored preference may only be written by a document navigation", () => {
+  // The reported symptom, reduced to its mechanism. The client router does not ask
+  // only for pages the visitor navigated to: it also prefetches the links on the
+  // page being read. Every one of those requests ran the same routing policy as a
+  // page load, so a prefetch rewrote `threethai_locale` on behalf of a visitor who
+  // had clicked nothing — and the preference decides where the *next* unprefixed
+  // URL goes, which is how "I switched to English and then clicked Manufacturing"
+  // arrived in German.
+  //
+  // So the write is gated on the request kind, and the gate lives here, beside the
+  // precedence order, rather than in the proxy: which requests may record a choice
+  // is policy.
+  const paths = [];
+  for (const basePath of SAMPLE_PATHS) {
+    for (const locale of ALL_LOCALES) paths.push(localePath(basePath, locale));
+  }
+  for (const basePath of SAMPLE_PATHS) paths.push(pickerHref(basePath, "en"));
+  for (const retired of ["pt", "ru", "ar", "tr", "vi", "id"]) paths.push(`/${retired}/products`);
+
+  const leaked = [];
+  const rerouted = [];
+  for (const pathname of paths) {
+    for (const selectedLocale of [null, ...ALL_LOCALES, "pt"]) {
+      for (const savedLocale of [null, ...ALL_LOCALES, "pt"]) {
+        const input = { pathname, selectedLocale, savedLocale };
+        const document = routeFor({ ...input, documentRequest: true });
+        const router = routeFor({ ...input, documentRequest: false });
+        if (router.persist !== null) {
+          leaked.push(`${pathname} ?${LOCALE_PARAM}=${selectedLocale ?? "-"} cookie=${savedLocale ?? "-"} wrote ${router.persist}`);
+        }
+        // The gate must not move a single visitor: stripping the write leaves the
+        // routing decision exactly as a page load got it. This is what makes the
+        // 320 click combinations above still mean what they meant.
+        const decision = { ...router, persist: document.persist };
+        if (JSON.stringify(decision) !== JSON.stringify(document)) {
+          rerouted.push(`${pathname} ?${LOCALE_PARAM}=${selectedLocale ?? "-"} cookie=${savedLocale ?? "-"}`);
+        }
+        // Omitting the field is "a plain GET with no markers" — curl, a crawler, a
+        // browser that sends no Fetch Metadata. That must stay a document, or the
+        // gate would silently change what every existing SEO assertion measured.
+        if (JSON.stringify(routeFor(input)) !== JSON.stringify(document)) {
+          rerouted.push(`default is not "document": ${pathname} cookie=${savedLocale ?? "-"}`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(leaked, [], `${leaked.length} router-shaped requests would rewrite the stored preference:\n${leaked.slice(0, 12).join("\n")}`);
+  assert.deepEqual(rerouted, [], `the write gate changed a routing decision:\n${rerouted.slice(0, 12).join("\n")}`);
+
+  // Three shapes spelled out, so a reader can see the rule without the loop: the
+  // German page records German for a page load, the English alias still records
+  // English and stays a temporary redirect, and the bare English owner records
+  // English — and none of them writes anything for a background request.
+  const germanPage = { pathname: "/de/products", savedLocale: "en" };
+  assert.deepEqual(routeFor({ ...germanPage, documentRequest: true }),
+    { kind: "serve", locale: "de", target: "/de/products", persist: "de" });
+  assert.equal(routeFor({ ...germanPage, documentRequest: false }).persist, null,
+    "a prefetch of a prefixed page may not re-record the language it already proves");
+
+  const alias = { pathname: "/en/products", savedLocale: "de" };
+  assert.deepEqual(routeFor({ ...alias, documentRequest: true }),
+    { kind: "redirect", locale: "en", target: "/products", persist: "en", permanent: false, stripLocaleParam: false });
+  const aliasRouter = routeFor({ ...alias, documentRequest: false });
+  assert.equal(aliasRouter.persist, null, "the alias must not record a preference for a request nobody made");
+  assert.equal(aliasRouter.permanent, false, "the alias must stay temporary for the gate to matter at all");
+
+  const bare = { pathname: "/products" };
+  assert.equal(routeFor({ ...bare, documentRequest: true }).persist, "en",
+    "a page load on the prefix-free owner still records the language that served it");
+  assert.equal(routeFor({ ...bare, documentRequest: false }).persist, null,
+    "a background request for the prefix-free owner may not record anything");
+});
+
+test("the request-kind gate asks a signal the router cannot take away", () => {
+  // The gate above is only worth its 320 combinations if it can fire, and the
+  // obvious way to write it cannot. Next deletes its own router markers from the
+  // request *before* the proxy runs — the five `FLIGHT_HEADERS` (`RSC`,
+  // `Next-Router-Prefetch`, `Next-Router-State-Tree`, `Next-HMR-Refresh`,
+  // `Next-Router-Segment-Prefetch`) out of the headers, `_rsc` out of the query
+  // (`next/dist/server/web/adapter.js`, `server/internal-utils.js`). A gate written
+  // against any of them therefore never withholds anything: measured against the
+  // standalone server, `RSC: 1`, `Next-Router-Prefetch: 1` and `?_rsc=…` each
+  // arrive looking exactly like a page load.
+  //
+  // No end-to-end test can catch that mistake — a stripped marker and an ignored
+  // marker answer identically, which is why the browser suite asserts the shape a
+  // router request actually has rather than the markers it is supposed to carry.
+  // Source is the only layer where the difference is visible, so the rule is
+  // pinned here.
+  const proxy = read("src/proxy.ts");
+  const gate = /function isDocumentNavigation[\s\S]*?\n\}/.exec(proxy)?.[0] ?? "";
+  assert.ok(gate, "isDocumentNavigation must exist and be named — it is the one rule the proxy adds");
+  assert.match(gate, /sec-fetch-dest/,
+    "the gate must ask Fetch Metadata, the one signal that survives to this layer");
+  for (const marker of ["rsc", "next-router-prefetch", "next-router-state-tree", "next-hmr-refresh",
+    "next-router-segment-prefetch", "_rsc"]) {
+    assert.doesNotMatch(gate, new RegExp(marker, "i"),
+      `the gate reads Next's own router marker "${marker}", which Next removes before the proxy runs — that branch can never fire, so the write it is meant to withhold still happens`);
+  }
 });
