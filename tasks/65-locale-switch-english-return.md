@@ -15,6 +15,8 @@
 - **Status:** `REVIEW`
 - **Risk:** `HIGH`
 - **Branch:** `codex/65-locale-switch-english-return`
+- **Pull request:** [#46](https://github.com/dylanliu2002/threethai-website/pull/46)
+  — head `codex/65-locale-switch-english-return` → base `main`, 3 commits, OPEN
 - **Worktree:** `worktrees/qwen-locale-switch-002-english-return` (directory name
   predates the branch rename and does not follow the `agent-NN-…` convention —
   see Coordination Item 2)
@@ -282,7 +284,8 @@ regression on its own. The shape assertion (`set-cookie === null` for
    --unset-upstream` was run before any push was contemplated, so a bare
    `git push` cannot write to `main`. Any push for this task must be explicit:
    `git push origin HEAD:refs/heads/codex/65-locale-switch-english-return`.
-   Nothing has been pushed.
+   That explicit form was the one used; the push created the remote branch and
+   left `refs/heads/main` at `14a658961855f8e0b5cdce6a3c63867ff95dc51b`.
 4. **`readSuggestion`'s `document.cookie` branch is dead code.** It tests
    `CHOSEN_LOCALE_COOKIE`, whose value is `"threethai_locale"` — the same
    `httpOnly` cookie the proxy writes. A repository-wide grep found **no** JS
@@ -325,6 +328,8 @@ Validation: board text only; no code path reads `tasks/README.md`.
 ## Review Status
 
 - Outcome: Pending (`APPROVED` | `CHANGES_REQUESTED` | `BLOCKED`)
+- Pull request: [#46](https://github.com/dylanliu2002/threethai-website/pull/46)
+  is open against `main` and is the review surface.
 - Independent reviewer evidence: none yet — the implementer cannot approve.
   The reviewer should specifically read: (a) whether gating only the *write*
   leaves a path where a prefetch still changes what is served; (b) the claim that
@@ -339,7 +344,18 @@ Validation: board text only; no code path reads `tasks/README.md`.
   `codex/65-locale-switch-english-return`, 5 files changed, +345 / −18. Author
   and committer verified as `dylanliu2002 <dylanliu2002@gmail.com>` (via
   `git log -1 --pretty=fuller`; the `AGENTS.md` `%an <%ae>` form is rejected by
-  this host's shell guard). **Not pushed, not merged, no pull request opened.**
+  this host's shell guard).
+- Pushed: `git push origin HEAD:refs/heads/codex/65-locale-switch-english-return`
+  (explicit form; the branch has no upstream). Remote head
+  `c45165775f17d2a208f11491ef8e100fafb25ddc`. **`main` was not touched** —
+  `git ls-remote` confirms `refs/heads/main` is still
+  `14a658961855f8e0b5cdce6a3c63867ff95dc51b`.
+- Pull request: [#46](https://github.com/dylanliu2002/threethai-website/pull/46)
+  — OPEN, base `main`, head `codex/65-locale-switch-english-return`, 3 commits.
+  **Not merged. The implementer may not merge, and this card is not
+  `APPROVED`** — `AGENTS.md` forbids a specialist from merging or otherwise
+  modifying `main`, and the required flow is
+  `IMPLEMENT -> REVIEW -> independent reviewer -> APPROVED -> merge`.
 - Base: `origin/main` @ `14a658961855f8e0b5cdce6a3c63867ff95dc51b`
   (merge of PR #45), verified current at branch creation.
 - Changed files: `src/proxy.ts`, `src/content/locale-routing.ts`,

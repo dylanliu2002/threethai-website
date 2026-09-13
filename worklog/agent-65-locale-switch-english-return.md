@@ -250,3 +250,32 @@ Two corrections/additions to the notes above.
   This is a re-measurement, not a new claim: it reproduces the delivery numbers
   exactly. The two commits `5319ab4` (fix) and `10a62e3` (card + worklog) are
   unchanged and the tree is clean.
+
+## 2026-09-14 — Push, pull request, and the record corrected
+
+The owner reviewed the fix locally and authorized the push and the pull request.
+
+- Push, explicit form because the branch has no upstream (Coordination Item 3):
+  `git push origin HEAD:refs/heads/codex/65-locale-switch-english-return`.
+  Remote head `c45165775f17d2a208f11491ef8e100fafb25ddc`.
+- `git ls-remote origin refs/heads/main` → `14a658961855f8e0b5cdce6a3c63867ff95dc51b`,
+  unchanged. The merge of PR #45 is still the tip of `main`; this task did not
+  write to it.
+- Pull request **#46** — https://github.com/dylanliu2002/threethai-website/pull/46,
+  base `main`, head `codex/65-locale-switch-english-return`, 3 commits, OPEN, not
+  a draft. Its body follows the convention set by PR #45: intro paragraph,
+  execution-card and worklog references, a `Delivered` table, `What to review
+  first`, `Validation` with exact counts, and `Open, and not claimed as done`.
+- **Two statements written earlier on this page are now historical and must be
+  read against this section:** the delivery section ends "Not pushed, not merged,
+  no pull request opened", and Coordination Item 3 ended "Nothing has been
+  pushed." Both were true when written. This page is append-only, so the record
+  is corrected here rather than rewritten; the card's Completion Record and
+  Coordination Item 3 were updated in place because a card is a living document.
+- **Not merged, and the implementer may not merge.** `AGENTS.md`: a specialist
+  must never commit, push, merge, force-push or otherwise modify `main` or
+  another task's branch. The card is at `REVIEW`, not `APPROVED`, and the
+  required flow is `IMPLEMENT -> REVIEW -> independent reviewer -> APPROVED ->
+  merge`. PR #46 is the review surface.
+- The card gained a `Pull request` field, and `Review Status` now names #46 as
+  that surface. Nothing in the fix, the tests or the measured numbers changed.
