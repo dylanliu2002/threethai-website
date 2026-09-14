@@ -38,3 +38,21 @@
   object and staged tree are preserved through the task-scoped alternate Git
   object/index path, matching Task 61's documented handoff procedure. No
   push, PR, review, merge, remote ref, or publishing action was performed.
+
+## 2026-09-14 — final handoff gates
+
+- Required tests were rerun at the final source state: focused Task 62 PASS
+  (14/14) and full Night Worker PASS (47/47). Hash-qualified
+  `git diff --check`, exact 12-path scope, `workflow/**`/package/lockfile/
+  `.github` immutability, `origin/main` merge-base ancestry, and exact latest
+  commit author/committer all PASS.
+- A safe same-value then target-value local-ref advancement was attempted
+  only for `codex/62-night-worker-execution`; the shared worktree metadata
+  denied creation of
+  `.git/refs/heads/codex/62-night-worker-execution.lock`. The verified commit
+  objects remain available through the task-scoped alternate Git
+  object/index path, as in Task 61. The pre-existing `.night-worker/runtime.json`
+  remains untracked and untouched.
+- No push, PR, review, merge, force-push, activation, publishing, production,
+  subagent, `codex exec`, Terra, or fallback action was performed. Independent
+  SOL review remains pending.
