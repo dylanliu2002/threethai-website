@@ -13,7 +13,7 @@
 - **Current Model Family:** `gpt-5.6-luna`
 - **Execution Assignment Recorded:** Yes
 - **Priority:** `P0`
-- **Status:** `IN_PROGRESS`
+- **Status:** `REVIEW`
 - **Risk:** `HIGH`
 - **Branch:** `codex/62-night-worker-execution`
 - **Worktree:** `worktrees/agent-62-night-worker-execution`
@@ -151,8 +151,23 @@ git diff --exit-code origin/main...HEAD -- package.json package-lock.json .githu
 git log -1 --format='%an <%ae>'
 ```
 
-- [ ] Diff scope reviewed
-- [ ] Validation recorded
+- [x] Diff scope reviewed
+- [x] Validation recorded
+
+Validation evidence:
+
+- `node --test night-worker/tests/task-62*.test.mjs` — PASS, 14/14.
+- `node --test night-worker/tests/*.test.mjs` — PASS, 47/47.
+- `npm run lint` — BLOCKED in the restricted environment because the
+  `eslint` executable was unavailable after dependency installation could not
+  materialize packages; no package file was changed.
+- `npm run build` — BLOCKED in the same restricted environment because the
+  `next` executable was unavailable; no application or shared layout file was
+  changed.
+- Hash-qualified diff/scope, package/workflow immutability, exact
+  `origin/main` ancestry, and identity gates were run against implementation
+  commit `92c796e104fe741c8cc7c0b4c7b6ff913e9af27c` and are recorded in the
+  task-owned worklog.
 
 ## Coordination Items
 
@@ -161,6 +176,11 @@ git log -1 --format='%an <%ae>'
   current base `ab85e1d`.
 - The pre-existing untracked `.night-worker/runtime.json` is preserved as
   runtime state and is not an implementation artifact.
+- Shared worktree Git metadata also denied the normal index/config/commit
+  paths. The verified implementation commit is preserved through the
+  task-scoped alternate Git object/index path, following Task 61's recorded
+  delivery procedure; no shared metadata, remote ref, or remote state was
+  changed.
 
 ## Review Status
 
@@ -169,12 +189,20 @@ git log -1 --format='%an <%ae>'
 
 ## Completion Record
 
-- Commit:
-- Base / rebase commit: `ab85e1d` (`origin/main` at task start)
-- Changed files:
-- Validation results:
+- Commit: `92c796e104fe741c8cc7c0b4c7b6ff913e9af27c` (implementation tip;
+  exact author and committer `dylanliu2002 <dylanliu2002@gmail.com>`)
+- Base / rebase commit: `ab85e1d47e38a1ca3dee4fa782ec831320f29496`
+  (`origin/main` at task start)
+- Changed files: the eight owned `night-worker/*.mjs` production files, the
+  two Task 62 regression files under `night-worker/tests/`, this task card,
+  and `worklog/agent-62-night-worker-execution.md`.
+- Validation results: focused Task 62 tests PASS (14/14); all Night Worker
+  tests PASS (47/47); lint and build are environment-blocked by unavailable
+  executables after restricted dependency installation; hash-qualified scope,
+  immutability, ancestry, and identity checks PASS.
 - Worklog: `worklog/agent-62-night-worker-execution.md`
-- Remaining risks:
+- Remaining risks: independent SOL review is pending; lint/build require a
+  dependency-capable validation environment.
 
 ## Rollback
 
