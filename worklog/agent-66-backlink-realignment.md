@@ -38,5 +38,10 @@ Commit Record:
   showed only the seven allowlisted paths, and
   `git diff --name-only origin/main...HEAD` listed the same seven paths.
 - Git identity verified before commit: `dylanliu2002 <dylanliu2002@gmail.com>`.
-- The push and pull request for `codex/66-backlink-realignment` are recorded in
-  the follow-up commit that carries this Completion Record.
+- `58554af` — "Task 66: record completion evidence and validation results";
+  carries the card's Completion Record and this worklog record.
+- Pushed `codex/66-backlink-realignment` to `origin` with upstream set to
+  `origin/codex/66-backlink-realignment`, and opened pull request #48 against
+  `main`: https://github.com/dylanliu2002/threethai-website/pull/48
+- The card is now `REVIEW`. This task does not merge itself and does not merge
+  PR #47; both await an independent reviewer.
