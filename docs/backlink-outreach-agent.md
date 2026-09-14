@@ -19,6 +19,8 @@ links, or creates accounts.
 The default endpoint is Qwen's international OpenAI-compatible endpoint and
 the default model is `qwen3.8-flash`. The endpoint can be overridden for a
 workspace-specific Qwen/DashScope endpoint through `DASHSCOPE_BASE_URL`.
+For web research, the tool enables Qwen reasoning at low effort so it can plan
+search and extraction steps without using the model's highest-cost setting.
 
 ## Commands
 
@@ -34,6 +36,10 @@ Run one research pass and save a review queue:
 ```powershell
 bun --env-file=.env.local scripts/backlink-agent.mjs --input scripts/backlink-agent.example.json --out backlink-review-queue.json
 ```
+
+Web research can take longer than an ordinary model call. While it runs, the
+tool writes a progress message only; it does not print the brief, response, or
+credential.
 
 Run the non-network test suite:
 

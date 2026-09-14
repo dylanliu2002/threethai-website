@@ -35,6 +35,8 @@ test("buildRequest uses the documented compatible endpoint without embedding cre
   assert.equal(request.body.model, "qwen3.8-flash");
   assert.equal(JSON.stringify(request.body).includes("not-serialized"), false);
   assert.equal(request.body.store, false);
+  assert.equal(request.body.enable_thinking, true);
+  assert.deepEqual(request.body.reasoning, { effort: "low" });
   assert.deepEqual(request.body.tools, [{ type: "web_search" }, { type: "web_extractor" }]);
 });
 

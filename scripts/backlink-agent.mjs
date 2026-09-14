@@ -197,8 +197,11 @@ export function buildRequest(brief, environment = process.env) {
       ],
       tools: [{ type: "web_search" }, { type: "web_extractor" }],
       tool_choice: "auto",
-      enable_thinking: false,
-      max_output_tokens: 6000,
+      // Qwen recommends thinking mode for web-search and extraction workflows.
+      // Low effort keeps this first-pass research focused and cost-conscious.
+      enable_thinking: true,
+      reasoning: { effort: "low" },
+      max_output_tokens: 8000,
     },
   };
 }
@@ -299,15 +302,27 @@ async function runAgent(brief, environment = process.env, fetchImplementation = 
   const apiKey = environment.DASHSCOPE_API_KEY;
   if (!apiKey?.trim()) throw new Error("DASHSCOPE_API_KEY is required for a live run.");
   const request = buildRequest(brief, environment);
-  const response = await fetchImplementation(request.endpoint, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${apiKey}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(request.body),
-  });
-  if (!response.ok) throw new Error(`Qwen API request failed (HTTP ${response.status}).`);
+  // A web-search response can take longer than an ordinary text completion.
+  // The heartbeat contains no user data and makes CLI progress observable.
+  const progress = setInterval(() => process.stderr.write("[backlink-agent] Qwen research in progress...\n"), 15_000);
+  let response;
+  try {
+    response = await fetchImplementation(request.endpoint, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(request.body),
+    });
+  } finally {
+    clearInterval(progress);
+  }
+  if (!response.ok) {
+    const failure = await response.json().catch(() => undefined);
+    const code = typeof failure?.error?.code === "string" ? `: ${failure.error.code}` : "";
+    throw new Error(`Qwen API request failed (HTTP ${response.status}${code}).`);
+  }
   const modelOutput = validateModelOutput(parseJsonOnly(extractResponseText(await response.json())), brief.campaign.maxProspects);
   return {
     generatedAt: new Date().toISOString(),
