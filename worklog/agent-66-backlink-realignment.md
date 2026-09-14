@@ -3,7 +3,7 @@ Task ID: 66
 Role: ORCHESTRATOR
 Task: Backlink Task Realignment
 Branch: codex/66-backlink-realignment
-Commit: not committed
+Commit: f8dd81c875b24124769245ed2beeb4d8e5954182
 
 Work Log:
 - Read `tasks/16-backlink-audit.md`, `tasks/README.md`, `docs/audits/README.md`,
@@ -30,3 +30,13 @@ Stage Summary:
 - Open item outside this task: PR #47 still needs an independent reviewer.
 - Next: push the branch and request independent review. The implementer cannot
   approve this work and does not merge it.
+
+Commit Record:
+- `f8dd81c875b24124769245ed2beeb4d8e5954182` — "Task 66: realign backlink audit
+  scope onto Task 67"; 7 files changed, exactly the card's file allowlist.
+- Validation before commit: `git diff --check` clean, `git status --short`
+  showed only the seven allowlisted paths, and
+  `git diff --name-only origin/main...HEAD` listed the same seven paths.
+- Git identity verified before commit: `dylanliu2002 <dylanliu2002@gmail.com>`.
+- The push and pull request for `codex/66-backlink-realignment` are recorded in
+  the follow-up commit that carries this Completion Record.
