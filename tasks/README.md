@@ -38,14 +38,20 @@ or held task must name its reason in **Coordination items**; it is never silent.
 | 14 | `14-brand-ux-audit.md` | BRAND_UX | `codex/14-brand-ux-audit` | `docs/audits/14-brand-ux.md` |
 | 15 | `15-qa-performance-audit.md` | QA_PERFORMANCE | `codex/15-qa-performance-audit` | `docs/audits/15-qa-performance.md` |
 | 16 | `16-backlink-audit.md` | BACKLINK | `codex/16-backlink-audit` | `docs/audits/16-backlink.md` |
+| 67 | `67-backlink-authority-audit.md` | BACKLINK | `codex/67-backlink-authority-audit` | `docs/audits/67-backlink-authority.md` |
 
 Tasks 10–15 are the current Audit Wave. Read each task-owned card and branch for
 its live status; this table records the durable task, Role, branch, and report
 mapping and does not override task-owned state.
 
 Task 16 is `AUDIT`, `P1`, and `ON_HOLD` because legacy Task 48 overlaps backlink
-research and retains a dirty worktree. Its resume condition is authoritative in
-`tasks/16-backlink-audit.md`; do not launch it while that hold remains.
+research, and its resume condition cannot be met while that legacy worktree must
+stay untouched. On 2026-09-14 the backlink audit scope was reassigned to Task 67
+(`tasks/67-backlink-authority-audit.md`, branch `codex/67-backlink-authority-audit`,
+report `docs/audits/67-backlink-authority.md`), which depends on no legacy hold.
+Task 16 stays on hold as the historical Audit Wave record and must not be
+started. Legacy Task 48's uncommitted work was relanded onto `origin/main` as
+PR #47; its original worktree remains preserved and untouched.
 
 ## Current Implementation Tasks
 
