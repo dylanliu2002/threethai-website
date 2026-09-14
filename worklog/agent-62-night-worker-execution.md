@@ -56,3 +56,34 @@
 - No push, PR, review, merge, force-push, activation, publishing, production,
   subagent, `codex exec`, Terra, or fallback action was performed. Independent
   SOL review remains pending.
+
+## 2026-09-14 — human-authorized correction cycle 1
+
+- Continued in the same Task 62 worktree and branch from reviewed head
+  `e90f1cc1aba9537c8b24bf4c3747d1ade0f6ec66`, preserving the pre-existing
+  untracked `.night-worker/runtime.json` and all prior implementation work.
+- Fixed the reviewed blockers without a new Grant/controller: durable worker
+  completion now waits for terminal `thread/read`; all live implementations
+  reserve through the one canonical parent RuntimeStore; Task 61 retry/bare
+  mapping normalization avoids duplicate lifecycle calls; production dispatch
+  requires a genuine App Server client and immutable captured ThreadBroker
+  base methods; planning is explicit-batch and digest-bound to the persistent
+  plan bundle; base/worktree/validation authorities are fixed and fail closed.
+- Added adversarial regressions for exact model/no fallback/Terra, bounded SOL
+  planning, provider and option authority, plan persistence, protected paths,
+  canonical worktrees, clean reuse, READY/dependency gating, conservative
+  overlap, real parallel execution, shared capacity, terminal completion,
+  retry, exact cwd, authoritative Git scope, zero-path rejection, validation
+  gates, shell/Git mutation rejection, and idle/no-submission behavior.
+- `node --test night-worker/tests/task-62*.test.mjs` PASS (20/20).
+- `node --test night-worker/tests/*.test.mjs` PASS (53/53), including all
+  Task 61 recovery regressions.
+- `node --check` PASS for all changed production and Task 62 test modules.
+- `npm run lint` BLOCKED (`eslint` unavailable); `npm run build` BLOCKED
+  (`next` unavailable); `npm run typecheck` BLOCKED (`tsc` unavailable) in the
+  restricted dependency environment. No package, lock, workflow, `.github`,
+  Task 61, or SYS-AUTO-007 file was changed.
+- `git diff --check` PASS. Final hash-qualified diff allowlist, forbidden
+  surface immutability, `origin/main` ancestry, and exact latest commit
+  identity are required before delivery. No push, PR, merge, review decision,
+  publishing, subagent, `codex exec`, Terra, or fallback action was performed.

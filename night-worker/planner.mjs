@@ -1,31 +1,33 @@
+import crypto from "node:crypto";
 import { assertNoSecretsDeep, sanitizeForLog } from "../workflow/secrets.mjs";
 import { MVP_CONFIG, REVIEW_DEFAULT_REASONING_EFFORT } from "./config.mjs";
 import {
   PLANNING_MODEL_POLICY,
+  assertPlanningPolicy,
   planningPolicyForDifficulty,
 } from "./model-policy.mjs";
 import {
   TASK_PLAN_SCHEMA_VERSION,
+  TRUSTED_BASE_REF,
   validateTaskPlans,
 } from "./schemas.mjs";
-import { allocateTaskWorktrees } from "./worktrees.mjs";
+import { allocateTaskWorktrees, resolveTrustedBaseCommit } from "./worktrees.mjs";
 import { RuntimeStore } from "./runtime-store.mjs";
+import { defaultRuntimeStorePath } from "./submission.mjs";
+import { assertSafeValidationCommands } from "./validation.mjs";
+
+const PLAN_BINDING_FIELD = "__night_worker_plan_binding";
+const PLAN_BINDING_SCHEMA_VERSION = 1;
 
 const ALLOWED_PROVIDER_PLAN_FIELDS = new Set([
-  "batch_id",
-  "submission_id",
   "task_id",
-  "position",
   "title",
   "description",
-  "branch",
-  "worktree",
   "allowlist",
   "acceptance_criteria",
   "validation_commands",
   "difficulty",
   "dependencies",
-  "base_ref",
   "state",
 ]);
 
@@ -39,50 +41,81 @@ function clone(value) {
   return typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value));
 }
 
-function submittedBatchFrom({ store, batch, batchId }) {
-  if (store !== undefined && !(store instanceof RuntimeStore)) {
-    throw new Error("Planner requires the real Task 61 RuntimeStore.");
+function assertCanonicalStore(store, batch) {
+  const expected = defaultRuntimeStorePath(batch.repository_root);
+  const actual = store.filePath;
+  if (expected !== actual && expected.toLocaleLowerCase("en-US") !== actual.toLocaleLowerCase("en-US")) {
+    throw new Error("Planner requires the canonical submitted repository RuntimeStore.");
   }
-  if (!batch && !batchId) throw new Error("Planning requires an explicit submitted batch.");
-  const requestedId = batchId ?? batch?.batch_id;
-  const durable = store ? store.getBatch(requestedId) : null;
-  if (store && !durable) throw new Error(`Cannot plan without an explicit submitted batch: ${requestedId}`);
-  if (batch && durable && (batch.batch_id !== durable.batch_id || batch.submission_id !== durable.submission_id)) {
-    throw new Error("Planner batch does not match the durable submitted batch.");
-  }
-  const selected = durable ?? batch;
-  assertObject(selected, "submitted batch");
-  if (typeof selected.batch_id !== "string" || selected.batch_id.length === 0
-    || typeof selected.submission_id !== "string" || selected.submission_id.length === 0) {
-    throw new Error("Submitted batch must have durable batch and submission identifiers.");
-  }
-  if (!Array.isArray(selected.tasks) || selected.tasks.length < 1
-    || selected.tasks.length > MVP_CONFIG.max_tasks_per_batch) {
-    throw new Error("Submitted batch task count is outside the bounded limit.");
-  }
-  if (!["QUEUED", "CLAIMED", "RUNNING"].includes(selected.state)) {
-    throw new Error(`Batch is not eligible for planning: ${selected.state}`);
-  }
-  assertNoSecretsDeep(selected, "submitted batch");
-  return clone(selected);
 }
 
-export function planningRequest(batch, {
-  difficulty = REVIEW_DEFAULT_REASONING_EFFORT,
-  policy = planningPolicyForDifficulty(difficulty),
-} = {}) {
-  const selected = submittedBatchFrom({ batch });
+function submittedBatchFrom({ store, batchId } = {}) {
+  if (!(store instanceof RuntimeStore)) {
+    throw new Error("Planner requires the real Task 61 RuntimeStore.");
+  }
+  if (typeof batchId !== "string" || batchId.trim().length === 0 || batchId.includes("\0")) {
+    throw new Error("Planning requires an explicit submitted batch ID.");
+  }
+  const requestedId = batchId.trim();
+  const durable = store.getBatch(requestedId);
+  if (!durable || durable.batch_id !== requestedId) {
+    throw new Error(`Cannot plan without an explicit submitted batch: ${requestedId}`);
+  }
+  assertObject(durable, "submitted batch");
+  assertCanonicalStore(store, durable);
+  if (typeof durable.submission_id !== "string" || durable.submission_id.length === 0) {
+    throw new Error("Submitted batch must have a durable submission identifier.");
+  }
+  if (!Array.isArray(durable.tasks) || durable.tasks.length < 1
+    || durable.tasks.length > MVP_CONFIG.max_tasks_per_batch) {
+    throw new Error("Submitted batch task count is outside the bounded limit.");
+  }
+  if (!["QUEUED", "CLAIMED", "RUNNING"].includes(durable.state)) {
+    throw new Error(`Batch is not eligible for planning: ${durable.state}`);
+  }
+  assertNoSecretsDeep(durable, "submitted batch");
+  return clone(durable);
+}
+
+function planningOptions(options) {
+  if (!options || typeof options !== "object" || Array.isArray(options)) {
+    throw new Error("Planning options must be an object.");
+  }
+  for (const key of ["model", "provider", "solPlanner", "orchestrator", "policy", "permissions", "capabilities", "fallback",
+    "allowProviderModelFallback", "ephemeral", "fork", "subagent", "subagents", "sandbox", "baseSha",
+    "exec", "commandRunner", "prepareWorktrees"]) {
+    if (Object.prototype.hasOwnProperty.call(options, key)) {
+      throw new Error(`Planning cannot accept caller policy or authority override: ${key}`);
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(options, "baseRef")) {
+    throw new Error(`Planning base is fixed to the trusted ${TRUSTED_BASE_REF} ref.`);
+  }
+  if (Object.prototype.hasOwnProperty.call(options, "plans")) {
+    throw new Error("Planning output must come from the persistent Orchestrator provider.");
+  }
+}
+
+export function planningRequest(options = {}) {
+  planningOptions(options);
+  if (Object.prototype.hasOwnProperty.call(options, "planProvider")) {
+    throw new Error("Planning requests are data for the persistent Orchestrator provider, not a provider override.");
+  }
+  const { store, batchId, difficulty = REVIEW_DEFAULT_REASONING_EFFORT } = options;
+  const selected = submittedBatchFrom({ store, batchId });
+  const policy = planningPolicyForDifficulty(difficulty);
+  assertPlanningPolicy(policy);
+  const baseSha = resolveTrustedBaseCommit(selected.repository_root);
   const request = {
     purpose: "bounded-task-decomposition",
     planning_thread: "persistent-orchestrator",
-    policy: {
-      ...PLANNING_MODEL_POLICY,
-      ...policy,
-    },
+    policy,
     batch: {
       batch_id: selected.batch_id,
       submission_id: selected.submission_id,
       repository_root: selected.repository_root,
+      base_ref: TRUSTED_BASE_REF,
+      base_sha: baseSha,
       tasks: selected.tasks.map((task) => ({
         task_id: task.task_id,
         position: task.position,
@@ -92,6 +125,7 @@ export function planningRequest(batch, {
     output_contract: {
       one_plan_per_submitted_task: true,
       max_plans: MVP_CONFIG.max_tasks_per_batch,
+      derived_fields: ["batch_id", "submission_id", "position", "branch", "worktree", "base_ref", "base_sha"],
       required_fields: [
         "task_id",
         "allowlist",
@@ -117,7 +151,7 @@ function assertProviderFields(candidate) {
   assertObject(candidate, "planner output plan");
   for (const key of Object.keys(candidate)) {
     if (!ALLOWED_PROVIDER_PLAN_FIELDS.has(key)) {
-      throw new Error(`Planner output contains an unsupported field: ${key}`);
+      throw new Error(`Planner output cannot override derived or authority field: ${key}`);
     }
   }
 }
@@ -128,130 +162,175 @@ function taskForCandidate(candidate, tasks, index) {
     if (!task) throw new Error(`Planner output references a task outside the submitted batch: ${candidate.task_id}`);
     return task;
   }
-  if (candidate.position !== undefined) {
-    const task = tasks.find((entry) => entry.position === candidate.position);
-    if (!task) throw new Error(`Planner output references an unknown task position: ${candidate.position}`);
-    return task;
-  }
   const task = tasks[index];
   if (!task) throw new Error("Planner output contains more plans than submitted tasks.");
   return task;
 }
 
-function assertDerivedIdentity(candidate, task, batch) {
-  for (const [field, expected] of [
-    ["batch_id", batch.batch_id],
-    ["submission_id", batch.submission_id],
-    ["task_id", task.task_id],
-    ["position", task.position],
-  ]) {
-    if (candidate[field] !== undefined && candidate[field] !== expected) {
-      throw new Error(`Planner output cannot override durable ${field}.`);
-    }
-  }
-}
-
-export function normalizePlanOutput(batch, output, {
-  worktreeRoot,
-  baseRef = "origin/main",
-} = {}) {
-  const selected = submittedBatchFrom({ batch });
+function normalizePlanOutputForBatch(batch, output, { worktreeRoot, baseSha } = {}) {
   const candidates = providerPlans(output);
-  if (candidates.length !== selected.tasks.length || candidates.length > MVP_CONFIG.max_tasks_per_batch) {
+  if (candidates.length !== batch.tasks.length || candidates.length > MVP_CONFIG.max_tasks_per_batch) {
     throw new Error("Planner output must contain exactly one bounded plan per submitted task.");
   }
   const rawPlans = candidates.map((candidate, index) => {
     assertProviderFields(candidate);
-    const task = taskForCandidate(candidate, selected.tasks, index);
-    assertDerivedIdentity(candidate, task, selected);
-    if (candidate.base_ref !== undefined && candidate.base_ref !== baseRef) {
-      throw new Error("Planner output cannot override the authoritative base_ref.");
-    }
+    assertSafeValidationCommands(candidate.validation_commands);
+    const task = taskForCandidate(candidate, batch.tasks, index);
     return {
       schema_version: TASK_PLAN_SCHEMA_VERSION,
-      batch_id: selected.batch_id,
-      submission_id: selected.submission_id,
+      batch_id: batch.batch_id,
+      submission_id: batch.submission_id,
       task_id: task.task_id,
       position: task.position,
       title: candidate.title,
       description: candidate.description ?? task.description,
-      branch: candidate.branch,
-      worktree: candidate.worktree,
       allowlist: candidate.allowlist,
       acceptance_criteria: candidate.acceptance_criteria,
       validation_commands: candidate.validation_commands,
       difficulty: candidate.difficulty ?? "medium",
       dependencies: candidate.dependencies,
-      base_ref: baseRef,
+      base_ref: TRUSTED_BASE_REF,
+      base_sha: baseSha,
       state: candidate.state ?? "READY",
     };
   });
   const allocated = allocateTaskWorktrees({
-    repositoryRoot: selected.repository_root,
+    repositoryRoot: batch.repository_root,
     plans: rawPlans,
     worktreeRoot,
-    baseRef,
   });
-  return validateTaskPlans(allocated, { batch: selected, requireReady: true });
+  return validateTaskPlans(allocated, { batch, requireReady: true });
 }
 
-export const normalizePlans = normalizePlanOutput;
+function bundleDigest(plans) {
+  return crypto.createHash("sha256").update(JSON.stringify(plans)).digest("hex");
+}
 
-export async function planBatch({
-  store,
-  batch,
-  batchId,
-  plans,
-  planProvider,
-  provider,
-  solPlanner,
-  difficulty = REVIEW_DEFAULT_REASONING_EFFORT,
-  worktreeRoot,
-  baseRef = "origin/main",
-  orchestrator,
-} = {}) {
-  if (!(store instanceof RuntimeStore)) {
-    throw new Error("Planning requires the real Task 61 RuntimeStore and an explicit submitted batch.");
+function bindingFromBatch(batch) {
+  const metadata = batch.reply_metadata;
+  if (metadata === null || metadata === undefined) return null;
+  assertObject(metadata, "submitted batch reply metadata");
+  if (!Object.prototype.hasOwnProperty.call(metadata, PLAN_BINDING_FIELD)) return null;
+  const binding = metadata[PLAN_BINDING_FIELD];
+  assertObject(binding, "persisted task-plan binding");
+  const allowed = new Set(["schema_version", "batch_id", "submission_id", "digest", "plans"]);
+  for (const key of Object.keys(binding)) {
+    if (!allowed.has(key)) throw new Error(`Persisted task-plan binding contains an unsupported field: ${key}`);
   }
-  const selected = submittedBatchFrom({ store, batch, batchId });
-  const policy = planningPolicyForDifficulty(difficulty);
-  const planner = planProvider ?? provider ?? solPlanner ?? orchestrator;
-  let output = plans;
-  if (output === undefined) {
-    if (typeof planner !== "function") {
-      throw new Error("An explicit submitted batch requires persistent Orchestrator planning output.");
+  if (binding.schema_version !== PLAN_BINDING_SCHEMA_VERSION
+    || binding.batch_id !== batch.batch_id
+    || binding.submission_id !== batch.submission_id
+    || typeof binding.digest !== "string") {
+    throw new Error("Persisted task-plan binding identity or schema is invalid.");
+  }
+  const plans = validateTaskPlans(binding.plans, { batch, requireReady: true });
+  const digest = bundleDigest(plans);
+  if (binding.digest !== digest) throw new Error("Persisted task-plan binding digest does not match its plans.");
+  return { digest, plans };
+}
+
+function persistPlanBinding(store, batch, plans) {
+  const digest = bundleDigest(plans);
+  const updated = store.updateBatch(batch.batch_id, (current) => {
+    if (current.submission_id !== batch.submission_id) {
+      throw new Error("Submitted batch changed while planning.");
     }
-    output = await planner(planningRequest(selected, { difficulty, policy }));
+    const existing = bindingFromBatch(current);
+    if (existing) {
+      if (existing.digest !== digest) throw new Error("Accepted task-plan bundle cannot be silently replanned.");
+      return current;
+    }
+    const metadata = current.reply_metadata === null || current.reply_metadata === undefined
+      ? {}
+      : { ...current.reply_metadata };
+    if (Object.prototype.hasOwnProperty.call(metadata, PLAN_BINDING_FIELD)) {
+      throw new Error("The reserved task-plan binding field cannot be caller supplied.");
+    }
+    metadata[PLAN_BINDING_FIELD] = {
+      schema_version: PLAN_BINDING_SCHEMA_VERSION,
+      batch_id: current.batch_id,
+      submission_id: current.submission_id,
+      digest,
+      plans: clone(plans),
+    };
+    if (Buffer.byteLength(JSON.stringify(metadata), "utf8") > MVP_CONFIG.max_batch_bytes) {
+      throw new Error("Persisted task-plan binding is oversized.");
+    }
+    assertNoSecretsDeep(metadata, "persisted task-plan binding");
+    return { ...current, reply_metadata: metadata };
+  });
+  const bound = bindingFromBatch(updated);
+  if (!bound) throw new Error("Task-plan binding was not durably persisted.");
+  return bound;
+}
+
+export async function planBatch(options = {}) {
+  planningOptions(options);
+  const {
+    store,
+    batchId,
+    planProvider,
+    difficulty = REVIEW_DEFAULT_REASONING_EFFORT,
+    worktreeRoot,
+  } = options;
+  const selected = submittedBatchFrom({ store, batchId });
+  const trustedBaseSha = resolveTrustedBaseCommit(selected.repository_root);
+  const persisted = bindingFromBatch(selected);
+  if (persisted) {
+    if (persisted.plans.some((plan) => plan.base_sha !== trustedBaseSha)) {
+      throw new Error("Persisted task-plan bundle is not based on the fresh trusted origin/main commit.");
+    }
+    return {
+      status: "PLANNED",
+      planning_thread: "persistent-orchestrator",
+      policy: planningPolicyForDifficulty(difficulty),
+      batch_id: selected.batch_id,
+      submission_id: selected.submission_id,
+      plan_digest: persisted.digest,
+      plans: persisted.plans,
+      persisted: true,
+    };
   }
-  const normalizedPlans = normalizePlanOutput(selected, output, { worktreeRoot, baseRef });
+  const planner = planProvider;
+  if (typeof planner !== "function") {
+    throw new Error("An explicit submitted batch requires persistent Orchestrator planning output.");
+  }
+  const request = planningRequest({ store, batchId: selected.batch_id, difficulty });
+  const output = await planner(request);
+  const normalizedPlans = normalizePlanOutputForBatch(selected, output, { worktreeRoot, baseSha: trustedBaseSha });
+  const bound = persistPlanBinding(store, selected, normalizedPlans);
   return {
     status: "PLANNED",
     planning_thread: "persistent-orchestrator",
-    policy,
+    policy: planningPolicyForDifficulty(difficulty),
     batch_id: selected.batch_id,
     submission_id: selected.submission_id,
-    plans: normalizedPlans,
+    plan_digest: bound.digest,
+    plans: bound.plans,
+    persisted: false,
   };
 }
 
 export const planSubmittedBatch = planBatch;
 export const createTaskPlans = planBatch;
 
-export function createPlanner({ store, planProvider, difficulty = REVIEW_DEFAULT_REASONING_EFFORT, worktreeRoot, baseRef = "origin/main" } = {}) {
+export function createPlanner({ store, planProvider, difficulty = REVIEW_DEFAULT_REASONING_EFFORT, worktreeRoot } = {}) {
   if (!(store instanceof RuntimeStore)) throw new Error("Planner requires the real Task 61 RuntimeStore.");
   if (typeof planProvider !== "function") throw new Error("Planner requires a persistent Orchestrator plan provider.");
   return Object.freeze({
     planBatch: (options = {}) => planBatch({
       ...options,
       store,
+      batchId: options.batchId,
       planProvider,
       difficulty: options.difficulty ?? difficulty,
       worktreeRoot: options.worktreeRoot ?? worktreeRoot,
-      baseRef: options.baseRef ?? baseRef,
     }),
   });
 }
 
 export {
   ALLOWED_PROVIDER_PLAN_FIELDS,
+  PLAN_BINDING_FIELD,
+  bundleDigest as taskPlanBundleDigest,
 };

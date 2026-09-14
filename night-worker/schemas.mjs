@@ -4,6 +4,7 @@ import { assertNoSecretsDeep, sanitizeForLog } from "../workflow/secrets.mjs";
 import { MVP_CONFIG } from "./config.mjs";
 
 export const TASK_PLAN_SCHEMA_VERSION = 1;
+export const TRUSTED_BASE_REF = "origin/main";
 
 export const TASK_PLAN_STATES = Object.freeze([
   "PLANNED",
@@ -32,6 +33,7 @@ const PLAN_FIELDS = new Set([
   "difficulty",
   "dependencies",
   "base_ref",
+  "base_sha",
   "state",
   "created_at",
   "updated_at",
@@ -42,6 +44,40 @@ const MAX_PLAN_CRITERIA = 32;
 const MAX_PLAN_COMMANDS = 32;
 const MAX_PLAN_ALLOWLIST = 128;
 const MAX_PLAN_TOTAL_BYTES = 64 * 1024;
+
+const PROTECTED_EXACT_PATHS = Object.freeze([
+  "AGENTS.md",
+  ".gitignore",
+  "package.json",
+  "package-lock.json",
+  "bun.lock",
+  "next.config.ts",
+  "vercel.json",
+  "Caddyfile",
+  "src/app/globals.css",
+  "src/app/layout.tsx",
+  "src/content/company.ts",
+  "src/components/layout/site-header.tsx",
+  "src/components/layout/site-footer.tsx",
+  "src/lib/inquiry.ts",
+  "middleware.ts",
+  "prisma/schema.prisma",
+  "prisma/schema.postgres.prisma",
+]);
+
+const PROTECTED_DIRECTORY_PATTERNS = Object.freeze([
+  /^\.git(?:\/|$)/i,
+  /^\.github(?:\/|$)/i,
+  /^workflow(?:\/|$)/i,
+  /^tasks(?:\/|$)/i,
+  /^worklog(?:\/|$)/i,
+  /^prisma(?:\/|$)/i,
+  /(^|\/)\.env[^\/]*(?:\/|$)/i,
+  /(^|\/)(?:deploy(?:ment)?|infra|terraform|k8s|kubernetes)(?:\/|$)/i,
+  /(^|\/)(?:dockerfile|docker-compose(?:\.|$)|caddyfile|vercel\.json|netlify\.toml)$/i,
+]);
+
+const SECRET_PATH_PATTERN = /(^|\/)(?:[^/]*(?:secret|credential|password|token|private[-_]?key)[^/]*)$/i;
 
 function assertObject(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -90,6 +126,12 @@ function normalizeScopePath(value, label = "allowlist path") {
   return normalized;
 }
 
+function protectedAllowlistPath(pattern) {
+  if (PROTECTED_DIRECTORY_PATTERNS.some((candidate) => candidate.test(pattern))) return true;
+  if (SECRET_PATH_PATTERN.test(pattern)) return true;
+  return PROTECTED_EXACT_PATHS.some((protectedPath) => scopePatternMatches(pattern, protectedPath));
+}
+
 function normalizeStringArray(value, label, { maxItems, maxChars = 10_000 } = {}) {
   if (!Array.isArray(value) || value.length < 1 || value.length > maxItems) {
     throw new Error(`${label} must contain between one and ${maxItems} entries.`);
@@ -104,7 +146,12 @@ export function normalizeAllowlist(value) {
     maxItems: MAX_PLAN_ALLOWLIST,
     maxChars: 1_000,
   }).map((entry) => normalizeScopePath(entry));
-  return [...new Set(values)];
+  const normalized = [...new Set(values)];
+  const protectedPath = normalized.find((pattern) => protectedAllowlistPath(pattern));
+  if (protectedPath) {
+    throw new Error(`Task allowlist contains a protected, shared, deployment, or secret-bearing path: ${protectedPath}`);
+  }
+  return normalized;
 }
 
 function normalizeBranch(value) {
@@ -139,6 +186,21 @@ function normalizeState(value) {
   return state;
 }
 
+function normalizeBaseRef(value) {
+  const baseRef = nonEmptyText(value, "plan base_ref", 300);
+  if (baseRef !== TRUSTED_BASE_REF) {
+    throw new Error(`Task plans must use the trusted ${TRUSTED_BASE_REF} base ref.`);
+  }
+  return baseRef;
+}
+
+function normalizeBaseSha(value) {
+  if (typeof value !== "string" || !/^[0-9a-f]{40}$/i.test(value.trim())) {
+    throw new Error("Task plans require a strict 40-character trusted base commit SHA.");
+  }
+  return value.trim().toLocaleLowerCase("en-US");
+}
+
 export function validateTaskPlan(plan, {
   batch,
   requireCanonicalWorktree = false,
@@ -170,7 +232,8 @@ export function validateTaskPlan(plan, {
     }),
     difficulty: plan.difficulty === undefined ? "medium" : nonEmptyText(plan.difficulty, "plan difficulty", 80),
     dependencies: normalizeDependencies(plan.dependencies),
-    base_ref: plan.base_ref === undefined ? undefined : nonEmptyText(plan.base_ref, "plan base_ref", 300),
+    base_ref: normalizeBaseRef(plan.base_ref),
+    base_sha: normalizeBaseSha(plan.base_sha),
     state: normalizeState(plan.state),
     created_at: plan.created_at === undefined ? undefined : nonEmptyText(plan.created_at, "plan created_at", 100),
     updated_at: plan.updated_at === undefined ? undefined : nonEmptyText(plan.updated_at, "plan updated_at", 100),
@@ -187,7 +250,7 @@ export function validateTaskPlan(plan, {
     if (!task) throw new Error(`Task plan references a task outside the submitted batch: ${normalized.task_id}`);
     if (normalized.position !== task.position) throw new Error("Task plan position does not match the submitted task.");
   }
-  if (requireReady && !["READY", "PLANNED"].includes(normalized.state)) {
+  if (requireReady && normalized.state !== "READY") {
     throw new Error(`Task plan is not ready: ${normalized.state}`);
   }
   if (requireCanonicalWorktree) {
@@ -223,6 +286,27 @@ export function validateTaskPlans(plans, { batch, requireReady = false } = {}) {
     branches.add(branchKey);
     worktrees.add(worktreeKey);
   }
+  const knownTaskIds = new Set(normalized.map((plan) => plan.task_id));
+  for (const plan of normalized) {
+    for (const dependency of plan.dependencies) {
+      if (!knownTaskIds.has(dependency)) {
+        throw new Error(`Task plan dependency is outside the submitted plan bundle: ${dependency}`);
+      }
+      if (dependency === plan.task_id) throw new Error(`Task plan cannot depend on itself: ${plan.task_id}`);
+    }
+  }
+  const visiting = new Set();
+  const visited = new Set();
+  function visit(taskId) {
+    if (visiting.has(taskId)) throw new Error("Task plan dependencies contain a cycle.");
+    if (visited.has(taskId)) return;
+    visiting.add(taskId);
+    const current = normalized.find((plan) => plan.task_id === taskId);
+    for (const dependency of current.dependencies) visit(dependency);
+    visiting.delete(taskId);
+    visited.add(taskId);
+  }
+  for (const plan of normalized) visit(plan.task_id);
   if (batch) {
     if (normalized.length !== batch.tasks.length) {
       throw new Error("Every submitted task must have exactly one bounded task plan.");
@@ -235,8 +319,8 @@ export function validateTaskPlans(plans, { batch, requireReady = false } = {}) {
 }
 
 export function scopePatternMatches(pattern, filePath) {
-  const normalizedPattern = normalizeScopePath(pattern);
-  const normalizedFile = normalizedRepoPath(filePath, "changed path");
+  const normalizedPattern = normalizeScopePath(pattern).toLocaleLowerCase("en-US");
+  const normalizedFile = normalizedRepoPath(filePath, "changed path").toLocaleLowerCase("en-US");
   if (normalizedPattern.endsWith("/**")) {
     const prefix = normalizedPattern.slice(0, -3);
     return normalizedFile === prefix || normalizedFile.startsWith(`${prefix}/`);
@@ -293,6 +377,8 @@ export function workerSafePlan(plan) {
     validation_commands: [...normalized.validation_commands],
     difficulty: normalized.difficulty,
     dependencies: [...normalized.dependencies],
+    base_ref: normalized.base_ref,
+    base_sha: normalized.base_sha,
   };
   assertNoSecretsDeep(safe, "worker task plan");
   return sanitizeForLog(safe);

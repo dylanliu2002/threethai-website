@@ -6,13 +6,38 @@ import { validateTaskPlans } from "./schemas.mjs";
 import { prepareTaskWorktrees } from "./worktrees.mjs";
 import { validateTaskPlanExecution } from "./validation.mjs";
 import { RuntimeStore } from "./runtime-store.mjs";
+import { AppServerClient, isGenuineAppServerClient } from "./app-server-client.mjs";
 
-function durableBatch(store, batch) {
+const EXECUTOR_OPTIONS = new Set([
+  "store",
+  "planProvider",
+  "client",
+  "worktreeRoot",
+  "difficulty",
+  "maxParallel",
+  "overlapPolicy",
+]);
+
+function assertOptions(options, allowed, label) {
+  for (const key of Object.keys(options ?? {})) {
+    if (!allowed.has(key)) throw new Error(`${label} cannot accept caller override: ${key}`);
+  }
+}
+
+function durableBatch(store, batchOrId) {
   if (!(store instanceof RuntimeStore)) throw new Error("Night Worker executor requires the real Task 61 RuntimeStore.");
-  if (!batch || typeof batch !== "object" || Array.isArray(batch)) throw new Error("An explicit submitted batch is required.");
-  const stored = store.getBatch(batch.batch_id);
-  if (!stored || stored.submission_id !== batch.submission_id) {
+  const batchId = typeof batchOrId === "string" ? batchOrId : batchOrId?.batch_id;
+  if (typeof batchId !== "string" || batchId.trim().length === 0) {
+    throw new Error("An explicit submitted batch ID is required.");
+  }
+  const stored = store.getBatch(batchId.trim());
+  if (!stored || stored.batch_id !== batchId.trim()) {
     throw new Error("Execution requires a durable batch created by explicit submission.");
+  }
+  if (batchOrId && typeof batchOrId === "object"
+    && batchOrId.submission_id !== undefined
+    && batchOrId.submission_id !== stored.submission_id) {
+    throw new Error("Execution batch identity does not match the canonical RuntimeStore.");
   }
   if (!["QUEUED", "CLAIMED", "RUNNING"].includes(stored.state)) {
     throw new Error(`Batch is not eligible for execution: ${stored.state}`);
@@ -27,115 +52,78 @@ function reportedFiles(result) {
 }
 
 export class NightWorkerExecutor {
-  constructor({
-    store,
-    planProvider,
-    planner,
-    broker,
-    brokerFactory,
-    client,
-    worktreeRoot,
-    baseRef = "origin/main",
-    difficulty = REVIEW_DEFAULT_REASONING_EFFORT,
-    maxParallel = MVP_CONFIG.max_parallel_implementation_workers,
-    overlapPolicy = "serialize",
-    commandRunner,
-    exec,
-    prepareWorktrees = prepareTaskWorktrees,
-  } = {}) {
+  constructor(options = {}) {
+    assertOptions(options, EXECUTOR_OPTIONS, "Night Worker executor");
+    const {
+      store,
+      planProvider,
+      client,
+      worktreeRoot,
+      difficulty = REVIEW_DEFAULT_REASONING_EFFORT,
+      maxParallel = MVP_CONFIG.max_parallel_implementation_workers,
+      overlapPolicy = "serialize",
+    } = options;
     if (!(store instanceof RuntimeStore)) throw new Error("Night Worker executor requires the real Task 61 RuntimeStore.");
-    if (planner !== undefined && (!planner || typeof planner.planBatch !== "function")) {
-      throw new Error("executor planner must expose planBatch.");
+    if (planProvider !== undefined && typeof planProvider !== "function") {
+      throw new Error("Night Worker executor planProvider must be the persistent Orchestrator provider.");
     }
-    if (typeof prepareWorktrees !== "function") throw new Error("Task worktree preparation must be a function.");
+    if (!(client instanceof AppServerClient) || !isGenuineAppServerClient(client)) {
+      throw new Error("Night Worker executor requires a genuine constructed Task 61 App Server client.");
+    }
+    if (!Number.isInteger(maxParallel) || maxParallel < 1
+      || maxParallel > MVP_CONFIG.max_parallel_implementation_workers) {
+      throw new Error("Task plan parallelism exceeds the fixed Night Worker limit.");
+    }
+    if (!["serialize", "reject"].includes(overlapPolicy)) throw new Error("Unsupported task plan overlap policy.");
     this.store = store;
     this.plan_provider = planProvider;
-    this.planner = planner;
-    this.broker = broker;
-    this.broker_factory = brokerFactory;
     this.client = client;
     this.worktree_root = worktreeRoot;
-    this.base_ref = baseRef;
     this.difficulty = difficulty;
     this.max_parallel = maxParallel;
     this.overlap_policy = overlapPolicy;
-    this.command_runner = commandRunner;
-    this.exec = exec;
-    this.prepare_worktrees = prepareWorktrees;
   }
 
-  async plan(batch, options = {}) {
-    if (this.planner) {
-      return this.planner.planBatch({
-        ...options,
-        store: this.store,
-        batch,
-      });
-    }
-    if (typeof (options.planProvider ?? this.plan_provider) !== "function" && options.plans === undefined) {
-      throw new Error("Night Worker executor requires persistent Orchestrator planning output.");
-    }
+  async plan(batchId) {
     return planBatch({
-      ...options,
       store: this.store,
-      batch,
-      planProvider: options.planProvider ?? this.plan_provider,
-      difficulty: options.difficulty ?? this.difficulty,
-      worktreeRoot: options.worktreeRoot ?? this.worktree_root,
-      baseRef: options.baseRef ?? this.base_ref,
+      batchId,
+      planProvider: this.plan_provider,
+      difficulty: this.difficulty,
+      worktreeRoot: this.worktree_root,
     });
   }
 
-  async executeBatch(batch, {
-    plans,
-    planProvider,
-    broker,
-    brokerFactory,
-    client,
-    worktreeRoot,
-    baseRef,
-    difficulty,
-    signal,
-    heartbeat,
-    commandRunner,
-    exec,
-    prepareWorktrees,
-  } = {}) {
-    const selectedBatch = durableBatch(this.store, batch);
+  async executeBatch(batchOrId, options = {}) {
+    assertOptions(options, new Set(["signal", "heartbeat"]), "Night Worker execution");
+    const { signal, heartbeat } = options;
+    const selectedBatch = durableBatch(this.store, batchOrId);
     heartbeat?.();
-    const planning = await this.plan(selectedBatch, {
-      plans,
-      planProvider: planProvider ?? this.plan_provider,
-      difficulty: difficulty ?? this.difficulty,
-      worktreeRoot: worktreeRoot ?? this.worktree_root,
-      baseRef: baseRef ?? this.base_ref,
-    });
+    const planning = await this.plan(selectedBatch.batch_id);
     let normalizedPlans = validateTaskPlans(planning.plans, { batch: selectedBatch, requireReady: true });
-    const prepared = (prepareWorktrees ?? this.prepare_worktrees)({
+    const prepared = prepareTaskWorktrees({
       repositoryRoot: selectedBatch.repository_root,
       plans: normalizedPlans,
-      worktreeRoot: worktreeRoot ?? this.worktree_root,
-      baseRef: baseRef ?? this.base_ref,
-      exec: exec ?? this.exec,
+      worktreeRoot: this.worktree_root,
     });
     normalizedPlans = validateTaskPlans(prepared.map((entry) => ({
       ...entry.plan,
       worktree: entry.worktree.worktree,
       branch: entry.worktree.branch,
+      base_ref: entry.worktree.base_ref,
+      base_sha: entry.worktree.base_sha,
       state: "READY",
     })), { batch: selectedBatch, requireReady: true });
     heartbeat?.();
 
     const runner = new AgentRunner({
       store: this.store,
-      batch: selectedBatch,
-      broker: broker ?? this.broker,
-      brokerFactory: brokerFactory ?? this.broker_factory,
-      client: client ?? this.client,
+      batchId: selectedBatch.batch_id,
+      client: this.client,
     });
     const workerResults = await runReadyPlans(
       normalizedPlans,
-      (plan) => runner.run(plan, selectedBatch, { signal }),
+      (plan) => runner.run(plan, selectedBatch.batch_id, { signal }),
       {
         maxParallel: this.max_parallel,
         overlapPolicy: this.overlap_policy,
@@ -155,10 +143,7 @@ export class NightWorkerExecutor {
       return validateTaskPlanExecution({
         plan: workerResult.plan,
         repositoryRoot: selectedBatch.repository_root,
-        baseRef: workerResult.plan.base_ref ?? baseRef ?? this.base_ref,
         reportedChangedFiles: reportedFiles(workerResult.result),
-        commandRunner: commandRunner ?? this.command_runner,
-        exec: exec ?? this.exec,
       });
     });
     const publishable = validations.length === normalizedPlans.length
@@ -178,8 +163,8 @@ export class NightWorkerExecutor {
     });
   }
 
-  run(batch, options) {
-    return this.executeBatch(batch, options);
+  run(batchOrId, options) {
+    return this.executeBatch(batchOrId, options);
   }
 }
 
@@ -189,20 +174,25 @@ export function createExecutor(options) {
 
 export const createNightWorkerExecutor = createExecutor;
 export const executeBatch = async (options = {}) => {
-  const { executor, batch, ...rest } = options;
+  assertOptions(options, new Set(["executor", "batch", "batchId", "signal", "heartbeat"]), "executeBatch");
+  const { executor, batch, batchId, ...rest } = options;
   if (!(executor instanceof NightWorkerExecutor)) throw new Error("executeBatch requires a NightWorkerExecutor.");
-  return executor.executeBatch(batch, rest);
+  if (batch !== undefined && batchId !== undefined) throw new Error("Provide batch or batchId, not both.");
+  return executor.executeBatch(batchId ?? batch, rest);
 };
 
 export function createExecutionHandler(executor, options = {}) {
-  if (!(executor instanceof NightWorkerExecutor) && (!executor || typeof executor.executeBatch !== "function")) {
+  if (!(executor instanceof NightWorkerExecutor)) {
     throw new Error("Execution handler requires a NightWorkerExecutor.");
   }
-  return (batch, context = {}) => executor.executeBatch(batch, {
-    ...options,
-    signal: context.signal,
-    heartbeat: context.heartbeat,
-  });
+  assertOptions(options, new Set(), "Execution handler");
+  return (batch, context = {}) => {
+    assertOptions(context, new Set(["signal", "heartbeat"]), "Execution context");
+    return executor.executeBatch(batch, {
+      signal: context.signal,
+      heartbeat: context.heartbeat,
+    });
+  };
 }
 
 export const createNightWorkerHandler = createExecutionHandler;

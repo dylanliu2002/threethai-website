@@ -7,7 +7,8 @@ import {
   validateTaskPlans,
   workerSafePlan,
 } from "./schemas.mjs";
-import { allocateTaskWorktree } from "./worktrees.mjs";
+import { allocateTaskWorktree, resolveTrustedBaseCommit } from "./worktrees.mjs";
+import { assertSafeValidationCommands } from "./validation.mjs";
 
 const TRANSITIONS = Object.freeze({
   PLANNED: new Set(["READY", "REJECTED"]),
@@ -47,6 +48,8 @@ export function createTaskPlan({
   assertObject(batch, "submitted batch");
   assertObject(task, "submitted task");
   if (task.task_id === undefined || task.position === undefined) throw new Error("Submitted task identity is required.");
+  assertSafeValidationCommands(validationCommands);
+  const trustedBaseSha = resolveTrustedBaseCommit(batch.repository_root);
   const allocated = allocateTaskWorktree({
     repositoryRoot: batch.repository_root,
     plan: {
@@ -56,6 +59,7 @@ export function createTaskPlan({
       title,
       branch,
       worktree,
+      base_sha: trustedBaseSha,
     },
     worktreeRoot,
     baseRef,
@@ -76,7 +80,8 @@ export function createTaskPlan({
     validation_commands: validationCommands,
     difficulty,
     dependencies,
-    base_ref: baseRef,
+    base_ref: allocated.base_ref,
+    base_sha: allocated.base_sha,
     state: "PLANNED",
     created_at: now,
     updated_at: now,

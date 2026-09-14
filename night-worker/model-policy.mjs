@@ -196,7 +196,7 @@ export function assertNoWorkerAuthority(value = {}) {
   ]);
   for (const [key, current] of Object.entries(value)) {
     const normalizedKey = key.toLocaleLowerCase("en-US").replace(/[^a-z0-9]/g, "");
-    if (forbidden.has(normalizedKey) && current === true) {
+    if (forbidden.has(normalizedKey) && current !== undefined && current !== null && current !== false) {
       throw new Error(`Worker authority cannot enable ${key}.`);
     }
   }

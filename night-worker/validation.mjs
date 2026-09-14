@@ -4,15 +4,36 @@ import { assertNoSecretsDeep, redactSecrets, sanitizeForLog } from "../workflow/
 import { deriveActualChanges } from "../workflow/git-evidence.mjs";
 import {
   assertScopeAllowed,
+  TRUSTED_BASE_REF,
   validateTaskPlan as validateTaskPlanSchema,
 } from "./schemas.mjs";
-import { assertCanonicalIsolatedWorktree } from "./worktrees.mjs";
+import {
+  assertCanonicalIsolatedWorktree,
+  resolveTrustedBaseCommit,
+  strictCommitSha,
+} from "./worktrees.mjs";
 
 const MAX_OUTPUT_CHARS = 4_000;
 const INTERNAL_RUNTIME_FILE = ".night-worker/runtime.json";
-const UNSAFE_COMMAND_PATTERN = /(?:^|[\s\/\\])(?:git\s+(?:push|merge)|gh\s+pr|npm\s+publish|yarn\s+publish|pnpm\s+publish|vercel\s+|netlify\s+|deploy(?:ment)?\b|production\b|dns\b)/i;
-const FORBIDDEN_WORKER_COMMAND_PATTERN = /\bcodex\s+exec\b|\b(?:terra|fallback|subagent)\b/i;
-const SHELL_CONTROL_PATTERN = /[;&|<>`]|\$\(/;
+const SHELL_CONTROL_PATTERN = /[;&|<>`$(){}\[\]\r\n^%]/;
+const FORBIDDEN_GIT_COMMANDS = new Set([
+  "reset",
+  "checkout",
+  "clean",
+  "push",
+  "fetch",
+  "merge",
+  "rebase",
+  "commit",
+  "restore",
+  "switch",
+  "branch",
+  "worktree",
+  "update-ref",
+  "config",
+  "tag",
+]);
+const PLAN_VALIDATION_GATE_GROUPS = Object.freeze({ test: "test", static: "static" });
 
 function text(value, label) {
   if (typeof value !== "string" || value.trim().length === 0 || value.includes("\0")) {
@@ -29,17 +50,127 @@ function digest(value) {
   return crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
 
+function flushToken(tokens, current, started) {
+  if (started) tokens.push(current);
+  return { current: "", started: false };
+}
+
 function commandTokens(command) {
   const value = text(command, "validation command");
-  if (SHELL_CONTROL_PATTERN.test(value)) throw new Error("Validation commands cannot use shell control operators.");
-  if (UNSAFE_COMMAND_PATTERN.test(value)) throw new Error("Validation commands cannot publish, deploy, or mutate production.");
-  if (FORBIDDEN_WORKER_COMMAND_PATTERN.test(value)) throw new Error("Validation commands cannot use a forbidden worker mechanism or model policy.");
   const tokens = [];
-  const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"|'([^']*)'|([^\s]+)/g;
-  let match;
-  while ((match = pattern.exec(value)) !== null) tokens.push(match[1] ?? match[2] ?? match[3]);
+  let current = "";
+  let started = false;
+  let quote = null;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (quote) {
+      if (character === quote) {
+        quote = null;
+        started = true;
+      } else if (character === "\\" && quote === '"' && index + 1 < value.length) {
+        current += value[index + 1];
+        started = true;
+        index += 1;
+      } else {
+        current += character;
+        started = true;
+      }
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      started = true;
+      continue;
+    }
+    if (/\s/.test(character)) {
+      const flushed = flushToken(tokens, current, started);
+      current = flushed.current;
+      started = flushed.started;
+      continue;
+    }
+    if (SHELL_CONTROL_PATTERN.test(character)) {
+      throw new Error("Validation commands cannot use shell control or injection characters.");
+    }
+    current += character;
+    started = true;
+  }
+  if (quote) throw new Error("Validation command contains an unterminated quote.");
+  if (started) tokens.push(current);
   if (tokens.length === 0) throw new Error("Validation command cannot be empty.");
+  validateNonDestructiveCommand(tokens);
   return tokens;
+}
+
+function executableName(value) {
+  return String(value).split(/[\\/]/).at(-1).replace(/\.(?:cmd|exe|bat)$/i, "").toLocaleLowerCase("en-US");
+}
+
+function validateNonDestructiveCommand(tokens) {
+  const executable = executableName(tokens[0]);
+  if (["cmd", "powershell", "pwsh", "bash", "sh", "zsh"].includes(executable)) {
+    throw new Error("Validation commands cannot invoke a shell wrapper.");
+  }
+  if (executable === "codex" && tokens.slice(1).some((token) => token.toLocaleLowerCase("en-US") === "exec")) {
+    throw new Error("Validation commands cannot use the codex exec worker mechanism.");
+  }
+  if (["node", "deno", "bun"].includes(executable)
+    && tokens.some((token) => ["-e", "--eval", "--require", "-r"].includes(token))) {
+    throw new Error("Validation commands cannot execute caller-supplied scripts.");
+  }
+  const gitIndex = tokens.findIndex((token) => executableName(token) === "git");
+  if (gitIndex >= 0) {
+    for (let index = gitIndex + 1; index < tokens.length; index += 1) {
+      const token = tokens[index].toLocaleLowerCase("en-US");
+      if (token === "-c" || token === "-C" || token === "--git-dir" || token === "--work-tree") {
+        index += 1;
+        continue;
+      }
+      if (token.startsWith("-")) continue;
+      if (FORBIDDEN_GIT_COMMANDS.has(token)) {
+        throw new Error(`Validation commands cannot run mutating Git subcommand: ${token}`);
+      }
+      break;
+    }
+  }
+  const lower = tokens.map((token) => token.toLocaleLowerCase("en-US"));
+  if (["npm", "pnpm", "yarn", "bun"].includes(executable)
+    && lower.some((token) => token === "publish" || token === "install" || token === "ci")) {
+    throw new Error("Validation commands cannot publish or install dependencies.");
+  }
+  if (lower.some((token) => ["vercel", "netlify", "deploy", "deployment"].includes(token))) {
+    throw new Error("Validation commands cannot deploy or mutate production.");
+  }
+  return true;
+}
+
+function assertMinimumValidationGates(commands) {
+  if (!Array.isArray(commands) || commands.length < 2) {
+    throw new Error("Task plans require at least two fixed validation gates.");
+  }
+  const tokenSets = commands.map((command) => commandTokens(command));
+  const hasSubcommand = (tokens, names) => names.some((name) => tokens.includes(name));
+  const hasGate = (tokens, gate) => {
+    const executable = executableName(tokens[0]);
+    if (gate === "test") {
+      if (executable === "node") return tokens.includes("--test");
+      if (["npm", "pnpm", "yarn", "bun"].includes(executable)) return hasSubcommand(tokens, ["test"]);
+      return false;
+    }
+    if (executable === "node") return tokens.includes("--check");
+    if (["eslint", "tsc"].includes(executable)) return true;
+    if (["npm", "pnpm", "yarn", "bun"].includes(executable)) return hasSubcommand(tokens, ["lint"]);
+    return false;
+  };
+  const missing = Object.keys(PLAN_VALIDATION_GATE_GROUPS)
+    .filter((gate) => !tokenSets.some((tokens) => hasGate(tokens, gate)));
+  if (missing.length > 0) {
+    throw new Error(`Task plans require fixed validation gates: ${missing.join(" and ")}.`);
+  }
+  return true;
+}
+
+export function assertSafeValidationCommands(commands) {
+  return assertMinimumValidationGates(commands);
 }
 
 function defaultCommandRunner(command, { cwd, timeoutMs = 120_000 } = {}) {
@@ -89,7 +220,7 @@ export function runValidationCommands(commands, {
   cwd,
   commandRunner = defaultCommandRunner,
 } = {}) {
-  if (!Array.isArray(commands) || commands.length === 0) throw new Error("Task plan requires validation commands.");
+  assertSafeValidationCommands(commands);
   if (typeof commandRunner !== "function") throw new Error("Validation command runner must be a function.");
   const results = [];
   for (const command of commands) {
@@ -117,8 +248,8 @@ export function runValidationCommands(commands, {
   };
 }
 
-function git(repositoryRoot, args, exec = execFileSync) {
-  return String(exec("git", args, {
+function git(repositoryRoot, args) {
+  return String(execFileSync("git", args, {
     cwd: repositoryRoot,
     encoding: "utf8",
     windowsHide: true,
@@ -126,10 +257,20 @@ function git(repositoryRoot, args, exec = execFileSync) {
   }) ?? "").trim();
 }
 
-export function resolveMergeBase(repositoryRoot, baseRef = "origin/main", { exec = execFileSync } = {}) {
+function assertAllowedValidationOptions(options, allowed, label) {
+  for (const key of Object.keys(options ?? {})) {
+    if (!allowed.has(key)) throw new Error(`${label} cannot accept caller override: ${key}`);
+  }
+}
+
+export function resolveMergeBase(repositoryRoot, ...overrides) {
+  if (overrides.length > 0) throw new Error(`Merge-base is fixed to trusted ${TRUSTED_BASE_REF}.`);
   const root = text(repositoryRoot, "repositoryRoot");
-  const ref = text(baseRef, "baseRef");
-  return git(root, ["merge-base", ref, "HEAD"], exec);
+  const baseSha = resolveTrustedBaseCommit(root);
+  const headSha = strictCommitSha(git(root, ["rev-parse", "--verify", "--end-of-options", "HEAD^{commit}"]), "worktree HEAD");
+  const mergeBase = strictCommitSha(git(root, ["merge-base", baseSha, headSha]), "worktree merge-base");
+  if (mergeBase !== baseSha) throw new Error("Worktree is not based on the trusted origin/main commit.");
+  return baseSha;
 }
 
 function pathValue(change) {
@@ -140,21 +281,17 @@ function isInternalRuntimePath(value) {
   return value.replaceAll("\\", "/").toLocaleLowerCase("en-US") === INTERNAL_RUNTIME_FILE;
 }
 
-export function deriveAuthoritativeGitScope({
-  repositoryRoot,
-  baseRef = "origin/main",
-  baseSha,
-  exec = execFileSync,
-} = {}) {
-  const root = text(repositoryRoot, "repositoryRoot");
-  const mergeBase = baseSha ?? resolveMergeBase(root, baseRef, { exec });
-  const raw = deriveActualChanges(root, mergeBase, { exec });
+export function deriveAuthoritativeGitScope(options = {}) {
+  assertAllowedValidationOptions(options, new Set(["repositoryRoot"]), "Git scope derivation");
+  const root = text(options.repositoryRoot, "repositoryRoot");
+  const mergeBase = resolveMergeBase(root);
+  const raw = deriveActualChanges(root, mergeBase);
   const internal = raw.changes.filter((change) => pathValue(change).every(isInternalRuntimePath));
   const changes = raw.changes.filter((change) => !pathValue(change).every(isInternalRuntimePath));
   const paths = [...new Set(changes.flatMap(pathValue))].sort();
   const internalPaths = [...new Set(internal.flatMap(pathValue))].sort();
   const evidence = {
-    base_ref: baseRef,
+    base_ref: TRUSTED_BASE_REF,
     merge_base: mergeBase,
     changes,
     paths,
@@ -169,15 +306,9 @@ export function deriveAuthoritativeGitScope({
 
 export const deriveGitScope = deriveAuthoritativeGitScope;
 
-export function validateTaskPlanExecution({
-  plan,
-  repositoryRoot,
-  baseRef,
-  baseSha,
-  reportedChangedFiles = [],
-  commandRunner,
-  exec = execFileSync,
-} = {}) {
+export function validateTaskPlanExecution(options = {}) {
+  assertAllowedValidationOptions(options, new Set(["plan", "repositoryRoot", "reportedChangedFiles"]), "Task validation");
+  const { plan, repositoryRoot, reportedChangedFiles = [] } = options;
   const evidenceBase = {
     plan_task_id: plan?.task_id ?? null,
     reported_paths: Array.isArray(reportedChangedFiles) ? reportedChangedFiles.map(String) : [],
@@ -191,18 +322,17 @@ export function validateTaskPlanExecution({
       repositoryRoot: text(repositoryRoot, "repositoryRoot"),
       worktree: normalizedPlan.worktree,
       branch: normalizedPlan.branch,
-      exec,
     });
-    scope = deriveAuthoritativeGitScope({
-      repositoryRoot: normalizedPlan.worktree,
-      baseRef: baseRef ?? normalizedPlan.base_ref ?? "origin/main",
-      baseSha,
-      exec,
-    });
+    scope = deriveAuthoritativeGitScope({ repositoryRoot: normalizedPlan.worktree });
+    if (normalizedPlan.base_sha !== scope.merge_base) {
+      throw new Error("Task plan base_sha does not match the fresh trusted origin/main commit.");
+    }
+    if (scope.paths.length === 0) {
+      throw new Error("A task cannot become publishable without authoritative Git changes.");
+    }
     assertScopeAllowed(scope.paths, normalizedPlan.allowlist);
     const validation = runValidationCommands(normalizedPlan.validation_commands, {
       cwd: normalizedPlan.worktree,
-      commandRunner,
     });
     const evidence = {
       ...evidenceBase,
@@ -228,7 +358,7 @@ export function validateTaskPlanExecution({
       actual_paths: scope?.paths ?? [],
       merge_base: scope?.merge_base ?? null,
       validation: { passed: false, results: [] },
-      scope_passed: false,
+      scope_passed: scope !== null && (scope.paths?.length ?? 0) > 0,
       validation_passed: false,
       passed: false,
       publishable: false,
@@ -247,10 +377,16 @@ export const validateTask = validateTaskPlanExecution;
 export const validatePlanExecution = validateTaskPlanExecution;
 
 export function assertPublishable(evidence) {
-  if (!evidence || evidence.publishable !== true || evidence.passed !== true) {
+  if (!evidence || evidence.publishable !== true || evidence.passed !== true
+    || evidence.scope_passed !== true || evidence.validation_passed !== true
+    || !Array.isArray(evidence.actual_paths) || evidence.actual_paths.length === 0) {
     throw new Error(`Task is not publishable: ${sanitizeForLog(evidence?.error ?? "validation failed")}`);
   }
   return evidence;
 }
 
-export { commandTokens, defaultCommandRunner };
+export {
+  PLAN_VALIDATION_GATE_GROUPS,
+  commandTokens,
+  defaultCommandRunner,
+};

@@ -169,6 +169,21 @@ Validation evidence:
   commit `92c796e104fe741c8cc7c0b4c7b6ff913e9af27c` and are recorded in the
   task-owned worklog.
 
+Correction cycle 1 validation evidence:
+
+- Correction base: reviewed head `e90f1cc1aba9537c8b24bf4c3747d1ade0f6ec66`;
+  no Task 61 source, workflow, package/lock, `.github`, or SYS-AUTO-007 file
+  was changed.
+- `node --test night-worker/tests/task-62*.test.mjs` — PASS, 20/20.
+- `node --test night-worker/tests/*.test.mjs` — PASS, 53/53.
+- `node --check` — PASS for all changed production and Task 62 test modules.
+- `npm run lint` — BLOCKED because the restricted environment has no
+  `eslint` executable; `npm run build` — BLOCKED because it has no `next`
+  executable; `npm run typecheck` — BLOCKED because it has no `tsc`
+  executable. No dependency or package file was changed.
+- `git diff --check` — PASS; exact allowlist, forbidden-surface immutability,
+  ancestry, and final identity checks are recorded in the correction worklog.
+
 ## Coordination Items
 
 - Origin fetch was attempted from this isolated worktree but the shared
@@ -203,6 +218,16 @@ Validation evidence:
 - Worklog: `worklog/agent-62-night-worker-execution.md`
 - Remaining risks: independent SOL review is pending; lint/build require a
   dependency-capable validation environment.
+
+Correction cycle 1 completion record:
+
+- Correction implementation commit: pending final commit verification.
+- Correction base / reviewed head: `e90f1cc1aba9537c8b24bf4c3747d1ade0f6ec66`.
+- Correction validation: focused Task 62 PASS (20/20); all Night Worker PASS
+  (53/53); lint, build, and typecheck remain environment-blocked as recorded
+  above.
+- Correction changes remain within the Task 62 production/test/card/worklog
+  allowlist; no push or PR was performed.
 
 ## Rollback
 
