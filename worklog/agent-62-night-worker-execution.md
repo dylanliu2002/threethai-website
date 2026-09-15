@@ -128,3 +128,19 @@
 - No push, PR, merge, publishing, activation, subagent, `codex exec`, Terra,
   provider fallback, or alternate worker mechanism was used. Ready for fresh
   independent SOL review after the final commit.
+
+## 2026-09-15 — correction cycle 2 commit and handoff gates
+
+- Created verified correction commit object `e8f26614c70506e0531f807615771f5c75861840`
+  with parent `ac79bcb693c3316a696e8cd2d5485e6bfe9b1fc3`; both author and
+  committer are exactly `dylanliu2002 <dylanliu2002@gmail.com>`.
+- Against that final commit and `origin/main` `ab85e1d47e38a1ca3dee4fa782ec831320f29496`,
+  the merge-base equals `origin/main`, `git diff --check` PASS, and the exact
+  changed-path set is the 13 owned production/test/card/worklog paths. No
+  `workflow/**`, package/lock, `.github/**`, Task 61, or SYS-AUTO-007 path is
+  changed.
+- The local branch-ref fast-forward was attempted from `ac79bcb693c3316a696e8cd2d5485e6bfe9b1fc3`
+  to the verified commit and was denied because the managed environment could
+  not create the shared branch lock. The commit object and staged tree remain
+  available through the task-scoped alternate Git object/index path; no push,
+  remote mutation, PR, review, merge, publishing, or activation was performed.
