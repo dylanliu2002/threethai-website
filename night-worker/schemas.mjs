@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import path from "node:path";
 import { assertNoSecretsDeep, sanitizeForLog } from "../workflow/secrets.mjs";
-import { MVP_CONFIG } from "./config.mjs";
+import { MVP_CONFIG, reviewEffortForDifficulty } from "./config.mjs";
 
 export const TASK_PLAN_SCHEMA_VERSION = 1;
 export const TRUSTED_BASE_REF = "origin/main";
@@ -77,7 +77,44 @@ const PROTECTED_DIRECTORY_PATTERNS = Object.freeze([
   /(^|\/)(?:dockerfile|docker-compose(?:\.|$)|caddyfile|vercel\.json|netlify\.toml)$/i,
 ]);
 
-const SECRET_PATH_PATTERN = /(^|\/)(?:[^/]*(?:secret|credential|password|token|private[-_]?key)[^/]*)$/i;
+const SECRET_PATH_PATTERN = /(^|\/)[^/]*(?:secret|credential|password|token|private[-_]?key)[^/]*(?:\/|$)/i;
+const PROTECTED_NAMESPACE_NAMES = new Set([
+  ".git", ".github", "workflow", "tasks", "worklog", "prisma",
+  "deploy", "deployment", "infra", "terraform", "k8s", "kubernetes",
+]);
+const PROTECTED_SCOPE_WITNESSES = Object.freeze([
+  ...PROTECTED_EXACT_PATHS,
+  ".git/worker.mjs",
+  ".github/worker.yml",
+  "workflow/worker.mjs",
+  "tasks/worker.md",
+  "worklog/worker.md",
+  "prisma/worker.sql",
+  "deploy/worker.yml",
+  "deployment/worker.yml",
+  "infra/worker.tf",
+  "terraform/worker.tf",
+  "k8s/worker.yml",
+  "kubernetes/worker.yml",
+  "dockerfile",
+  "docker-compose.yml",
+  "caddyfile",
+  "vercel.json",
+  "netlify.toml",
+  ".env",
+  ".env.local",
+  "src/secret.txt",
+  "src/client-secret.mjs",
+  "src/credentials.txt",
+  "src/password.txt",
+  "src/token.txt",
+  "src/private-key.pem",
+  "src/task-secret.txt",
+  "src/f-secret.txt",
+  "x/workflow/worker.mjs",
+  "x/.github/worker.yml",
+  "x/deploy/worker.yml",
+]);
 
 function assertObject(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -126,10 +163,64 @@ function normalizeScopePath(value, label = "allowlist path") {
   return normalized;
 }
 
+function protectedCandidate(value) {
+  const normalized = value.replaceAll("\\", "/").toLocaleLowerCase("en-US");
+  const segments = normalized.split("/");
+  if (segments.some((segment) => PROTECTED_NAMESPACE_NAMES.has(segment))) return true;
+  if (PROTECTED_DIRECTORY_PATTERNS.some((candidate) => candidate.test(normalized))) return true;
+  return SECRET_PATH_PATTERN.test(normalized)
+    || PROTECTED_EXACT_PATHS.some((protectedPath) => protectedPath.toLocaleLowerCase("en-US") === normalized);
+}
+
+function wildcardCandidates(pattern) {
+  const variants = [
+    "__protected__",
+    "secret",
+    "client-secret",
+    "credential",
+    "credentials",
+    "password",
+    "token",
+    "private-key",
+    "workflow",
+    "app/layout.tsx",
+    "x/workflow",
+    "x/.github",
+    "x/deploy",
+    "x",
+  ];
+  const segmentOptions = pattern.split("/").map((segment) => {
+    if (segment === "**") return ["", ...variants];
+    if (!segment.includes("*") && !segment.includes("?")) return [segment];
+    const values = new Set();
+    for (const variant of variants) {
+      values.add(segment.replaceAll("*", variant).replaceAll("?", "x"));
+    }
+    return [...values];
+  });
+  const candidates = new Set();
+  function visit(index, parts) {
+    if (candidates.size >= 512) return;
+    if (index === segmentOptions.length) {
+      const candidate = parts.filter(Boolean).join("/");
+      if (candidate.length > 0) candidates.add(candidate);
+      return;
+    }
+    for (const option of segmentOptions[index]) visit(index + 1, [...parts, option]);
+  }
+  visit(0, []);
+  return candidates;
+}
+
 function protectedAllowlistPath(pattern) {
   if (PROTECTED_DIRECTORY_PATTERNS.some((candidate) => candidate.test(pattern))) return true;
   if (SECRET_PATH_PATTERN.test(pattern)) return true;
-  return PROTECTED_EXACT_PATHS.some((protectedPath) => scopePatternMatches(pattern, protectedPath));
+  const segments = pattern.toLocaleLowerCase("en-US").split("/");
+  if (segments.some((segment) => PROTECTED_NAMESPACE_NAMES.has(segment))) return true;
+  if (PROTECTED_EXACT_PATHS.some((protectedPath) => scopePatternMatches(pattern, protectedPath))) return true;
+  if (!/[?*]/.test(pattern)) return false;
+  const candidates = new Set([...PROTECTED_SCOPE_WITNESSES, ...wildcardCandidates(pattern)]);
+  return [...candidates].some((candidate) => protectedCandidate(candidate) && scopePatternMatches(pattern, candidate));
 }
 
 function normalizeStringArray(value, label, { maxItems, maxChars = 10_000 } = {}) {
@@ -230,7 +321,9 @@ export function validateTaskPlan(plan, {
       maxItems: MAX_PLAN_COMMANDS,
       maxChars: 2_000,
     }),
-    difficulty: plan.difficulty === undefined ? "medium" : nonEmptyText(plan.difficulty, "plan difficulty", 80),
+    difficulty: reviewEffortForDifficulty(
+      plan.difficulty === undefined ? "medium" : nonEmptyText(plan.difficulty, "plan difficulty", 80),
+    ),
     dependencies: normalizeDependencies(plan.dependencies),
     base_ref: normalizeBaseRef(plan.base_ref),
     base_sha: normalizeBaseSha(plan.base_sha),
@@ -321,31 +414,38 @@ export function validateTaskPlans(plans, { batch, requireReady = false } = {}) {
 export function scopePatternMatches(pattern, filePath) {
   const normalizedPattern = normalizeScopePath(pattern).toLocaleLowerCase("en-US");
   const normalizedFile = normalizedRepoPath(filePath, "changed path").toLocaleLowerCase("en-US");
+  const globRegex = (value) => {
+    let escaped = "";
+    for (let index = 0; index < value.length; index += 1) {
+      const character = value[index];
+      const next = value[index + 1];
+      if (character === "*" && next === "*") {
+        if (value[index + 2] === "/") {
+          escaped += "(?:.*/)?";
+          index += 2;
+        } else {
+          escaped += ".*";
+          index += 1;
+        }
+      } else if (character === "*") {
+        escaped += "[^/]*";
+      } else if (character === "?") {
+        escaped += "[^/]";
+      } else {
+        escaped += /[|\\{}()[\]^$+?.]/.test(character) ? `\\${character}` : character;
+      }
+    }
+    return escaped;
+  };
   if (normalizedPattern.endsWith("/**")) {
     const prefix = normalizedPattern.slice(0, -3);
-    return normalizedFile === prefix || normalizedFile.startsWith(`${prefix}/`);
-  }
-  if (!normalizedPattern.includes("*")) return normalizedPattern === normalizedFile;
-  let escaped = "";
-  for (let index = 0; index < normalizedPattern.length; index += 1) {
-    const character = normalizedPattern[index];
-    const next = normalizedPattern[index + 1];
-    if (character === "*" && next === "*") {
-      if (normalizedPattern[index + 2] === "/") {
-        escaped += "(?:.*/)?";
-        index += 2;
-      } else {
-        escaped += ".*";
-        index += 1;
-      }
-    } else if (character === "*") {
-      escaped += "[^/]*";
-    } else if (character === "?") {
-      escaped += "[^/]";
-    } else {
-      escaped += /[|\\{}()[\]^$+?.]/.test(character) ? `\\${character}` : character;
+    if (!/[?*]/.test(prefix)) {
+      return normalizedFile === prefix || normalizedFile.startsWith(`${prefix}/`);
     }
+    return new RegExp(`^${globRegex(prefix)}(?:/.*)?$`, "u").test(normalizedFile);
   }
+  if (!/[?*]/.test(normalizedPattern)) return normalizedPattern === normalizedFile;
+  const escaped = globRegex(normalizedPattern);
   return new RegExp(`^${escaped}$`, "u").test(normalizedFile);
 }
 

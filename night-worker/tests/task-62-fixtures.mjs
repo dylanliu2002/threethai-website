@@ -5,6 +5,7 @@ import { execFileSync } from "node:child_process";
 import { AppServerClient } from "../app-server-client.mjs";
 import { RuntimeStore } from "../runtime-store.mjs";
 import { createBatch } from "../submission.mjs";
+import { deriveCanonicalTaskWorktreeRoot } from "../worktrees.mjs";
 
 export const EPOCH = Date.parse("2026-09-14T00:00:00.000Z");
 
@@ -17,7 +18,6 @@ export function git(root, args) {
 
 export function createFixture(taskCount = 2, prefix = "task62") {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), `threethai-night-worker-${prefix}-`));
-  const worktreeRoot = `${root}-workers`;
   execFileSync("git", ["init", "--quiet", root], { stdio: "ignore", windowsHide: true });
   git(root, ["config", "user.name", "dylanliu2002"]);
   git(root, ["config", "user.email", "dylanliu2002@gmail.com"]);
@@ -29,9 +29,19 @@ export function createFixture(taskCount = 2, prefix = "task62") {
     "import test from \"node:test\";\ntest(\"fixture smoke\", () => {});\n",
     "utf8",
   );
+  for (let index = 1; index <= Math.max(1, taskCount); index += 1) {
+    fs.writeFileSync(
+      path.join(root, "src", `task-${index}.test.mjs`),
+      "import test from \"node:test\";\ntest(\"fixture task\", () => {});\n",
+      "utf8",
+    );
+    fs.writeFileSync(path.join(root, "src", `task-${index}-check.mjs`), "export const fixtureTask = true;\n", "utf8");
+  }
   git(root, ["add", "--all"]);
   git(root, ["commit", "--quiet", "-m", "fixture"]);
+  git(root, ["branch", "-M", "main"]);
   const head = git(root, ["rev-parse", "HEAD"]);
+  git(root, ["remote", "add", "origin", root]);
   git(root, ["update-ref", "refs/remotes/origin/main", head]);
   const store = new RuntimeStore(path.join(root, ".night-worker", "runtime.json"));
   let now = EPOCH;
@@ -44,6 +54,7 @@ export function createFixture(taskCount = 2, prefix = "task62") {
     clock,
     idFactory: (prefixValue) => `${prefixValue}-${++id}`,
   }));
+  const worktreeRoot = deriveCanonicalTaskWorktreeRoot(root);
   return {
     root,
     worktreeRoot,
@@ -67,9 +78,10 @@ export function rawPlans(batch, { shared = false, dependencies = [] } = {}) {
     task_id: task.task_id,
     title: `Task ${index + 1}`,
     description: task.description,
-    allowlist: [shared ? "src/shared/**" : `src/task-${index + 1}.txt`],
+    allowlist: [shared ? `src/shared-${index + 1}.txt` : `src/task-${index + 1}.txt`,
+      `src/task-${index + 1}.test.mjs`, `src/task-${index + 1}-check.mjs`],
     acceptance_criteria: [`criterion ${index + 1}`],
-    validation_commands: ["node --test src/smoke.test.mjs", "node --check src/check.mjs"],
+    validation_commands: [`node --test src/task-${index + 1}.test.mjs`, `node --check src/task-${index + 1}-check.mjs`],
     dependencies: dependencies[index] ?? [],
   }));
 }
@@ -84,7 +96,7 @@ export function makeValidPlan({
   state = "READY",
   baseSha = "0123456789012345678901234567890123456789",
   dependencies = [],
-  validationCommands = ["node --test src/smoke.test.mjs", "node --check src/check.mjs"],
+  validationCommands = [`node --test src/task-${position}.test.mjs`, `node --check src/task-${position}-check.mjs`],
 } = {}) {
   return {
     schema_version: 1,

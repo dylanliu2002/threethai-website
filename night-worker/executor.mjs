@@ -1,18 +1,17 @@
 import { redactSecrets, sanitizeForLog } from "../workflow/secrets.mjs";
 import { MVP_CONFIG, REVIEW_DEFAULT_REASONING_EFFORT } from "./config.mjs";
 import { AgentRunner, runReadyPlans } from "./agent-runner.mjs";
-import { planBatch } from "./planner.mjs";
+import { assertPersistentSOLPlanner, planBatch } from "./planner.mjs";
 import { validateTaskPlans } from "./schemas.mjs";
 import { prepareTaskWorktrees } from "./worktrees.mjs";
-import { validateTaskPlanExecution } from "./validation.mjs";
+import { assertPublishable, validateTaskPlanExecution } from "./validation.mjs";
 import { RuntimeStore } from "./runtime-store.mjs";
 import { AppServerClient, isGenuineAppServerClient } from "./app-server-client.mjs";
 
 const EXECUTOR_OPTIONS = new Set([
   "store",
-  "planProvider",
+  "solPlanner",
   "client",
-  "worktreeRoot",
   "difficulty",
   "maxParallel",
   "overlapPolicy",
@@ -56,17 +55,14 @@ export class NightWorkerExecutor {
     assertOptions(options, EXECUTOR_OPTIONS, "Night Worker executor");
     const {
       store,
-      planProvider,
+      solPlanner,
       client,
-      worktreeRoot,
       difficulty = REVIEW_DEFAULT_REASONING_EFFORT,
       maxParallel = MVP_CONFIG.max_parallel_implementation_workers,
       overlapPolicy = "serialize",
     } = options;
     if (!(store instanceof RuntimeStore)) throw new Error("Night Worker executor requires the real Task 61 RuntimeStore.");
-    if (planProvider !== undefined && typeof planProvider !== "function") {
-      throw new Error("Night Worker executor planProvider must be the persistent Orchestrator provider.");
-    }
+    assertPersistentSOLPlanner(solPlanner);
     if (!(client instanceof AppServerClient) || !isGenuineAppServerClient(client)) {
       throw new Error("Night Worker executor requires a genuine constructed Task 61 App Server client.");
     }
@@ -76,9 +72,8 @@ export class NightWorkerExecutor {
     }
     if (!["serialize", "reject"].includes(overlapPolicy)) throw new Error("Unsupported task plan overlap policy.");
     this.store = store;
-    this.plan_provider = planProvider;
+    this.sol_planner = solPlanner;
     this.client = client;
-    this.worktree_root = worktreeRoot;
     this.difficulty = difficulty;
     this.max_parallel = maxParallel;
     this.overlap_policy = overlapPolicy;
@@ -88,9 +83,8 @@ export class NightWorkerExecutor {
     return planBatch({
       store: this.store,
       batchId,
-      planProvider: this.plan_provider,
+      solPlanner: this.sol_planner,
       difficulty: this.difficulty,
-      worktreeRoot: this.worktree_root,
     });
   }
 
@@ -104,7 +98,6 @@ export class NightWorkerExecutor {
     const prepared = prepareTaskWorktrees({
       repositoryRoot: selectedBatch.repository_root,
       plans: normalizedPlans,
-      worktreeRoot: this.worktree_root,
     });
     normalizedPlans = validateTaskPlans(prepared.map((entry) => ({
       ...entry.plan,
@@ -130,7 +123,7 @@ export class NightWorkerExecutor {
       },
     );
     heartbeat?.();
-    const validations = workerResults.map((workerResult) => {
+    const validations = await Promise.all(workerResults.map(async (workerResult) => {
       if (workerResult.status !== "COMPLETED") {
         return {
           plan_task_id: workerResult.plan.task_id,
@@ -140,12 +133,16 @@ export class NightWorkerExecutor {
           error: redactSecrets(workerResult.error ?? "implementation worker failed"),
         };
       }
-      return validateTaskPlanExecution({
+      const evidence = await validateTaskPlanExecution({
         plan: workerResult.plan,
         repositoryRoot: selectedBatch.repository_root,
+        store: this.store,
+        client: this.client,
         reportedChangedFiles: reportedFiles(workerResult.result),
       });
-    });
+      if (evidence.publishable === true) assertPublishable(evidence);
+      return evidence;
+    }));
     const publishable = validations.length === normalizedPlans.length
       && validations.every((evidence) => evidence.publishable === true && evidence.passed === true);
     const status = publishable ? "PUBLISHABLE" : "FAILED";

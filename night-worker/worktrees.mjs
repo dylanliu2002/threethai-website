@@ -38,6 +38,7 @@ function git(repositoryRoot, args) {
       encoding: "utf8",
       windowsHide: true,
       maxBuffer: MAX_GIT_OUTPUT,
+      timeout: 15_000,
     });
   } catch (error) {
     const detail = String(error?.stderr ?? error?.message ?? error).trim().slice(0, 1_000);
@@ -60,6 +61,12 @@ function shortId(value) {
   return crypto.createHash("sha256").update(String(value)).digest("hex").slice(0, 8);
 }
 
+function canonicalTaskWorktreeRootFor(repositoryRoot) {
+  const root = path.resolve(repositoryRoot);
+  const name = slug(path.basename(root));
+  return path.join(path.dirname(root), "worktrees", `${name}-${shortId(root)}`);
+}
+
 export function normalizeTaskBranch(branch) {
   const value = text(branch, "task plan branch");
   if (!BRANCH_PATTERN.test(value)) throw new Error("Task plan branch must match codex/NN-*.");
@@ -74,12 +81,17 @@ export function deriveTaskBranch({ position, taskId, task_id: taskIdAlias, descr
   return normalizeTaskBranch(branch);
 }
 
-export function deriveTaskWorktreePath({ repositoryRoot, branch, worktreeRoot } = {}) {
+export function deriveCanonicalTaskWorktreeRoot(repositoryRoot) {
+  const root = assertGitWorktree(canonicalDirectory(text(repositoryRoot, "repositoryRoot"), "repository root"), "repository root");
+  return canonicalTaskWorktreeRootFor(root);
+}
+
+export function deriveTaskWorktreePath(options = {}) {
+  assertNoWorktreeHooks(options, "Task worktree path derivation", new Set(["repositoryRoot", "branch"]));
+  const { repositoryRoot, branch } = options;
   const root = path.resolve(text(repositoryRoot, "repositoryRoot"));
   const normalizedBranch = normalizeTaskBranch(branch);
-  const parent = worktreeRoot === undefined
-    ? path.join(path.dirname(root), "worktrees")
-    : path.resolve(text(worktreeRoot, "worktreeRoot"));
+  const parent = canonicalTaskWorktreeRootFor(root);
   const directoryName = normalizedBranch.slice("codex/".length).replaceAll("/", "-");
   return path.join(parent, directoryName);
 }
@@ -106,8 +118,25 @@ function assertNoWorktreeHooks(options, label, allowedKeys) {
 
 export function resolveTrustedBaseCommit(repositoryRoot) {
   const root = assertGitWorktree(canonicalDirectory(text(repositoryRoot, "repositoryRoot"), "repository root"), "repository root");
-  const resolved = git(root, ["rev-parse", "--verify", "--end-of-options", `${TRUSTED_BASE_REF}^{commit}`]);
-  return strictCommitSha(resolved, "trusted origin/main commit");
+  let remoteOutput;
+  try {
+    remoteOutput = git(root, ["ls-remote", "--exit-code", "--refs", "origin", "refs/heads/main"]);
+  } catch (error) {
+    throw new Error(`Fresh origin/main provenance is unavailable: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const lines = remoteOutput.split(/\r?\n/).filter(Boolean);
+  if (lines.length !== 1) throw new Error("Fresh origin/main provenance returned an unexpected ref set.");
+  const [remoteValue, remoteRef, ...extra] = lines[0].split(/\s+/);
+  if (extra.length > 0 || remoteRef !== "refs/heads/main") {
+    throw new Error("Fresh origin/main provenance returned an unexpected ref.");
+  }
+  const remoteSha = strictCommitSha(remoteValue, "remote origin/main commit");
+  const local = git(root, ["rev-parse", "--verify", "--end-of-options", `${TRUSTED_BASE_REF}^{commit}`]);
+  const localSha = strictCommitSha(local, "trusted origin/main commit");
+  if (remoteSha !== localSha) {
+    throw new Error("Local origin/main does not match the fresh remote origin/main provenance.");
+  }
+  return remoteSha;
 }
 
 function assertTrustedBaseLineage(worktree, baseSha) {
@@ -155,6 +184,10 @@ export function assertCanonicalIsolatedWorktree(options = {}) {
   const candidate = canonicalExistingWorktree(requested, "task worktree");
   if (!samePath(requested, candidate)) throw new Error("Task worktree must resolve to its canonical path.");
   if (samePath(root, candidate)) throw new Error("Task worktree must be isolated from the submitted repository root.");
+  const expectedParent = canonicalTaskWorktreeRootFor(root);
+  if (!samePath(path.dirname(candidate), expectedParent)) {
+    throw new Error("Task worktree must use the canonical derived worker root.");
+  }
   if (!samePath(commonGitDirectory(root), commonGitDirectory(candidate))) {
     throw new Error("Task worktree must belong to the submitted Git repository.");
   }
@@ -169,21 +202,20 @@ export const assertTaskWorktree = assertCanonicalIsolatedWorktree;
 export const assertExactWorktree = assertCanonicalIsolatedWorktree;
 
 export function allocateTaskWorktree(options = {}) {
-  assertNoWorktreeHooks(options, "Task worktree allocation", new Set(["repositoryRoot", "plan", "worktreeRoot", "baseRef"]));
-  const { repositoryRoot, plan, worktreeRoot, baseRef = TRUSTED_BASE_REF } = options;
+  assertNoWorktreeHooks(options, "Task worktree allocation", new Set(["repositoryRoot", "plan", "baseRef"]));
+  const { repositoryRoot, plan, baseRef = TRUSTED_BASE_REF } = options;
   if (!plan || typeof plan !== "object" || Array.isArray(plan)) throw new Error("Task plan is required.");
   const branch = plan.branch ?? deriveTaskBranch(plan);
-  const parent = worktreeRoot === undefined
-    ? path.join(path.dirname(path.resolve(text(repositoryRoot, "repositoryRoot"))), "worktrees")
-    : path.resolve(text(worktreeRoot, "worktreeRoot"));
-  const worktree = plan.worktree ?? deriveTaskWorktreePath({ repositoryRoot, branch, worktreeRoot });
+  const root = assertGitWorktree(canonicalDirectory(text(repositoryRoot, "repositoryRoot"), "repository root"), "repository root");
+  const parent = canonicalTaskWorktreeRootFor(root);
+  const derivedWorktree = deriveTaskWorktreePath({ repositoryRoot: root, branch });
+  const worktree = plan.worktree ?? derivedWorktree;
   if (plan.worktree !== undefined && !path.isAbsolute(String(plan.worktree))) {
     throw new Error("Task plan worktree must be an absolute path.");
   }
   const target = path.resolve(text(worktree, "task worktree"));
-  const relative = path.relative(parent, target);
-  if (relative === "" || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
-    throw new Error("Task plan worktree must be inside the configured isolated worktree root.");
+  if (!samePath(target, derivedWorktree) || !samePath(path.dirname(target), parent)) {
+    throw new Error("Task plan worktree must use the canonical derived worker root.");
   }
   return {
     ...plan,
@@ -195,10 +227,10 @@ export function allocateTaskWorktree(options = {}) {
 }
 
 export function allocateTaskWorktrees(options = {}) {
-  assertNoWorktreeHooks(options, "Task worktree allocation", new Set(["repositoryRoot", "plans", "worktreeRoot", "baseRef"]));
-  const { repositoryRoot, plans, worktreeRoot, baseRef = TRUSTED_BASE_REF } = options;
+  assertNoWorktreeHooks(options, "Task worktree allocation", new Set(["repositoryRoot", "plans", "baseRef"]));
+  const { repositoryRoot, plans, baseRef = TRUSTED_BASE_REF } = options;
   if (!Array.isArray(plans) || plans.length === 0) throw new Error("Task plans are required.");
-  const allocated = plans.map((plan) => allocateTaskWorktree({ repositoryRoot, plan, worktreeRoot, baseRef }));
+  const allocated = plans.map((plan) => allocateTaskWorktree({ repositoryRoot, plan, baseRef }));
   const branchKeys = new Set();
   const pathKeys = new Set();
   for (const plan of allocated) {
@@ -219,6 +251,10 @@ export function createTaskWorktree(options = {}) {
   const normalizedBranch = normalizeTaskBranch(branch);
   const target = path.resolve(text(worktree, "task worktree"));
   if (samePath(root, target)) throw new Error("Task worktree must be isolated from the submitted repository root.");
+  const derivedWorktree = deriveTaskWorktreePath({ repositoryRoot: root, branch: normalizedBranch });
+  if (!samePath(target, derivedWorktree)) {
+    throw new Error("Task worktree must use the canonical derived worker root.");
+  }
   const trustedBaseSha = resolveTrustedBaseCommit(root);
   if (baseSha !== undefined && strictCommitSha(baseSha, "task plan base_sha") !== trustedBaseSha) {
     throw new Error("Task plan base_sha is stale or does not match trusted origin/main.");
@@ -249,9 +285,9 @@ export function createTaskWorktree(options = {}) {
 }
 
 export function prepareTaskWorktrees(options = {}) {
-  assertNoWorktreeHooks(options, "Task worktree preparation", new Set(["repositoryRoot", "plans", "worktreeRoot", "baseRef"]));
-  const { repositoryRoot, plans, worktreeRoot, baseRef = TRUSTED_BASE_REF } = options;
-  const allocated = allocateTaskWorktrees({ repositoryRoot, plans, worktreeRoot, baseRef });
+  assertNoWorktreeHooks(options, "Task worktree preparation", new Set(["repositoryRoot", "plans", "baseRef"]));
+  const { repositoryRoot, plans, baseRef = TRUSTED_BASE_REF } = options;
+  const allocated = allocateTaskWorktrees({ repositoryRoot, plans, baseRef });
   const trustedBaseSha = resolveTrustedBaseCommit(repositoryRoot);
   return allocated.map((plan) => ({
     plan: { ...plan, base_ref: TRUSTED_BASE_REF, base_sha: strictCommitSha(plan.base_sha ?? trustedBaseSha, "task plan base_sha") },

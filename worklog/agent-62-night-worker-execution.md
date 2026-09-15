@@ -98,3 +98,33 @@
 - The staged changed-path set was limited to the eight owned production files,
   the Task 62 test files/helper, this Task 62 card, and this task worklog.
   The pre-existing `.night-worker/runtime.json` was not staged.
+
+## 2026-09-15 — human-authorized correction cycle 2
+
+- Continued in the same Task 62 worktree and branch from exact reviewed head
+  `ac79bcb693c3316a696e8cd2d5485e6bfe9b1fc3`; no Task 61, workflow, package,
+  `.github`, or SYS-AUTO-007 surface was changed.
+- Fixed the final SOL review findings within the existing Task 62 allowlist:
+  validation commands are now a small explicit non-mutating semantic gate;
+  protected/shared/deployment/secret path coverage is conservative for nested
+  globs; publication requires canonical RuntimeStore plus real typed
+  `thread/read` terminal-success evidence; planner authority is branded as an
+  internal persistent SOL object; worker roots are derived internally; and
+  `origin/main` provenance is checked against a read-only remote ref.
+- Added adversarial regressions for command wrappers/interpreters/Git aliases,
+  unrelated/help gates, broad and nested protected globs, caller-selected
+  worktree roots, unavailable or mismatched remote provenance, forged mapping
+  identity, and mutable/forged publishability evidence.
+- `node --test night-worker/tests/task-62*.test.mjs` — PASS (20/20).
+- `node --test night-worker/tests/*.test.mjs` — PASS (53/53), including all
+  Task 61 lifecycle and recovery regressions.
+- `node --check` — PASS for all 11 changed Task 62 production/test modules.
+- `npm run lint` — BLOCKED because `eslint` is not recognized; `npm run build`
+  — BLOCKED because `next` is not recognized; `npm run typecheck` — BLOCKED
+  because `tsc` is not recognized in the restricted environment. No dependency,
+  package, lock, workflow, `.github`, Task 61, or SYS-AUTO-007 file changed.
+- `git diff --check` — PASS before commit. Exact final scope, forbidden-surface
+  immutability, ancestry, and identity checks remain required after commit.
+- No push, PR, merge, publishing, activation, subagent, `codex exec`, Terra,
+  provider fallback, or alternate worker mechanism was used. Ready for fresh
+  independent SOL review after the final commit.

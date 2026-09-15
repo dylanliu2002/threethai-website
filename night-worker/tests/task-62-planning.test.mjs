@@ -16,16 +16,20 @@ import {
   planningPolicyForDifficulty,
 } from "../model-policy.mjs";
 import { createTaskPlan, markTaskPlanReady, transitionTaskPlan } from "../task-plan.mjs";
-import { planBatch, planningRequest } from "../planner.mjs";
+import { createPersistentSOLPlanner, planBatch, planningRequest } from "../planner.mjs";
 import {
   assertCanonicalIsolatedWorktree,
+  deriveTaskWorktreePath,
   prepareTaskWorktrees,
+  resolveTrustedBaseCommit,
 } from "../worktrees.mjs";
 import {
   createFixture,
   git,
   rawPlans,
 } from "./task-62-fixtures.mjs";
+
+const solPlanner = (provider) => createPersistentSOLPlanner(provider);
 
 test("Task 62 model policy is exact, difficulty-based, persistent, and no-authority", () => {
   assert.deepEqual(PLANNING_MODEL_POLICY.model, REVIEW_MODEL_NAME);
@@ -58,11 +62,10 @@ test("planning stays in the persistent Orchestrator thread and bounds an explici
     const result = await planBatch({
       store: f.store,
       batchId: f.batch.batch_id,
-      worktreeRoot: f.worktreeRoot,
-      planProvider: (value) => {
+      solPlanner: solPlanner((value) => {
         request = value;
         return rawPlans(f.batch);
-      },
+      }),
     });
     assert.equal(result.status, "PLANNED");
     assert.equal(result.persisted, false);
@@ -106,13 +109,11 @@ test("accepted plans are digest-bound to the submitted batch and cannot be silen
     const first = await planBatch({
       store: f.store,
       batchId: f.batch.batch_id,
-      worktreeRoot: f.worktreeRoot,
-      planProvider: () => { calls += 1; return rawPlans(f.batch); },
+      solPlanner: solPlanner(() => { calls += 1; return rawPlans(f.batch); }),
     });
     const second = await planBatch({
       store: f.store,
       batchId: f.batch.batch_id,
-      worktreeRoot: f.worktreeRoot,
     });
     assert.equal(calls, 1);
     assert.equal(second.persisted, true);
@@ -122,10 +123,10 @@ test("accepted plans are digest-bound to the submitted batch and cannot be silen
     const unchanged = await planBatch({
       store: f.store,
       batchId: f.batch.batch_id,
-      planProvider: () => { replanningCalls += 1; return [{
+      solPlanner: solPlanner(() => { replanningCalls += 1; return [{
         ...rawPlans(f.batch)[0],
         allowlist: ["src/changed-after-acceptance.txt"],
-      }]; },
+      }]; }),
     });
     assert.equal(replanningCalls, 0);
     assert.equal(unchanged.plan_digest, first.plan_digest);
@@ -139,45 +140,53 @@ test("planner requires the canonical submitted batch and rejects direct plans an
   const f = createFixture(2, "task62-plan-authority");
   try {
     await assert.rejects(
-      planBatch({ store: f.store, batchId: "not-submitted", planProvider: () => rawPlans(f.batch) }),
+      planBatch({ store: f.store, batchId: "not-submitted" }),
       /explicit submitted batch/,
     );
+    await assert.rejects(
+      planBatch({ store: f.store, batchId: f.batch.batch_id, planProvider: () => rawPlans(f.batch) }),
+      /arbitrary planProvider|persistent SOL planner/i,
+    );
+    await assert.rejects(
+      planBatch({ store: f.store, batchId: f.batch.batch_id, solPlanner: () => rawPlans(f.batch) }),
+      /internal persistent Orchestrator SOL planner authority/i,
+    );
     const forbiddenKeys = [
-      "model", "provider", "solPlanner", "orchestrator", "policy", "permissions", "capabilities",
+      "model", "provider", "orchestrator", "policy", "permissions", "capabilities",
       "fallback", "allowProviderModelFallback", "ephemeral", "fork", "subagent", "sandbox", "baseRef",
-      "baseSha", "exec", "commandRunner", "prepareWorktrees", "plans",
+      "baseSha", "exec", "commandRunner", "prepareWorktrees", "plans", "worktreeRoot",
     ];
     for (const key of forbiddenKeys) {
       await assert.rejects(
         planBatch({
           store: f.store,
           batchId: f.batch.batch_id,
-          planProvider: () => rawPlans(f.batch),
+          solPlanner: solPlanner(() => rawPlans(f.batch)),
           [key]: key === "plans" ? rawPlans(f.batch) : true,
         }),
-        /override|persistent Orchestrator|fixed|caller supplied/i,
+        /override|persistent Orchestrator|fixed|caller(?:[- ]controlled| supplied)/i,
         `expected planning override ${key} to be rejected`,
       );
     }
     assert.throws(
       () => planningRequest({ store: f.store, batchId: f.batch.batch_id, baseRef: "HEAD" }),
-      /trusted|fixed/,
+      /override|trusted|fixed/,
     );
     assert.throws(
       () => planningRequest({ store: f.store, batchId: f.batch.batch_id, planProvider: () => rawPlans(f.batch) }),
-      /override|caller/,
+      /override|caller|persistent SOL/i,
     );
     await assert.rejects(
-      planBatch({ store: f.store, batchId: f.batch.batch_id, planProvider: () => rawPlans(f.batch), difficulty: "Terra" }),
+      planBatch({ store: f.store, batchId: f.batch.batch_id, solPlanner: solPlanner(() => rawPlans(f.batch)), difficulty: "Terra" }),
       /Unsupported review difficulty/,
     );
     await assert.rejects(
       planBatch({
         store: f.store,
         batchId: f.batch.batch_id,
-        planProvider: () => rawPlans(f.batch).map((plan, index) => index === 0
+        solPlanner: solPlanner(() => rawPlans(f.batch).map((plan, index) => index === 0
           ? { ...plan, validation_commands: ["true", "echo done"] }
-          : plan),
+          : plan)),
       }),
       /fixed validation gates/,
     );
@@ -194,8 +203,7 @@ test("provider output cannot override derived identity, branch, worktree, base, 
         planBatch({
           store: f.store,
           batchId: f.batch.batch_id,
-          worktreeRoot: f.worktreeRoot,
-          planProvider: () => [{ ...rawPlans(f.batch)[0], [field]: field === "position" ? 99 : "forged" }],
+          solPlanner: solPlanner(() => [{ ...rawPlans(f.batch)[0], [field]: field === "position" ? 99 : "forged" }]),
         }),
         /override|derived|authority|unsupported/i,
         `expected provider field ${field} to be rejected`,
@@ -212,10 +220,9 @@ test("task-plan schema carries traceability and only permits bounded state trans
     const plan = createTaskPlan({
       batch: f.batch,
       task: f.batch.tasks[0],
-      worktreeRoot: f.worktreeRoot,
-      allowlist: ["src/task-1.txt"],
+      allowlist: ["src/task-1.txt", "src/task-1.test.mjs", "src/task-1-check.mjs"],
       acceptanceCriteria: ["criterion"],
-      validationCommands: ["node --test src/smoke.test.mjs", "node --check src/check.mjs"],
+      validationCommands: ["node --test src/task-1.test.mjs", "node --check src/task-1-check.mjs"],
     });
     assert.equal(plan.state, "PLANNED");
     assert.equal(plan.batch_id, f.batch.batch_id);
@@ -228,11 +235,10 @@ test("task-plan schema carries traceability and only permits bounded state trans
     assert.throws(() => createTaskPlan({
       batch: f.batch,
       task: f.batch.tasks[0],
-      worktreeRoot: f.worktreeRoot,
       baseRef: "HEAD",
-      allowlist: ["src/task-1.txt"],
+      allowlist: ["src/task-1.txt", "src/task-1.test.mjs", "src/task-1-check.mjs"],
       acceptanceCriteria: ["criterion"],
-      validationCommands: ["node --test src/smoke.test.mjs", "node --check src/check.mjs"],
+      validationCommands: ["node --test src/task-1.test.mjs", "node --check src/task-1-check.mjs"],
     }), /origin\/main|trusted/);
   } finally {
     f.cleanup();
@@ -246,10 +252,9 @@ test("worktree preparation creates canonical isolated branches, reuses only clea
     const plans = (await planBatch({
       store: f.store,
       batchId: f.batch.batch_id,
-      worktreeRoot: f.worktreeRoot,
-      planProvider: () => rawPlans(f.batch),
+      solPlanner: solPlanner(() => rawPlans(f.batch)),
     })).plans;
-    prepared = prepareTaskWorktrees({ repositoryRoot: f.root, plans, worktreeRoot: f.worktreeRoot });
+    prepared = prepareTaskWorktrees({ repositoryRoot: f.root, plans });
     assert.equal(prepared.length, 2);
     for (const entry of prepared) {
       assert.equal(entry.worktree.created, true);
@@ -263,7 +268,7 @@ test("worktree preparation creates canonical isolated branches, reuses only clea
         branch: entry.plan.branch,
       }));
     }
-    const reused = prepareTaskWorktrees({ repositoryRoot: f.root, plans, worktreeRoot: f.worktreeRoot });
+    const reused = prepareTaskWorktrees({ repositoryRoot: f.root, plans });
     assert.equal(reused.every((entry) => entry.worktree.created === false), true);
     assert.throws(() => assertCanonicalIsolatedWorktree({
       repositoryRoot: f.root,
@@ -273,11 +278,27 @@ test("worktree preparation creates canonical isolated branches, reuses only clea
     assert.throws(() => prepareTaskWorktrees({
       repositoryRoot: f.root,
       plans,
-      worktreeRoot: f.worktreeRoot,
       exec: () => {},
     }), /override|primitive/);
+    assert.throws(() => prepareTaskWorktrees({
+      repositoryRoot: f.root,
+      plans,
+      worktreeRoot: f.worktreeRoot,
+    }), /override|primitive/);
+    assert.throws(() => deriveTaskWorktreePath({
+      repositoryRoot: f.root,
+      branch: plans[0].branch,
+      worktreeRoot: f.worktreeRoot,
+    }), /override|primitive/);
+    assert.throws(() => prepareTaskWorktrees({
+      repositoryRoot: f.root,
+      plans: plans.map((plan) => ({
+        ...plan,
+        worktree: path.join(f.worktreeRoot, "caller-selected", path.basename(plan.worktree)),
+      })),
+    }), /canonical/);
     fs.writeFileSync(path.join(prepared[0].worktree.worktree, "dirty.txt"), "dirty\n", "utf8");
-    assert.throws(() => prepareTaskWorktrees({ repositoryRoot: f.root, plans, worktreeRoot: f.worktreeRoot }), /clean/);
+    assert.throws(() => prepareTaskWorktrees({ repositoryRoot: f.root, plans }), /clean/);
     fs.rmSync(path.join(prepared[0].worktree.worktree, "dirty.txt"));
   } finally {
     f.cleanup(prepared.map((entry) => entry.worktree.worktree));
@@ -287,10 +308,14 @@ test("worktree preparation creates canonical isolated branches, reuses only clea
 test("protected, shared, deployment, and secret-bearing allowlists fail closed", async () => {
   const f = createFixture(1, "task62-plan-scope");
   try {
-    for (const allowlist of [
-      ["workflow/**"],
-      [".github/**"],
-      ["package.json"],
+      for (const allowlist of [
+        ["workflow/**"],
+        [".github/**"],
+        ["**/*.mjs"],
+        ["**/workflow/**"],
+        ["**/app/**"],
+        ["src/secret/config.mjs"],
+        ["package.json"],
       [".env.local"],
       ["deployment/**"],
       ["src/client-secret.mjs"],
@@ -300,12 +325,17 @@ test("protected, shared, deployment, and secret-bearing allowlists fail closed",
         planBatch({
           store: f.store,
           batchId: f.batch.batch_id,
-          worktreeRoot: f.worktreeRoot,
-          planProvider: () => [{ ...rawPlans(f.batch)[0], allowlist }],
+          solPlanner: solPlanner(() => [{ ...rawPlans(f.batch)[0], allowlist }]),
         }),
         /protected|shared|deployment|secret/i,
       );
     }
+    const originalOrigin = git(f.root, ["remote", "get-url", "origin"]);
+    git(f.root, ["remote", "set-url", "origin", path.join(f.root, "missing-origin")]);
+    assert.throws(() => resolveTrustedBaseCommit(f.root), /fresh origin\/main provenance|unavailable/i);
+    git(f.root, ["remote", "set-url", "origin", originalOrigin]);
+    git(f.root, ["commit", "--allow-empty", "--quiet", "-m", "remote drift"]);
+    assert.throws(() => resolveTrustedBaseCommit(f.root), /does not match|provenance/i);
   } finally {
     f.cleanup();
   }

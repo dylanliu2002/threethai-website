@@ -5,7 +5,7 @@ import test from "node:test";
 import { AgentRunner, dispatchImplementation, plansOverlap, runReadyPlans } from "../agent-runner.mjs";
 import { NightWorkerExecutor } from "../executor.mjs";
 import { NightWorkerService } from "../service.mjs";
-import { planBatch } from "../planner.mjs";
+import { createPersistentSOLPlanner, planBatch } from "../planner.mjs";
 import { RuntimeStore } from "../runtime-store.mjs";
 import { ThreadBroker } from "../thread-broker.mjs";
 import { prepareTaskWorktrees } from "../worktrees.mjs";
@@ -25,18 +25,18 @@ import {
   requestsFor,
 } from "./task-62-fixtures.mjs";
 
+const solPlanner = (provider) => createPersistentSOLPlanner(provider);
+
 async function plannedAndPrepared(f, taskCount = f.batch.tasks.length, provider = () => rawPlans(f.batch)) {
   assert.equal(taskCount, f.batch.tasks.length);
   const planning = await planBatch({
     store: f.store,
     batchId: f.batch.batch_id,
-    worktreeRoot: f.worktreeRoot,
-    planProvider: provider,
+    solPlanner: solPlanner(provider),
   });
   const prepared = prepareTaskWorktrees({
     repositoryRoot: f.root,
     plans: planning.plans,
-    worktreeRoot: f.worktreeRoot,
   });
   return { planning, prepared, plans: prepared.map((entry) => entry.plan) };
 }
@@ -305,7 +305,7 @@ test("public production dispatch rejects fake brokers, broker factories, fake cl
       modelList() {}, threadStart() {}, turnStart() {}, threadRead() {}, threadResume() {},
     };
     assert.throws(() => new AgentRunner({ store: f.store, batchId: f.batch.batch_id, client: fakeClient }), /genuine constructed/);
-    assert.throws(() => new NightWorkerExecutor({ store: f.store, planProvider: () => rawPlans(f.batch), client: fakeClient }), /genuine constructed/);
+    assert.throws(() => new NightWorkerExecutor({ store: f.store, solPlanner: solPlanner(() => rawPlans(f.batch)), client: fakeClient }), /genuine constructed/);
 
     const startDescriptor = Object.getOwnPropertyDescriptor(ThreadBroker.prototype, "startImplementation");
     const readDescriptor = Object.getOwnPropertyDescriptor(ThreadBroker.prototype, "readWorker");
@@ -327,62 +327,89 @@ test("public production dispatch rejects fake brokers, broker factories, fake cl
 test("authoritative Git scope ignores worker reports, rejects zero-path publication, and gates on fixed validation commands", async () => {
   const f = createFixture(1, "task62-validation");
   let prepared = [];
+  let client;
   try {
     ({ prepared } = await plannedAndPrepared(f, 1));
     const plan = prepared[0].plan;
-    const noChanges = validateTaskPlanExecution({
+    const noChanges = await validateTaskPlanExecution({
       plan,
       repositoryRoot: f.root,
       reportedChangedFiles: ["src/not-really-reported.txt"],
     });
-    assert.equal(noChanges.publishable, false);
+      assert.equal(noChanges.publishable, false);
     assert.deepEqual(noChanges.actual_paths, []);
     assert.throws(() => assertPublishable(noChanges), /not publishable/);
+
+    ({ client } = await createAppServerClient());
+    await dispatchImplementation({
+      store: f.store,
+      batchId: f.batch.batch_id,
+      plan,
+      client,
+    });
 
     for (let index = 1; index <= 12; index += 1) {
       fs.writeFileSync(path.join(plan.worktree, "src", `task-${index}.txt`), `${index}\n`, "utf8");
     }
-    const manyPlan = { ...plan, allowlist: ["src/task-*.txt"] };
-    const passed = validateTaskPlanExecution({
+    const manyPlan = {
+      ...plan,
+      allowlist: [
+        ...Array.from({ length: 12 }, (_, index) => `src/task-${index + 1}.txt`),
+        "src/task-1.test.mjs",
+        "src/task-1-check.mjs",
+      ],
+    };
+    const passed = await validateTaskPlanExecution({
       plan: manyPlan,
       repositoryRoot: f.root,
+      store: f.store,
+      client,
       reportedChangedFiles: ["src/not-really-reported.txt"],
     });
     assert.equal(passed.publishable, true);
     assert.equal(passed.actual_paths.length, 12);
     assert.deepEqual(passed.reported_paths, ["src/not-really-reported.txt"]);
     assert.equal(passed.scope.reported_paths_are_advisory, true);
+    assert.doesNotThrow(() => assertPublishable(passed));
+    assert.equal(Object.isFrozen(passed), true);
+    assert.throws(() => { passed.publishable = false; }, /read only|Cannot assign/i);
+    assert.doesNotThrow(() => assertPublishable(passed));
 
     fs.writeFileSync(path.join(plan.worktree, "outside.txt"), "outside\n", "utf8");
-    const outOfScope = validateTaskPlanExecution({ plan: manyPlan, repositoryRoot: f.root });
+    const outOfScope = await validateTaskPlanExecution({ plan: manyPlan, repositoryRoot: f.root, store: f.store, client });
     assert.equal(outOfScope.publishable, false);
     assert.match(outOfScope.error, /outside the task allowlist/);
     fs.rmSync(path.join(plan.worktree, "outside.txt"));
 
-    const failedValidation = validateTaskPlanExecution({
+    const failedValidation = await validateTaskPlanExecution({
       plan: {
         ...manyPlan,
-        validation_commands: ["node --test src/missing.test.mjs", "node --check src/check.mjs"],
+        allowlist: [...manyPlan.allowlist, "src/missing.test.mjs"],
+        validation_commands: ["node --test src/missing.test.mjs", "node --check src/task-1-check.mjs"],
       },
       repositoryRoot: f.root,
+      store: f.store,
+      client,
     });
     assert.equal(failedValidation.scope_passed, true);
     assert.equal(failedValidation.validation_passed, false);
     assert.equal(failedValidation.publishable, false);
     assert.equal(failedValidation.validation.results.length, 1);
   } finally {
+    await client?.close();
     f.cleanup(prepared.map((entry) => entry.worktree.worktree));
   }
 });
 
 test("validation authority fixes the trusted base and rejects caller overrides or Git/ref injection", async () => {
-  const f = createFixture(1, "task62-validation-authority");
+  const f = createFixture(2, "task62-validation-authority");
   let prepared = [];
+  let client;
   try {
-    ({ prepared } = await plannedAndPrepared(f, 1));
+    ({ prepared } = await plannedAndPrepared(f, 2));
     const plan = prepared[0].plan;
-    for (const key of ["baseRef", "baseSha", "exec", "commandRunner", "mergeBase", "prepareWorktrees"]) {
-      assert.throws(() => validateTaskPlanExecution({ plan, repositoryRoot: f.root, [key]: true }), /override/);
+    for (const key of ["baseRef", "baseSha", "exec", "commandRunner", "mergeBase", "prepareWorktrees", "mapping", "publishable"]) {
+      await assert.rejects(validateTaskPlanExecution({ plan, repositoryRoot: f.root, [key]: true }), /override/);
     }
     assert.throws(() => deriveAuthoritativeGitScope({ repositoryRoot: plan.worktree, baseRef: "HEAD" }), /override/);
     assert.throws(() => resolveMergeBase(plan.worktree, "HEAD"), /trusted|fixed/);
@@ -395,6 +422,10 @@ test("validation authority fixes the trusted base and rejects caller overrides o
     assert.throws(() => commandTokens("git merge origin/main"), /mutating Git/);
     assert.throws(() => commandTokens("git rebase origin/main"), /mutating Git/);
     assert.throws(() => commandTokens("git commit -m x"), /mutating Git/);
+    assert.throws(() => commandTokens("git -c alias.check=!rm status"), /mutating Git/);
+    assert.throws(() => commandTokens("rm -rf src"), /filesystem/);
+    assert.throws(() => commandTokens("python -c print(1)"), /shell control|interpreter/);
+    assert.throws(() => commandTokens("npm run arbitrary-script"), /arbitrary npm/);
     assert.throws(() => commandTokens("cmd /c git status"), /shell wrapper/);
     assert.throws(() => commandTokens("powershell -Command Get-ChildItem"), /shell wrapper/);
     assert.throws(() => commandTokens('node -e "process.exit(0)"'), /caller-supplied scripts/);
@@ -402,7 +433,59 @@ test("validation authority fixes the trusted base and rejects caller overrides o
     assert.throws(() => commandTokens("node --test src/smoke.test.mjs && node --check src/check.mjs"), /shell control/);
     assert.throws(() => runValidationCommands(["true", "echo done"], { cwd: plan.worktree }), /fixed validation gates/);
     assert.throws(() => runValidationCommands(['echo "node --test"', 'echo "node --check"'], { cwd: plan.worktree }), /fixed validation gates/);
+    assert.throws(() => runValidationCommands(["node --help", "node --check src/task-1-check.mjs"], {
+      cwd: plan.worktree,
+      allowlist: plan.allowlist,
+    }), /approved fixed|gates/);
+    assert.throws(() => runValidationCommands(["node --test src/smoke.test.mjs", "node --check package.json"], {
+      cwd: plan.worktree,
+      allowlist: plan.allowlist,
+    }), /allowlist|JavaScript module/);
+    assert.throws(() => runValidationCommands(["node --test src/task-1.test.mjs", "node --check src/unrelated.mjs"], {
+      cwd: plan.worktree,
+      allowlist: plan.allowlist,
+    }), /allowlist/);
+    assert.throws(() => runValidationCommands(["npm --prefix . test", "node --check src/task-1-check.mjs"], {
+      cwd: plan.worktree,
+      allowlist: plan.allowlist,
+    }), /approved fixed|gates/);
+    assert.throws(() => runValidationCommands(["node src/task-1-check.mjs", "node --check src/task-1-check.mjs"], {
+      cwd: plan.worktree,
+      allowlist: plan.allowlist,
+    }), /approved fixed|gates/);
+    ({ client } = await createAppServerClient({ writeChanges: true }));
+    await dispatchImplementation({
+      store: f.store,
+      batchId: f.batch.batch_id,
+      plan: prepared[1].plan,
+      client,
+    });
+    fs.writeFileSync(path.join(plan.worktree, "src", "task-1.txt"), "forged mapping\n", "utf8");
+    const sourceMapping = f.store.getWorkerMapping(f.batch.batch_id, prepared[1].plan.task_id, "IMPLEMENTATION");
+    f.store.putWorkerMapping({
+      ...sourceMapping,
+      task_id: plan.task_id,
+      cwd: plan.worktree,
+      client_user_message_id: `${f.batch.submission_id}:${plan.task_id}:IMPLEMENTATION`,
+    });
+    const forgedMappingEvidence = await validateTaskPlanExecution({
+      plan,
+      repositoryRoot: f.root,
+      store: f.store,
+      client,
+    });
+    assert.equal(forgedMappingEvidence.publishable, false);
+    assert.match(forgedMappingEvidence.error, /client message identity|durable/i);
+    assert.throws(() => assertPublishable({
+      publishable: true,
+      passed: true,
+      scope_passed: true,
+      validation_passed: true,
+      actual_paths: ["src/task-1.txt"],
+      durable_worker: { source: "canonical-runtime-store+typed-thread-read", turn_status: "SUCCEEDED" },
+    }), /not publishable|durable/);
   } finally {
+    await client?.close();
     f.cleanup(prepared.map((entry) => entry.worktree.worktree));
   }
 });
@@ -422,7 +505,7 @@ test("idle service performs no planning or execution without an explicit submitt
     assert.throws(() => new NightWorkerExecutor({
       store: f.store,
       planProvider: () => { throw new Error("planner must not run"); },
-    }), /genuine constructed/);
+    }), /caller override/);
   } finally {
     f.cleanup();
   }
@@ -436,9 +519,8 @@ test("executor runs disjoint plans through the real broker, validates them, and 
     ({ client, transport } = await createAppServerClient({ turnDelayMs: 60, writeChanges: true }));
     const executor = new NightWorkerExecutor({
       store: f.store,
-      planProvider: () => rawPlans(f.batch),
+      solPlanner: solPlanner(() => rawPlans(f.batch)),
       client,
-      worktreeRoot: f.worktreeRoot,
       maxParallel: 2,
     });
     const result = await executor.executeBatch(f.batch.batch_id);

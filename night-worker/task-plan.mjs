@@ -2,6 +2,7 @@ import { timestampFrom } from "./config.mjs";
 import {
   TASK_PLAN_SCHEMA_VERSION,
   TASK_PLAN_STATES,
+  normalizeAllowlist,
   taskPlanDigest,
   validateTaskPlan,
   validateTaskPlans,
@@ -36,7 +37,6 @@ export function createTaskPlan({
   description,
   branch,
   worktree,
-  worktreeRoot,
   allowlist,
   acceptanceCriteria,
   validationCommands,
@@ -48,7 +48,11 @@ export function createTaskPlan({
   assertObject(batch, "submitted batch");
   assertObject(task, "submitted task");
   if (task.task_id === undefined || task.position === undefined) throw new Error("Submitted task identity is required.");
-  assertSafeValidationCommands(validationCommands);
+  if (arguments[0] && Object.prototype.hasOwnProperty.call(arguments[0], "worktreeRoot")) {
+    throw new Error("Task plan creation cannot accept caller-controlled worktreeRoot authority.");
+  }
+  const normalizedAllowlist = normalizeAllowlist(allowlist);
+  assertSafeValidationCommands(validationCommands, { allowlist: normalizedAllowlist });
   const trustedBaseSha = resolveTrustedBaseCommit(batch.repository_root);
   const allocated = allocateTaskWorktree({
     repositoryRoot: batch.repository_root,
@@ -61,7 +65,6 @@ export function createTaskPlan({
       worktree,
       base_sha: trustedBaseSha,
     },
-    worktreeRoot,
     baseRef,
   });
   const now = timestampFrom(clock);
@@ -75,7 +78,7 @@ export function createTaskPlan({
     description: allocated.description,
     branch: allocated.branch,
     worktree: allocated.worktree,
-    allowlist,
+    allowlist: normalizedAllowlist,
     acceptance_criteria: acceptanceCriteria,
     validation_commands: validationCommands,
     difficulty,

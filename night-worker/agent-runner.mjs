@@ -248,7 +248,7 @@ export async function dispatchImplementation(options = {}) {
   const { store, batchId, plan, client, signal } = options;
   const batch = durableBatch(store, batchId);
   const normalizedPlan = validateTaskPlan(plan, { batch, requireReady: true });
-  assertSafeValidationCommands(normalizedPlan.validation_commands);
+  assertSafeValidationCommands(normalizedPlan.validation_commands, { allowlist: normalizedPlan.allowlist });
   assertProductionAppServerClient(client);
   const existingMapping = store.getWorkerMapping(batch.batch_id, normalizedPlan.task_id, "IMPLEMENTATION");
   if (existingMapping && existingMapping.cwd !== normalizedPlan.worktree) {

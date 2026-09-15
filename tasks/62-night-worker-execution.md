@@ -231,6 +231,30 @@ Correction cycle 1 completion record:
 - Correction changes remain within the Task 62 production/test/card/worklog
   allowlist; no push or PR was performed.
 
+Correction cycle 2 completion record:
+
+- Correction base / reviewed head: `ac79bcb693c3316a696e8cd2d5485e6bfe9b1fc3`;
+  implementation is a fast-forward descendant of that head and remains on
+  `codex/62-night-worker-execution`.
+- Hardened validation commands to an explicit fixed test/static-gate allowlist;
+  protected allowlist glob coverage, durable terminal worker evidence,
+  persistent SOL planner branding, canonical worktree derivation, fresh
+  `origin/main` provenance, and publishability evidence integrity now fail
+  closed.
+- `node --test night-worker/tests/task-62*.test.mjs` — PASS, 20/20.
+- `node --test night-worker/tests/*.test.mjs` — PASS, 53/53, preserving Task 61
+  lifecycle and recovery regressions.
+- `node --check` — PASS for all 11 changed Task 62 production/test modules.
+- `npm run lint` — BLOCKED: `eslint` is not recognized in the restricted
+  environment. `npm run build` — BLOCKED: `next` is not recognized.
+  `npm run typecheck` — BLOCKED: `tsc` is not recognized. No package or lock
+  file was changed.
+- `git diff --check` — PASS before commit; final exact allowlist,
+  protected-surface immutability, ancestry, and identity gates are recorded in
+  the appended worklog and delivery record.
+- Status remains `REVIEW`; implementation is ready for a fresh independent SOL
+  review. No push, PR, merge, publishing, or activation was performed.
+
 ## Rollback
 
 Revert the Task 62 commit. The changes are additive and do not alter

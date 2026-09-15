@@ -9,6 +9,7 @@ import {
 import {
   TASK_PLAN_SCHEMA_VERSION,
   TRUSTED_BASE_REF,
+  normalizeAllowlist,
   validateTaskPlans,
 } from "./schemas.mjs";
 import { allocateTaskWorktrees, resolveTrustedBaseCommit } from "./worktrees.mjs";
@@ -18,6 +19,8 @@ import { assertSafeValidationCommands } from "./validation.mjs";
 
 const PLAN_BINDING_FIELD = "__night_worker_plan_binding";
 const PLAN_BINDING_SCHEMA_VERSION = 1;
+const PERSISTENT_SOL_PLANNERS = new WeakSet();
+const PLANNING_OPTION_FIELDS = new Set(["store", "batchId", "difficulty", "solPlanner"]);
 
 const ALLOWED_PROVIDER_PLAN_FIELDS = new Set([
   "task_id",
@@ -39,6 +42,24 @@ function assertObject(value, label) {
 
 function clone(value) {
   return typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value));
+}
+
+export function createPersistentSOLPlanner(provider) {
+  if (typeof provider !== "function") {
+    throw new Error("Persistent SOL planner requires an Orchestrator provider function.");
+  }
+  const planner = Object.freeze({
+    plan: (request) => provider(request),
+  });
+  PERSISTENT_SOL_PLANNERS.add(planner);
+  return planner;
+}
+
+function assertPersistentSOLPlanner(planner) {
+  if (!PERSISTENT_SOL_PLANNERS.has(planner)) {
+    throw new Error("Planning requires the internal persistent Orchestrator SOL planner authority.");
+  }
+  return planner;
 }
 
 function assertCanonicalStore(store, batch) {
@@ -77,14 +98,26 @@ function submittedBatchFrom({ store, batchId } = {}) {
   return clone(durable);
 }
 
-function planningOptions(options) {
+function planningOptions(options, { allowSolPlanner = false } = {}) {
   if (!options || typeof options !== "object" || Array.isArray(options)) {
     throw new Error("Planning options must be an object.");
+  }
+  const allowed = new Set(PLANNING_OPTION_FIELDS);
+  if (!allowSolPlanner) allowed.delete("solPlanner");
+  for (const key of Object.keys(options)) {
+    if (allowed.has(key)) continue;
+    if (key === "planProvider") {
+      throw new Error("Planning cannot accept an arbitrary planProvider; use the internal persistent SOL planner authority.");
+    }
+    if (key === "worktreeRoot") {
+      throw new Error("Planning cannot accept caller-controlled worktreeRoot authority.");
+    }
+    throw new Error(`Planning cannot accept caller override: ${key}`);
   }
   for (const key of ["model", "provider", "solPlanner", "orchestrator", "policy", "permissions", "capabilities", "fallback",
     "allowProviderModelFallback", "ephemeral", "fork", "subagent", "subagents", "sandbox", "baseSha",
     "exec", "commandRunner", "prepareWorktrees"]) {
-    if (Object.prototype.hasOwnProperty.call(options, key)) {
+    if (Object.prototype.hasOwnProperty.call(options, key) && !(key === "solPlanner" && allowSolPlanner)) {
       throw new Error(`Planning cannot accept caller policy or authority override: ${key}`);
     }
   }
@@ -98,9 +131,6 @@ function planningOptions(options) {
 
 export function planningRequest(options = {}) {
   planningOptions(options);
-  if (Object.prototype.hasOwnProperty.call(options, "planProvider")) {
-    throw new Error("Planning requests are data for the persistent Orchestrator provider, not a provider override.");
-  }
   const { store, batchId, difficulty = REVIEW_DEFAULT_REASONING_EFFORT } = options;
   const selected = submittedBatchFrom({ store, batchId });
   const policy = planningPolicyForDifficulty(difficulty);
@@ -167,14 +197,15 @@ function taskForCandidate(candidate, tasks, index) {
   return task;
 }
 
-function normalizePlanOutputForBatch(batch, output, { worktreeRoot, baseSha } = {}) {
+function normalizePlanOutputForBatch(batch, output, { baseSha } = {}) {
   const candidates = providerPlans(output);
   if (candidates.length !== batch.tasks.length || candidates.length > MVP_CONFIG.max_tasks_per_batch) {
     throw new Error("Planner output must contain exactly one bounded plan per submitted task.");
   }
   const rawPlans = candidates.map((candidate, index) => {
     assertProviderFields(candidate);
-    assertSafeValidationCommands(candidate.validation_commands);
+    const allowlist = normalizeAllowlist(candidate.allowlist);
+    assertSafeValidationCommands(candidate.validation_commands, { allowlist });
     const task = taskForCandidate(candidate, batch.tasks, index);
     return {
       schema_version: TASK_PLAN_SCHEMA_VERSION,
@@ -184,7 +215,7 @@ function normalizePlanOutputForBatch(batch, output, { worktreeRoot, baseSha } = 
       position: task.position,
       title: candidate.title,
       description: candidate.description ?? task.description,
-      allowlist: candidate.allowlist,
+      allowlist,
       acceptance_criteria: candidate.acceptance_criteria,
       validation_commands: candidate.validation_commands,
       difficulty: candidate.difficulty ?? "medium",
@@ -197,7 +228,6 @@ function normalizePlanOutputForBatch(batch, output, { worktreeRoot, baseSha } = 
   const allocated = allocateTaskWorktrees({
     repositoryRoot: batch.repository_root,
     plans: rawPlans,
-    worktreeRoot,
   });
   return validateTaskPlans(allocated, { batch, requireReady: true });
 }
@@ -224,6 +254,13 @@ function bindingFromBatch(batch) {
     throw new Error("Persisted task-plan binding identity or schema is invalid.");
   }
   const plans = validateTaskPlans(binding.plans, { batch, requireReady: true });
+  for (const plan of plans) {
+    assertSafeValidationCommands(plan.validation_commands, { allowlist: plan.allowlist });
+  }
+  const allocated = allocateTaskWorktrees({ repositoryRoot: batch.repository_root, plans });
+  if (allocated.some((entry, index) => entry.worktree !== plans[index].worktree)) {
+    throw new Error("Persisted task-plan binding contains a non-canonical worker worktree.");
+  }
   const digest = bundleDigest(plans);
   if (binding.digest !== digest) throw new Error("Persisted task-plan binding digest does not match its plans.");
   return { digest, plans };
@@ -265,13 +302,12 @@ function persistPlanBinding(store, batch, plans) {
 }
 
 export async function planBatch(options = {}) {
-  planningOptions(options);
+  planningOptions(options, { allowSolPlanner: true });
   const {
     store,
     batchId,
-    planProvider,
+    solPlanner,
     difficulty = REVIEW_DEFAULT_REASONING_EFFORT,
-    worktreeRoot,
   } = options;
   const selected = submittedBatchFrom({ store, batchId });
   const trustedBaseSha = resolveTrustedBaseCommit(selected.repository_root);
@@ -291,13 +327,10 @@ export async function planBatch(options = {}) {
       persisted: true,
     };
   }
-  const planner = planProvider;
-  if (typeof planner !== "function") {
-    throw new Error("An explicit submitted batch requires persistent Orchestrator planning output.");
-  }
+  const planner = assertPersistentSOLPlanner(solPlanner);
   const request = planningRequest({ store, batchId: selected.batch_id, difficulty });
-  const output = await planner(request);
-  const normalizedPlans = normalizePlanOutputForBatch(selected, output, { worktreeRoot, baseSha: trustedBaseSha });
+  const output = await planner.plan(request);
+  const normalizedPlans = normalizePlanOutputForBatch(selected, output, { baseSha: trustedBaseSha });
   const bound = persistPlanBinding(store, selected, normalizedPlans);
   return {
     status: "PLANNED",
@@ -314,17 +347,21 @@ export async function planBatch(options = {}) {
 export const planSubmittedBatch = planBatch;
 export const createTaskPlans = planBatch;
 
-export function createPlanner({ store, planProvider, difficulty = REVIEW_DEFAULT_REASONING_EFFORT, worktreeRoot } = {}) {
+export function createPlanner(options = {}) {
+  const allowed = new Set(["store", "solPlanner", "difficulty"]);
+  for (const key of Object.keys(options ?? {})) {
+    if (!allowed.has(key)) throw new Error(`Planner factory cannot accept caller override: ${key}`);
+  }
+  const { store, solPlanner, difficulty = REVIEW_DEFAULT_REASONING_EFFORT } = options;
   if (!(store instanceof RuntimeStore)) throw new Error("Planner requires the real Task 61 RuntimeStore.");
-  if (typeof planProvider !== "function") throw new Error("Planner requires a persistent Orchestrator plan provider.");
+  assertPersistentSOLPlanner(solPlanner);
   return Object.freeze({
     planBatch: (options = {}) => planBatch({
       ...options,
       store,
       batchId: options.batchId,
-      planProvider,
+      solPlanner,
       difficulty: options.difficulty ?? difficulty,
-      worktreeRoot: options.worktreeRoot ?? worktreeRoot,
     }),
   });
 }
@@ -332,5 +369,6 @@ export function createPlanner({ store, planProvider, difficulty = REVIEW_DEFAULT
 export {
   ALLOWED_PROVIDER_PLAN_FIELDS,
   PLAN_BINDING_FIELD,
+  assertPersistentSOLPlanner,
   bundleDigest as taskPlanBundleDigest,
 };
