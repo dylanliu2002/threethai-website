@@ -289,11 +289,13 @@ Correction cycle 3 validation record:
 Correction cycle 3 completion record:
 
 - Correction base / reviewed head: `1b31553e5684a4c2db958d42b41a127548e9cec0`.
-- Correction implementation and final handoff commit hashes are recorded after
-  the verified descendant commits are created; both use the exact required
-  author and committer identity.
-- Final validation will report the exact 13-path Task 62 production/test/card/
-  worklog allowlist and the `origin/main` ancestry result.
+- Correction implementation commit: `ea482f955b68579afae70e71d6cefc226a9c35a3`,
+  parent `1b31553e5684a4c2db958d42b41a127548e9cec0`; exact author and committer
+  are `dylanliu2002 <dylanliu2002@gmail.com>`.
+- The final handoff record is a verified fast-forward descendant of that
+  implementation commit; final hash-qualified validation reports the exact
+  13-path Task 62 production/test/card/worklog allowlist and `origin/main`
+  ancestry result.
 
 ## Rollback
 
