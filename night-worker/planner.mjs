@@ -14,12 +14,18 @@ import {
 } from "./schemas.mjs";
 import { allocateTaskWorktrees, resolveTrustedBaseCommit } from "./worktrees.mjs";
 import { RuntimeStore } from "./runtime-store.mjs";
-import { defaultRuntimeStorePath } from "./submission.mjs";
-import { assertSafeValidationCommands } from "./validation.mjs";
+import {
+  assertCanonicalRuntimeStoreAuthority,
+  assertSafeValidationCommands,
+  readCanonicalBatch,
+} from "./validation.mjs";
+import { AppServerClient, isGenuineAppServerClient } from "./app-server-client.mjs";
 
 const PLAN_BINDING_FIELD = "__night_worker_plan_binding";
 const PLAN_BINDING_SCHEMA_VERSION = 1;
 const PERSISTENT_SOL_PLANNERS = new WeakSet();
+const PERSISTENT_SOL_PLANNER_CONTEXTS = new WeakMap();
+const PERSISTENT_SOL_THREAD_ID = "persistent-orchestrator";
 const PLANNING_OPTION_FIELDS = new Set(["store", "batchId", "difficulty", "solPlanner"]);
 
 const ALLOWED_PROVIDER_PLAN_FIELDS = new Set([
@@ -44,30 +50,49 @@ function clone(value) {
   return typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value));
 }
 
-export function createPersistentSOLPlanner(provider) {
-  if (typeof provider !== "function") {
-    throw new Error("Persistent SOL planner requires an Orchestrator provider function.");
+export function createPersistentSOLPlanner(options = {}) {
+  if (!options || typeof options !== "object" || Array.isArray(options)) {
+    throw new Error("Persistent SOL planner requires a genuine App Server lifecycle identity object.");
   }
-  const planner = Object.freeze({
-    plan: (request) => provider(request),
+  const allowed = new Set(["client", "threadId", "plan"]);
+  for (const key of Object.keys(options)) {
+    if (!allowed.has(key)) throw new Error(`Persistent SOL planner cannot accept caller override: ${key}`);
+  }
+  const { client, threadId, plan } = options;
+  if (!(client instanceof AppServerClient) || !isGenuineAppServerClient(client)
+    || client.connectionState !== "READY") {
+    throw new Error("Persistent SOL planner requires a genuine ready App Server lifecycle identity.");
+  }
+  if (threadId !== PERSISTENT_SOL_THREAD_ID) {
+    throw new Error("Persistent SOL planner must use the persistent Orchestrator thread identity.");
+  }
+  if (typeof plan !== "function") {
+    throw new Error("Persistent SOL planner requires the internal persistent lifecycle plan method.");
+  }
+  let planner;
+  planner = Object.freeze({
+    plan: (request) => {
+      assertPersistentSOLPlanner(planner);
+      if (!request || request.planning_thread !== PERSISTENT_SOL_THREAD_ID) {
+        throw new Error("Persistent SOL planner requests must remain in the persistent Orchestrator thread.");
+      }
+      return plan(request);
+    },
   });
+  PERSISTENT_SOL_PLANNER_CONTEXTS.set(planner, { client, plan });
   PERSISTENT_SOL_PLANNERS.add(planner);
   return planner;
 }
 
 function assertPersistentSOLPlanner(planner) {
-  if (!PERSISTENT_SOL_PLANNERS.has(planner)) {
+  const context = PERSISTENT_SOL_PLANNER_CONTEXTS.get(planner);
+  if (!PERSISTENT_SOL_PLANNERS.has(planner) || !context
+    || !(context.client instanceof AppServerClient)
+    || !isGenuineAppServerClient(context.client)
+    || context.client.connectionState !== "READY") {
     throw new Error("Planning requires the internal persistent Orchestrator SOL planner authority.");
   }
   return planner;
-}
-
-function assertCanonicalStore(store, batch) {
-  const expected = defaultRuntimeStorePath(batch.repository_root);
-  const actual = store.filePath;
-  if (expected !== actual && expected.toLocaleLowerCase("en-US") !== actual.toLocaleLowerCase("en-US")) {
-    throw new Error("Planner requires the canonical submitted repository RuntimeStore.");
-  }
 }
 
 function submittedBatchFrom({ store, batchId } = {}) {
@@ -78,12 +103,12 @@ function submittedBatchFrom({ store, batchId } = {}) {
     throw new Error("Planning requires an explicit submitted batch ID.");
   }
   const requestedId = batchId.trim();
-  const durable = store.getBatch(requestedId);
+  const durable = readCanonicalBatch(store, requestedId);
   if (!durable || durable.batch_id !== requestedId) {
     throw new Error(`Cannot plan without an explicit submitted batch: ${requestedId}`);
   }
   assertObject(durable, "submitted batch");
-  assertCanonicalStore(store, durable);
+  assertCanonicalRuntimeStoreAuthority(store, durable.repository_root);
   if (typeof durable.submission_id !== "string" || durable.submission_id.length === 0) {
     throw new Error("Submitted batch must have a durable submission identifier.");
   }
@@ -311,6 +336,7 @@ export async function planBatch(options = {}) {
   } = options;
   const selected = submittedBatchFrom({ store, batchId });
   const trustedBaseSha = resolveTrustedBaseCommit(selected.repository_root);
+  const providedPlanner = solPlanner === undefined ? null : assertPersistentSOLPlanner(solPlanner);
   const persisted = bindingFromBatch(selected);
   if (persisted) {
     if (persisted.plans.some((plan) => plan.base_sha !== trustedBaseSha)) {
@@ -327,9 +353,10 @@ export async function planBatch(options = {}) {
       persisted: true,
     };
   }
-  const planner = assertPersistentSOLPlanner(solPlanner);
   const request = planningRequest({ store, batchId: selected.batch_id, difficulty });
+  const planner = providedPlanner ?? assertPersistentSOLPlanner(solPlanner);
   const output = await planner.plan(request);
+  assertCanonicalRuntimeStoreAuthority(store, selected.repository_root);
   const normalizedPlans = normalizePlanOutputForBatch(selected, output, { baseSha: trustedBaseSha });
   const bound = persistPlanBinding(store, selected, normalizedPlans);
   return {

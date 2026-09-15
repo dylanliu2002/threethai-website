@@ -263,6 +263,38 @@ Correction cycle 2 completion record:
 - Status remains `REVIEW`; implementation is ready for a fresh independent SOL
   review. No push, PR, merge, publishing, or activation was performed.
 
+Correction cycle 3 validation record:
+
+- Continued from exact reviewed head `1b31553e5684a4c2db958d42b41a127548e9cec0`.
+- Closed the fresh review findings only within the Task 62 allowlist: validation
+  commands now reject indirect executable aliases, shell metacharacter quoting,
+  pathless or help-spoofed Node gates, and unchanged validation targets;
+  protected namespace checks reject single-character and equivalent wildcard
+  variants; canonical RuntimeStore reads reject own/prototype authority
+  overrides and use captured methods; forged durable terminal state cannot mint
+  publishability evidence; and persistent SOL planners require the genuine
+  ready App Server lifecycle identity and persistent Orchestrator thread.
+- `node --test night-worker/tests/task-62-planning.test.mjs night-worker/tests/task-62-execution.test.mjs` — PASS, 20/20.
+- `node --test night-worker/tests/*.test.mjs` — PASS, 53/53, including all
+  Task 61 lifecycle and recovery regressions.
+- `node --check` — PASS for all 12 Task 62 `.mjs` production/test modules.
+- `npm run lint` — BLOCKED: `eslint` is not recognized. `npm run build` —
+  BLOCKED: `next` is not recognized. `npm run typecheck` — BLOCKED: `tsc` is
+  not recognized in the restricted environment. No package or lock file changed.
+- `git diff --check` — PASS before commit; final hash-qualified scope,
+  protected-surface immutability, ancestry, and identity checks remain required
+  after commit. Status remains `REVIEW`; no push, PR, merge, publishing,
+  activation, subagent, `codex exec`, Terra, or fallback action was performed.
+
+Correction cycle 3 completion record:
+
+- Correction base / reviewed head: `1b31553e5684a4c2db958d42b41a127548e9cec0`.
+- Correction implementation and final handoff commit hashes are recorded after
+  the verified descendant commits are created; both use the exact required
+  author and committer identity.
+- Final validation will report the exact 13-path Task 62 production/test/card/
+  worklog allowlist and the `origin/main` ancestry result.
+
 ## Rollback
 
 Revert the Task 62 commit. The changes are additive and do not alter

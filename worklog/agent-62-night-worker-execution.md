@@ -144,3 +144,31 @@
   not create the shared branch lock. The commit object and staged tree remain
   available through the task-scoped alternate Git object/index path; no push,
   remote mutation, PR, review, merge, publishing, or activation was performed.
+
+## 2026-09-15 — human-authorized correction cycle 3
+
+- Continued in the same Task 62 worktree and branch from exact reviewed head
+  `1b31553e5684a4c2db958d42b41a127548e9cec0`; no Task 61, workflow, package,
+  `.github`, or SYS-AUTO-007 surface was changed.
+- Closed only the fresh review findings: validation command parsing rejects
+  indirect executable aliases, quoted shell controls, pathless Node gates,
+  help spoofing, and unchanged targets; protected path validation rejects `?`
+  and equivalent wildcard variants; canonical RuntimeStore reads use captured
+  base methods and reject instance/prototype authority overrides; forged
+  terminal state cannot mint publishability evidence; and persistent SOL
+  planner branding requires a genuine ready App Server lifecycle client bound
+  to the persistent Orchestrator thread.
+- Added focused adversarial regressions covering each of those boundaries,
+  while preserving the existing 53-test Task 61/62 guarantees.
+- `node --test night-worker/tests/task-62-planning.test.mjs night-worker/tests/task-62-execution.test.mjs` PASS (20/20).
+- `node --test night-worker/tests/*.test.mjs` PASS (53/53), including Task 61
+  lifecycle and recovery tests.
+- `node --check` PASS for all 12 Task 62 `.mjs` production/test modules.
+- `npm run lint` BLOCKED (`eslint` not recognized); `npm run build` BLOCKED
+  (`next` not recognized); `npm run typecheck` BLOCKED (`tsc` not recognized)
+  in the restricted environment. No dependency or package file changed.
+- `git diff --check` PASS before commit. Final hash-qualified exact scope,
+  forbidden-surface immutability, `origin/main` ancestry, and identity gates
+  will be recorded after the descendant commit is created. No push, PR, merge,
+  publishing, activation, subagent, `codex exec`, Terra, provider fallback, or
+  alternate worker mechanism was used.

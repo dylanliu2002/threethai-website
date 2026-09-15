@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { AppServerClient } from "../app-server-client.mjs";
+import { createPersistentSOLPlanner } from "../planner.mjs";
 import { RuntimeStore } from "../runtime-store.mjs";
 import { createBatch } from "../submission.mjs";
 import { deriveCanonicalTaskWorktreeRoot } from "../worktrees.mjs";
@@ -199,6 +200,8 @@ class FakeTask62Transport {
       if (this.write_changes) {
         const position = taskPositionFromCwd(request.params.cwd);
         fs.writeFileSync(path.join(request.params.cwd, "src", `task-${position}.txt`), "worker change\n", "utf8");
+        fs.appendFileSync(path.join(request.params.cwd, "src", `task-${position}.test.mjs`), "\n", "utf8");
+        fs.appendFileSync(path.join(request.params.cwd, "src", `task-${position}-check.mjs`), "\n", "utf8");
       }
       this.active_turns += 1;
       this.max_active_turns = Math.max(this.max_active_turns, this.active_turns);
@@ -245,3 +248,13 @@ export async function createAppServerClient(options = {}) {
 export function requestsFor(transport, method) {
   return transport.requests.filter((request) => request.method === method);
 }
+
+const persistentSOLFixture = await createAppServerClient({
+  clientInfo: { role: "ORCHESTRATOR", planningThread: "persistent-orchestrator" },
+});
+export const persistentSOLClient = persistentSOLFixture.client;
+export const persistentSOLPlanner = (plan) => createPersistentSOLPlanner({
+  client: persistentSOLClient,
+  threadId: "persistent-orchestrator",
+  plan,
+});

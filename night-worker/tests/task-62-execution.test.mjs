@@ -5,8 +5,7 @@ import test from "node:test";
 import { AgentRunner, dispatchImplementation, plansOverlap, runReadyPlans } from "../agent-runner.mjs";
 import { NightWorkerExecutor } from "../executor.mjs";
 import { NightWorkerService } from "../service.mjs";
-import { createPersistentSOLPlanner, planBatch } from "../planner.mjs";
-import { RuntimeStore } from "../runtime-store.mjs";
+import { planBatch } from "../planner.mjs";
 import { ThreadBroker } from "../thread-broker.mjs";
 import { prepareTaskWorktrees } from "../worktrees.mjs";
 import {
@@ -21,11 +20,12 @@ import {
   createAppServerClient,
   createFixture,
   makeValidPlan,
+  persistentSOLPlanner,
   rawPlans,
   requestsFor,
 } from "./task-62-fixtures.mjs";
 
-const solPlanner = (provider) => createPersistentSOLPlanner(provider);
+const solPlanner = (provider) => persistentSOLPlanner(provider);
 
 async function plannedAndPrepared(f, taskCount = f.batch.tasks.length, provider = () => rawPlans(f.batch)) {
   assert.equal(taskCount, f.batch.tasks.length);
@@ -340,7 +340,7 @@ test("authoritative Git scope ignores worker reports, rejects zero-path publicat
     assert.deepEqual(noChanges.actual_paths, []);
     assert.throws(() => assertPublishable(noChanges), /not publishable/);
 
-    ({ client } = await createAppServerClient());
+    ({ client } = await createAppServerClient({ writeChanges: true }));
     await dispatchImplementation({
       store: f.store,
       batchId: f.batch.batch_id,
@@ -367,7 +367,7 @@ test("authoritative Git scope ignores worker reports, rejects zero-path publicat
       reportedChangedFiles: ["src/not-really-reported.txt"],
     });
     assert.equal(passed.publishable, true);
-    assert.equal(passed.actual_paths.length, 12);
+    assert.equal(passed.actual_paths.length, 14);
     assert.deepEqual(passed.reported_paths, ["src/not-really-reported.txt"]);
     assert.equal(passed.scope.reported_paths_are_advisory, true);
     assert.doesNotThrow(() => assertPublishable(passed));
@@ -394,7 +394,8 @@ test("authoritative Git scope ignores worker reports, rejects zero-path publicat
     assert.equal(failedValidation.scope_passed, true);
     assert.equal(failedValidation.validation_passed, false);
     assert.equal(failedValidation.publishable, false);
-    assert.equal(failedValidation.validation.results.length, 1);
+    assert.equal(failedValidation.validation.results.length, 0);
+    assert.match(failedValidation.error, /authoritative changed path/);
   } finally {
     await client?.close();
     f.cleanup(prepared.map((entry) => entry.worktree.worktree));
@@ -423,28 +424,37 @@ test("validation authority fixes the trusted base and rejects caller overrides o
     assert.throws(() => commandTokens("git rebase origin/main"), /mutating Git/);
     assert.throws(() => commandTokens("git commit -m x"), /mutating Git/);
     assert.throws(() => commandTokens("git -c alias.check=!rm status"), /mutating Git/);
+    assert.throws(() => commandTokens("./node --test src/task-1.test.mjs"), /bare executable/);
+    assert.throws(() => commandTokens("tools/npm test"), /bare executable/);
+    assert.throws(() => commandTokens('node --test "src/task-1.test.mjs; echo bypass"'), /shell control/);
+    assert.throws(() => commandTokens("node --test src/task-1.test.mjs --help"), /help|options/i);
     assert.throws(() => commandTokens("rm -rf src"), /filesystem/);
     assert.throws(() => commandTokens("python -c print(1)"), /shell control|interpreter/);
     assert.throws(() => commandTokens("npm run arbitrary-script"), /arbitrary npm/);
     assert.throws(() => commandTokens("cmd /c git status"), /shell wrapper/);
     assert.throws(() => commandTokens("powershell -Command Get-ChildItem"), /shell wrapper/);
-    assert.throws(() => commandTokens('node -e "process.exit(0)"'), /caller-supplied scripts/);
-    assert.throws(() => commandTokens("codex exec --help"), /codex exec/);
+    assert.throws(() => commandTokens('node -e "process.exit"'), /caller-supplied scripts/);
+    assert.throws(() => commandTokens("codex exec --help"), /codex exec|help/i);
     assert.throws(() => commandTokens("node --test src/smoke.test.mjs && node --check src/check.mjs"), /shell control/);
     assert.throws(() => runValidationCommands(["true", "echo done"], { cwd: plan.worktree }), /fixed validation gates/);
     assert.throws(() => runValidationCommands(['echo "node --test"', 'echo "node --check"'], { cwd: plan.worktree }), /fixed validation gates/);
+    assert.throws(() => runValidationCommands(["node --test", "node --check src/task-1-check.mjs"], {
+      cwd: plan.worktree,
+      allowlist: plan.allowlist,
+    }), /explicit module path|test module|gates/);
     assert.throws(() => runValidationCommands(["node --help", "node --check src/task-1-check.mjs"], {
       cwd: plan.worktree,
       allowlist: plan.allowlist,
-    }), /approved fixed|gates/);
+    }), /help|approved fixed|gates/i);
     assert.throws(() => runValidationCommands(["node --test src/smoke.test.mjs", "node --check package.json"], {
       cwd: plan.worktree,
       allowlist: plan.allowlist,
     }), /allowlist|JavaScript module/);
     assert.throws(() => runValidationCommands(["node --test src/task-1.test.mjs", "node --check src/unrelated.mjs"], {
       cwd: plan.worktree,
-      allowlist: plan.allowlist,
-    }), /allowlist/);
+      allowlist: [...plan.allowlist, "src/unrelated.mjs"],
+      actualPaths: ["src/task-1.test.mjs", "src/task-1-check.mjs"],
+    }), /authoritative changed path/);
     assert.throws(() => runValidationCommands(["npm --prefix . test", "node --check src/task-1-check.mjs"], {
       cwd: plan.worktree,
       allowlist: plan.allowlist,
@@ -454,6 +464,47 @@ test("validation authority fixes the trusted base and rejects caller overrides o
       allowlist: plan.allowlist,
     }), /approved fixed|gates/);
     ({ client } = await createAppServerClient({ writeChanges: true }));
+    const originalLoad = f.store.load;
+    f.store.load = () => ({ batches: [], workers: [] });
+    const forgedLoadEvidence = await validateTaskPlanExecution({
+      plan,
+      repositoryRoot: f.root,
+      store: f.store,
+      client,
+    });
+    assert.equal(forgedLoadEvidence.publishable, false);
+    assert.match(forgedLoadEvidence.error, /unmodified canonical|canonical real RuntimeStore/i);
+    assert.throws(() => assertPublishable(forgedLoadEvidence), /not publishable/);
+    delete f.store.load;
+    assert.equal(f.store.load, originalLoad);
+    const originalPrototype = Object.getPrototypeOf(f.store);
+    const forgedPrototype = Object.create(originalPrototype);
+    forgedPrototype.load = () => ({ batches: [], workers: [] });
+    Object.setPrototypeOf(f.store, forgedPrototype);
+    try {
+      const forgedPrototypeEvidence = await validateTaskPlanExecution({
+        plan,
+        repositoryRoot: f.root,
+        store: f.store,
+        client,
+      });
+      assert.equal(forgedPrototypeEvidence.publishable, false);
+      assert.match(forgedPrototypeEvidence.error, /unmodified canonical|canonical real RuntimeStore/i);
+    } finally {
+      Object.setPrototypeOf(f.store, originalPrototype);
+    }
+    const originalGetBatch = f.store.getBatch;
+    f.store.getBatch = () => ({ batch_id: f.batch.batch_id, submission_id: f.batch.submission_id });
+    const forgedBatchEvidence = await validateTaskPlanExecution({
+      plan,
+      repositoryRoot: f.root,
+      store: f.store,
+      client,
+    });
+    assert.equal(forgedBatchEvidence.publishable, false);
+    assert.match(forgedBatchEvidence.error, /unmodified canonical|canonical real RuntimeStore/i);
+    delete f.store.getBatch;
+    assert.equal(f.store.getBatch, originalGetBatch);
     await dispatchImplementation({
       store: f.store,
       batchId: f.batch.batch_id,

@@ -82,6 +82,11 @@ const PROTECTED_NAMESPACE_NAMES = new Set([
   ".git", ".github", "workflow", "tasks", "worklog", "prisma",
   "deploy", "deployment", "infra", "terraform", "k8s", "kubernetes",
 ]);
+const PROTECTED_GLOB_SEGMENT_NAMES = new Set([
+  ...PROTECTED_NAMESPACE_NAMES,
+  "secret", "client-secret", "credential", "credentials", "password", "token", "private-key",
+  ".env", ".env.local", "dockerfile", "caddyfile", "vercel.json", "netlify.toml",
+]);
 const PROTECTED_SCOPE_WITNESSES = Object.freeze([
   ...PROTECTED_EXACT_PATHS,
   ".git/worker.mjs",
@@ -154,7 +159,7 @@ function normalizeScopePath(value, label = "allowlist path") {
   const segments = normalized.split("/");
   for (const segment of segments) {
     if (segment === "*" || segment === "**") continue;
-    if (segment.includes("*")) {
+    if (segment.includes("*") || segment.includes("?")) {
       if (!/^[-A-Za-z0-9._?*]+$/.test(segment)) {
         throw new Error(`${label} contains an invalid glob segment.`);
       }
@@ -212,11 +217,25 @@ function wildcardCandidates(pattern) {
   return candidates;
 }
 
+function segmentGlobMatches(pattern, value) {
+  let expression = "";
+  for (const character of pattern) {
+    if (character === "*") expression += ".*";
+    else if (character === "?") expression += ".";
+    else expression += /[|\\{}()[\]^$+?.]/.test(character) ? `\\${character}` : character;
+  }
+  return new RegExp(`^${expression}$`, "u").test(value);
+}
+
 function protectedAllowlistPath(pattern) {
   if (PROTECTED_DIRECTORY_PATTERNS.some((candidate) => candidate.test(pattern))) return true;
   if (SECRET_PATH_PATTERN.test(pattern)) return true;
   const segments = pattern.toLocaleLowerCase("en-US").split("/");
   if (segments.some((segment) => PROTECTED_NAMESPACE_NAMES.has(segment))) return true;
+  if (segments.some((segment) => segment === "**"
+    || ([...PROTECTED_GLOB_SEGMENT_NAMES].some((name) => /[*?]/.test(segment) && segmentGlobMatches(segment, name))))) {
+    return true;
+  }
   if (PROTECTED_EXACT_PATHS.some((protectedPath) => scopePatternMatches(pattern, protectedPath))) return true;
   if (!/[?*]/.test(pattern)) return false;
   const candidates = new Set([...PROTECTED_SCOPE_WITNESSES, ...wildcardCandidates(pattern)]);

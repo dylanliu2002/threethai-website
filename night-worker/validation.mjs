@@ -41,6 +41,17 @@ const BASE_THREAD_BROKER_READ_WORKER = ThreadBroker.prototype.readWorker;
 const BASE_RUNTIME_GET_BATCH = RuntimeStore.prototype.getBatch;
 const BASE_RUNTIME_GET_WORKER_MAPPING = RuntimeStore.prototype.getWorkerMapping;
 const BASE_RUNTIME_LOAD = RuntimeStore.prototype.load;
+const BASE_RUNTIME_FILE_PATH_GETTER = Object.getOwnPropertyDescriptor(RuntimeStore.prototype, "filePath")?.get;
+const BASE_RUNTIME_AUTHORITY_METHODS = new Map([
+  ["load", BASE_RUNTIME_LOAD],
+  ["getBatch", BASE_RUNTIME_GET_BATCH],
+  ["getWorkerMapping", BASE_RUNTIME_GET_WORKER_MAPPING],
+]);
+const BASE_RUNTIME_PROTOTYPE_DESCRIPTORS = new Map(
+  Object.getOwnPropertyNames(RuntimeStore.prototype)
+    .filter((name) => name !== "constructor")
+    .map((name) => [name, Object.getOwnPropertyDescriptor(RuntimeStore.prototype, name)]),
+);
 
 function text(value, label) {
   if (typeof value !== "string" || value.trim().length === 0 || value.includes("\0")) {
@@ -51,6 +62,10 @@ function text(value, label) {
 
 function trimOutput(value) {
   return redactSecrets(String(value ?? "")).slice(0, MAX_OUTPUT_CHARS);
+}
+
+function cloneValue(value) {
+  return typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value));
 }
 
 function digest(value) {
@@ -64,6 +79,9 @@ function flushToken(tokens, current, started) {
 
 function commandTokens(command) {
   const value = text(command, "validation command");
+  if (SHELL_CONTROL_PATTERN.test(value)) {
+    throw new Error("Validation commands cannot use shell control or injection characters.");
+  }
   const tokens = [];
   let current = "";
   let started = false;
@@ -95,9 +113,6 @@ function commandTokens(command) {
       started = flushed.started;
       continue;
     }
-    if (SHELL_CONTROL_PATTERN.test(character)) {
-      throw new Error("Validation commands cannot use shell control or injection characters.");
-    }
     current += character;
     started = true;
   }
@@ -105,6 +120,11 @@ function commandTokens(command) {
   if (started) tokens.push(current);
   if (tokens.length === 0) throw new Error("Validation command cannot be empty.");
   validateNonDestructiveCommand(tokens);
+  if (tokens[0].toLocaleLowerCase("en-US") === "node"
+    && ["--test", "--check"].includes(tokens[1]?.toLocaleLowerCase("en-US"))
+    && tokens.length < 3) {
+    throw new Error("Node validation must target an explicit module path.");
+  }
   return tokens;
 }
 
@@ -113,7 +133,10 @@ function executableName(value) {
 }
 
 function validateNonDestructiveCommand(tokens) {
-  const executable = executableName(tokens[0]);
+  if (/[\\/:]/.test(tokens[0])) {
+    throw new Error("Validation commands must invoke an approved bare executable name.");
+  }
+  const executable = tokens[0].toLocaleLowerCase("en-US");
   if (["cmd", "powershell", "pwsh", "bash", "sh", "zsh"].includes(executable)) {
     throw new Error("Validation commands cannot invoke a shell wrapper.");
   }
@@ -125,6 +148,9 @@ function validateNonDestructiveCommand(tokens) {
   }
   if (executable === "codex" || tokens.some((token) => executableName(token) === "codex")) {
     throw new Error("Validation commands cannot use the codex exec worker mechanism.");
+  }
+  if (tokens.some((token) => ["--help", "-h"].includes(token.toLocaleLowerCase("en-US")))) {
+    throw new Error("Validation commands cannot use help or informational command spoofing.");
   }
   if (["node", "deno", "bun"].includes(executable)
     && tokens.some((token) => ["-e", "--eval", "--require", "-r", "-p", "--print", "--input-type"].includes(token))) {
@@ -169,18 +195,31 @@ function assertCommandPathAllowed(value, allowlist, label) {
   return candidate;
 }
 
-function semanticValidationGate(tokens, { allowlist } = {}) {
-  const executable = executableName(tokens[0]);
+function assertAuthoritativeValidationPath(candidate, actualPaths, label) {
+  if (!Array.isArray(actualPaths) || actualPaths.length === 0) {
+    throw new Error(`${label} requires authoritative changed Git paths.`);
+  }
+  const normalized = actualPaths.map((value) => validationPath(value, "authoritative changed path").toLocaleLowerCase("en-US"));
+  if (!normalized.includes(candidate.toLocaleLowerCase("en-US"))) {
+    throw new Error(`${label} must target an authoritative changed path.`);
+  }
+  return candidate;
+}
+
+function semanticValidationGate(tokens, { allowlist, actualPaths } = {}) {
+  const executable = tokens[0].toLocaleLowerCase("en-US");
   if (executable === "node" && tokens[1] === "--test") {
     if (tokens.slice(2).some((token) => token.startsWith("-"))) {
       throw new Error("Node test validation cannot accept arbitrary command options.");
     }
     const paths = tokens.slice(2);
+    if (paths.length === 0) throw new Error("Node test validation must target a test module.");
     for (const value of paths) {
       const candidate = assertCommandPathAllowed(value, allowlist, "Node test path");
       if (!/\.test\.(?:cjs|js|mjs)$/i.test(candidate)) {
         throw new Error("Node test validation must target a test module.");
       }
+      if (actualPaths !== undefined) assertAuthoritativeValidationPath(candidate, actualPaths, "Node test validation");
     }
     return "test";
   }
@@ -193,6 +232,7 @@ function semanticValidationGate(tokens, { allowlist } = {}) {
       if (!FIXED_SOURCE_EXTENSIONS.has(path.extname(candidate).toLocaleLowerCase("en-US"))) {
         throw new Error("Node static validation must target a JavaScript module.");
       }
+      if (actualPaths !== undefined) assertAuthoritativeValidationPath(candidate, actualPaths, "Node static validation");
     }
     return "static";
   }
@@ -220,7 +260,7 @@ function assertMinimumValidationGates(commands, options = {}) {
 }
 
 export function assertSafeValidationCommands(commands, options = {}) {
-  const allowed = new Set(["allowlist"]);
+  const allowed = new Set(["allowlist", "actualPaths"]);
   for (const key of Object.keys(options ?? {})) {
     if (!allowed.has(key)) throw new Error(`Validation command policy cannot accept caller override: ${key}`);
   }
@@ -271,12 +311,12 @@ function normalizeCommandResult(result, command) {
 }
 
 export function runValidationCommands(commands, options = {}) {
-  const allowed = new Set(["cwd", "allowlist"]);
+  const allowed = new Set(["cwd", "allowlist", "actualPaths"]);
   for (const key of Object.keys(options ?? {})) {
     if (!allowed.has(key)) throw new Error(`Validation cannot accept caller override: ${key}`);
   }
-  const { cwd, allowlist } = options;
-  assertSafeValidationCommands(commands, { allowlist });
+  const { cwd, allowlist, actualPaths } = options;
+  assertSafeValidationCommands(commands, { allowlist, actualPaths });
   text(cwd, "validation cwd");
   const results = [];
   for (const command of commands) {
@@ -368,14 +408,88 @@ function samePath(left, right) {
   return path.relative(a, b) === "" && path.relative(b, a) === "";
 }
 
-function assertCanonicalValidationStore(store, batch) {
+function assertCanonicalRuntimeStoreMethods(store) {
   if (!(store instanceof RuntimeStore) || Object.getPrototypeOf(store) !== RuntimeStore.prototype) {
     throw new Error("Task validation requires the canonical real RuntimeStore.");
   }
-  const expected = defaultRuntimeStorePath(batch.repository_root);
-  if (!samePath(expected, store.filePath) || path.resolve(expected) !== path.resolve(store.filePath)) {
+  const currentNames = Object.getOwnPropertyNames(RuntimeStore.prototype).filter((name) => name !== "constructor");
+  if (currentNames.length !== BASE_RUNTIME_PROTOTYPE_DESCRIPTORS.size
+    || currentNames.some((name) => !BASE_RUNTIME_PROTOTYPE_DESCRIPTORS.has(name))) {
+    throw new Error("Task validation requires an unmodified canonical RuntimeStore authority.");
+  }
+  for (const [method, expectedDescriptor] of BASE_RUNTIME_PROTOTYPE_DESCRIPTORS) {
+    const descriptor = Object.getOwnPropertyDescriptor(RuntimeStore.prototype, method);
+    const sameDescriptor = descriptor && descriptor.value === expectedDescriptor.value
+      && descriptor.get === expectedDescriptor.get
+      && descriptor.set === expectedDescriptor.set
+      && descriptor.enumerable === expectedDescriptor.enumerable
+      && descriptor.configurable === expectedDescriptor.configurable
+      && descriptor.writable === expectedDescriptor.writable;
+    if (!sameDescriptor
+      || (BASE_RUNTIME_AUTHORITY_METHODS.has(method)
+        && descriptor.value !== BASE_RUNTIME_AUTHORITY_METHODS.get(method))
+      || Object.prototype.hasOwnProperty.call(store, method)) {
+      throw new Error("Task validation requires an unmodified canonical RuntimeStore authority.");
+    }
+  }
+  const filePathDescriptor = Object.getOwnPropertyDescriptor(RuntimeStore.prototype, "filePath");
+  if (!filePathDescriptor || filePathDescriptor.get !== BASE_RUNTIME_FILE_PATH_GETTER
+    || Object.prototype.hasOwnProperty.call(store, "filePath")) {
+    throw new Error("Task validation requires an unmodified canonical RuntimeStore authority.");
+  }
+  const fileDescriptor = Object.getOwnPropertyDescriptor(store, "file_path");
+  if (!fileDescriptor || !Object.prototype.hasOwnProperty.call(fileDescriptor, "value")
+    || typeof fileDescriptor.value !== "string") {
+    throw new Error("Task validation requires an unmodified canonical RuntimeStore authority.");
+  }
+  return store;
+}
+
+export function assertCanonicalRuntimeStoreAuthority(store, repositoryRoot) {
+  assertCanonicalRuntimeStoreMethods(store);
+  const expected = defaultRuntimeStorePath(text(repositoryRoot, "repositoryRoot"));
+  if (!samePath(expected, filePathValue(store)) || !samePath(expected, store.file_path)) {
     throw new Error("Task validation requires the canonical submitted repository RuntimeStore.");
   }
+  return store;
+}
+
+function filePathValue(store) {
+  if (typeof BASE_RUNTIME_FILE_PATH_GETTER !== "function") {
+    throw new Error("Task validation requires the canonical RuntimeStore filePath authority.");
+  }
+  return Reflect.apply(BASE_RUNTIME_FILE_PATH_GETTER, store, []);
+}
+
+function runtimeState(store) {
+  return Reflect.apply(BASE_RUNTIME_LOAD, store, []);
+}
+
+function runtimeBatch(store, batchId) {
+  const state = runtimeState(store);
+  const batch = state.batches.find((item) => item.batch_id === batchId);
+  return batch ? cloneValue(batch) : null;
+}
+
+function runtimeWorkerMapping(store, batchId, taskId, role) {
+  const state = runtimeState(store);
+  const worker = state.workers.find((item) => item.batch_id === batchId
+    && item.task_id === taskId && item.role === role);
+  return worker ? cloneValue(worker) : null;
+}
+
+export function readCanonicalBatch(store, batchId) {
+  assertCanonicalRuntimeStoreMethods(store);
+  return runtimeBatch(store, batchId);
+}
+
+export function readCanonicalWorkerMapping(store, batchId, taskId, role) {
+  assertCanonicalRuntimeStoreMethods(store);
+  return runtimeWorkerMapping(store, batchId, taskId, role);
+}
+
+function assertCanonicalValidationStore(store, batch) {
+  assertCanonicalRuntimeStoreAuthority(store, batch.repository_root);
 }
 
 function deepFreeze(value, seen = new WeakSet()) {
@@ -394,14 +508,14 @@ class ValidationWorkerRuntimeStoreView extends RuntimeStore {
 
   get filePath() { return this.validation_runtime_path; }
 
-  load() { return Reflect.apply(BASE_RUNTIME_LOAD, this, []); }
+  load() { return runtimeState(this); }
 
   getWorkerMapping(batchId, taskId, role) {
-    return Reflect.apply(BASE_RUNTIME_GET_WORKER_MAPPING, this, [batchId, taskId, role]);
+    return runtimeWorkerMapping(this, batchId, taskId, role);
   }
 
   getBatch(batchId) {
-    const batch = Reflect.apply(BASE_RUNTIME_GET_BATCH, this, [batchId]);
+    const batch = runtimeBatch(this, batchId);
     if (!batch || batch.batch_id !== this.validation_batch_id) return batch;
     return {
       ...batch,
@@ -431,7 +545,7 @@ async function deriveTerminalWorkerEvidence({ store, batch, plan, client }) {
   if (!(client instanceof AppServerClient) || !isGenuineAppServerClient(client)) {
     throw new Error("Task validation requires a genuine constructed Task 61 App Server client.");
   }
-  const mapping = Reflect.apply(BASE_RUNTIME_GET_WORKER_MAPPING, store, [batch.batch_id, plan.task_id, "IMPLEMENTATION"]);
+  const mapping = readCanonicalWorkerMapping(store, batch.batch_id, plan.task_id, "IMPLEMENTATION");
   if (!mapping || mapping.lifecycle_state !== "COMPLETED") {
     throw new Error("Task validation requires a durable terminal-success implementation mapping.");
   }
@@ -495,7 +609,7 @@ export async function validateTaskPlanExecution(options = {}) {
   try {
     normalizedPlan = validateTaskPlanSchema(plan, { requireReady: false });
     assertNoSecretsDeep(evidenceBase, "validation evidence");
-    const durableBatch = Reflect.apply(BASE_RUNTIME_GET_BATCH, store, [normalizedPlan.batch_id]);
+    const durableBatch = readCanonicalBatch(store, normalizedPlan.batch_id);
     if (!durableBatch || durableBatch.batch_id !== normalizedPlan.batch_id
       || durableBatch.submission_id !== normalizedPlan.submission_id) {
       throw new Error("Task validation requires the exact durable submitted batch.");
@@ -519,10 +633,13 @@ export async function validateTaskPlanExecution(options = {}) {
     }
     assertScopeAllowed(scope.paths, normalizedPlan.allowlist);
     const durableWorker = await deriveTerminalWorkerEvidence({ store, batch: durableBatch, plan: normalizedPlan, client });
+    assertCanonicalRuntimeStoreAuthority(store, durableBatch.repository_root);
     const validation = runValidationCommands(normalizedPlan.validation_commands, {
       cwd: normalizedPlan.worktree,
       allowlist: normalizedPlan.allowlist,
+      actualPaths: scope.paths,
     });
+    assertCanonicalRuntimeStoreAuthority(store, durableBatch.repository_root);
     const evidence = {
       ...evidenceBase,
       plan: normalizedPlan,

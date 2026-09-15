@@ -26,10 +26,12 @@ import {
 import {
   createFixture,
   git,
+  persistentSOLPlanner,
+  persistentSOLClient,
   rawPlans,
 } from "./task-62-fixtures.mjs";
 
-const solPlanner = (provider) => createPersistentSOLPlanner(provider);
+const solPlanner = (provider) => persistentSOLPlanner(provider);
 
 test("Task 62 model policy is exact, difficulty-based, persistent, and no-authority", () => {
   assert.deepEqual(PLANNING_MODEL_POLICY.model, REVIEW_MODEL_NAME);
@@ -139,6 +141,30 @@ test("accepted plans are digest-bound to the submitted batch and cannot be silen
 test("planner requires the canonical submitted batch and rejects direct plans and policy or execution overrides", async () => {
   const f = createFixture(2, "task62-plan-authority");
   try {
+    assert.throws(
+      () => createPersistentSOLPlanner(() => rawPlans(f.batch)),
+      /genuine App Server lifecycle identity/i,
+    );
+    assert.throws(
+      () => createPersistentSOLPlanner({ plan: () => rawPlans(f.batch) }),
+      /genuine.*App Server lifecycle identity/i,
+    );
+    assert.throws(
+      () => createPersistentSOLPlanner({
+        client: { connectionState: "READY" },
+        threadId: "persistent-orchestrator",
+        plan: () => rawPlans(f.batch),
+      }),
+      /genuine ready App Server/i,
+    );
+    assert.throws(
+      () => createPersistentSOLPlanner({
+        client: persistentSOLClient,
+        threadId: "worker-thread",
+        plan: () => rawPlans(f.batch),
+      }),
+      /persistent Orchestrator thread identity/i,
+    );
     await assert.rejects(
       planBatch({ store: f.store, batchId: "not-submitted" }),
       /explicit submitted batch/,
@@ -149,6 +175,11 @@ test("planner requires the canonical submitted batch and rejects direct plans an
     );
     await assert.rejects(
       planBatch({ store: f.store, batchId: f.batch.batch_id, solPlanner: () => rawPlans(f.batch) }),
+      /internal persistent Orchestrator SOL planner authority/i,
+    );
+    const wrappedPlanner = { ...solPlanner(() => rawPlans(f.batch)) };
+    await assert.rejects(
+      planBatch({ store: f.store, batchId: f.batch.batch_id, solPlanner: wrappedPlanner }),
       /internal persistent Orchestrator SOL planner authority/i,
     );
     const forbiddenKeys = [
@@ -320,6 +351,10 @@ test("protected, shared, deployment, and secret-bearing allowlists fail closed",
       ["deployment/**"],
       ["src/client-secret.mjs"],
       ["tasks/**"],
+      ["foo/w?rkflow/bar.mjs"],
+      ["foo/.git?ub/ci.yml"],
+      ["foo/deplo?/app.mjs"],
+      ["src/s?cret/config.mjs"],
     ]) {
       await assert.rejects(
         planBatch({

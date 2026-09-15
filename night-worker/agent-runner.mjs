@@ -13,7 +13,12 @@ import { RuntimeStore } from "./runtime-store.mjs";
 import { defaultRuntimeStorePath } from "./submission.mjs";
 import { ThreadBroker } from "./thread-broker.mjs";
 import { AppServerClient, isGenuineAppServerClient } from "./app-server-client.mjs";
-import { assertSafeValidationCommands } from "./validation.mjs";
+import {
+  assertCanonicalRuntimeStoreAuthority,
+  assertSafeValidationCommands,
+  readCanonicalBatch,
+  readCanonicalWorkerMapping,
+} from "./validation.mjs";
 
 const INTERNAL_WORKER_AUTHORITY = Object.freeze({
   branch: true,
@@ -64,11 +69,12 @@ function durableBatch(store, batchId) {
   if (typeof batchId !== "string" || batchId.trim().length === 0 || batchId.includes("\0")) {
     throw new Error("Implementation execution requires an explicit submitted batch ID.");
   }
-  const batch = store.getBatch(batchId.trim());
+  const batch = readCanonicalBatch(store, batchId.trim());
   if (!batch || batch.batch_id !== batchId.trim()) {
     throw new Error(`Cannot execute without an explicit submitted batch: ${batchId}`);
   }
   assertCanonicalSharedStore(store, batch);
+  assertCanonicalRuntimeStoreAuthority(store, batch.repository_root);
   if (!["QUEUED", "CLAIMED", "RUNNING"].includes(batch.state)) {
     throw new Error(`Batch is not eligible for execution: ${batch.state}`);
   }
@@ -250,7 +256,7 @@ export async function dispatchImplementation(options = {}) {
   const normalizedPlan = validateTaskPlan(plan, { batch, requireReady: true });
   assertSafeValidationCommands(normalizedPlan.validation_commands, { allowlist: normalizedPlan.allowlist });
   assertProductionAppServerClient(client);
-  const existingMapping = store.getWorkerMapping(batch.batch_id, normalizedPlan.task_id, "IMPLEMENTATION");
+  const existingMapping = readCanonicalWorkerMapping(store, batch.batch_id, normalizedPlan.task_id, "IMPLEMENTATION");
   if (existingMapping && existingMapping.cwd !== normalizedPlan.worktree) {
     throw new Error("Existing worker mapping cwd cannot be replaced by a task plan.");
   }
@@ -275,7 +281,7 @@ export async function dispatchImplementation(options = {}) {
   }]);
   const started = mappingFromStartResult(startedRaw);
   const mapping = assertReturnedMapping(started.mapping, batch, normalizedPlan);
-  const durable = store.getWorkerMapping(batch.batch_id, normalizedPlan.task_id, "IMPLEMENTATION");
+  const durable = readCanonicalWorkerMapping(store, batch.batch_id, normalizedPlan.task_id, "IMPLEMENTATION");
   if (!durable || durable.thread_id !== mapping.thread_id || durable.cwd !== normalizedPlan.worktree) {
     throw new Error("Task Broker did not durably persist the exact worker mapping in the shared batch RuntimeStore.");
   }

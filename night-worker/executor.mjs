@@ -4,7 +4,12 @@ import { AgentRunner, runReadyPlans } from "./agent-runner.mjs";
 import { assertPersistentSOLPlanner, planBatch } from "./planner.mjs";
 import { validateTaskPlans } from "./schemas.mjs";
 import { prepareTaskWorktrees } from "./worktrees.mjs";
-import { assertPublishable, validateTaskPlanExecution } from "./validation.mjs";
+import {
+  assertCanonicalRuntimeStoreAuthority,
+  assertPublishable,
+  readCanonicalBatch,
+  validateTaskPlanExecution,
+} from "./validation.mjs";
 import { RuntimeStore } from "./runtime-store.mjs";
 import { AppServerClient, isGenuineAppServerClient } from "./app-server-client.mjs";
 
@@ -29,10 +34,11 @@ function durableBatch(store, batchOrId) {
   if (typeof batchId !== "string" || batchId.trim().length === 0) {
     throw new Error("An explicit submitted batch ID is required.");
   }
-  const stored = store.getBatch(batchId.trim());
+  const stored = readCanonicalBatch(store, batchId.trim());
   if (!stored || stored.batch_id !== batchId.trim()) {
     throw new Error("Execution requires a durable batch created by explicit submission.");
   }
+  assertCanonicalRuntimeStoreAuthority(store, stored.repository_root);
   if (batchOrId && typeof batchOrId === "object"
     && batchOrId.submission_id !== undefined
     && batchOrId.submission_id !== stored.submission_id) {
