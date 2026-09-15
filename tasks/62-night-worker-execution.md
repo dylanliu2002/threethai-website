@@ -303,6 +303,29 @@ Correction cycle 3 completion record:
 - The final administrative evidence update is a descendant of this handoff;
   status remains `REVIEW` pending fresh independent SOL review.
 
+## Correction cycle 4 validation record
+
+- Continued from exact reviewed head `b3fbe196f9349bd39282c1e58ad83f9b79e8369e`.
+- Closed the four fresh independent-review findings within the Task 62
+  allowlist: validation now re-derives authoritative Git scope after every
+  worker-controlled command and before publishability; protected source and
+  secret-bearing wildcard-equivalent variants fail closed; canonical
+  RuntimeStore authority is reread and compared after validation and before
+  publication; and persistent SOL planning requires the genuine ready App
+  Server Orchestrator lifecycle rather than an arbitrary caller lambda.
+- `node --test night-worker/tests/task-62-planning.test.mjs
+  night-worker/tests/task-62-execution.test.mjs` — PASS, 21/21.
+- `node --test night-worker/tests/*.test.mjs` — PASS, 54/54, including all
+  Task 61 lifecycle and recovery regressions.
+- `node --check` — PASS for all 11 changed Task 62 production/test modules.
+- `npm run lint` — BLOCKED: `eslint` is not recognized in the restricted
+  environment. `npm run build` — BLOCKED: `next` is not recognized. `npm run
+  typecheck` — BLOCKED: `tsc` is not recognized. No package or lock file was
+  changed.
+- Final hash-qualified scope, ancestry, protected-surface immutability,
+  identity, and push gates will be recorded after the correction commit is
+  created. Status remains `REVIEW`; no PR or merge is authorized here.
+
 ## Rollback
 
 Revert the Task 62 commit. The changes are additive and do not alter

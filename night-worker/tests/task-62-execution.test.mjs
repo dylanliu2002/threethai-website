@@ -20,20 +20,27 @@ import {
   createAppServerClient,
   createFixture,
   makeValidPlan,
-  persistentSOLPlanner,
+  createPersistentSOLPlannerFixture,
   rawPlans,
   requestsFor,
 } from "./task-62-fixtures.mjs";
 
-const solPlanner = (provider) => persistentSOLPlanner(provider);
-
-async function plannedAndPrepared(f, taskCount = f.batch.tasks.length, provider = () => rawPlans(f.batch)) {
+async function plannedAndPrepared(f, taskCount = f.batch.tasks.length) {
   assert.equal(taskCount, f.batch.tasks.length);
-  const planning = await planBatch({
+  const lifecycle = await createPersistentSOLPlannerFixture({
     store: f.store,
-    batchId: f.batch.batch_id,
-    solPlanner: solPlanner(provider),
+    planningOutput: rawPlans(f.batch),
   });
+  let planning;
+  try {
+    planning = await planBatch({
+      store: f.store,
+      batchId: f.batch.batch_id,
+      solPlanner: lifecycle.planner,
+    });
+  } finally {
+    await lifecycle.client.close();
+  }
   const prepared = prepareTaskWorktrees({
     repositoryRoot: f.root,
     plans: planning.plans,
@@ -249,7 +256,8 @@ test("capacity is counted by the one canonical shared batch RuntimeStore across 
     assert.equal(outcomes.filter((entry) => entry.status === "rejected").length, 1);
     assert.match(outcomes.find((entry) => entry.status === "rejected").reason.message, /parallel|limit|reserved/i);
     assert.equal(transport.max_active_turns, 2);
-    assert.equal(f.store.listWorkerMappings(f.batch.batch_id).length, 2);
+    assert.equal(f.store.listWorkerMappings(f.batch.batch_id)
+      .filter((mapping) => mapping.role === "IMPLEMENTATION").length, 2);
     assert.equal(f.store.listWorkerReservations(f.batch.batch_id).length, 0);
   } finally {
     await client?.close();
@@ -289,10 +297,15 @@ test("public production dispatch rejects fake brokers, broker factories, fake cl
   const f = createFixture(1, "task62-boundary");
   let prepared = [];
   let client;
+  let planningLifecycle;
   try {
     ({ prepared } = await plannedAndPrepared(f, 1));
     const plan = prepared[0].plan;
     ({ client } = await createAppServerClient());
+    planningLifecycle = await createPersistentSOLPlannerFixture({
+      store: f.store,
+      planningOutput: rawPlans(f.batch),
+    });
     await assert.rejects(
       dispatchImplementation({ store: f.store, batchId: f.batch.batch_id, plan, client, broker: {} }),
       /caller override/,
@@ -305,7 +318,11 @@ test("public production dispatch rejects fake brokers, broker factories, fake cl
       modelList() {}, threadStart() {}, turnStart() {}, threadRead() {}, threadResume() {},
     };
     assert.throws(() => new AgentRunner({ store: f.store, batchId: f.batch.batch_id, client: fakeClient }), /genuine constructed/);
-    assert.throws(() => new NightWorkerExecutor({ store: f.store, solPlanner: solPlanner(() => rawPlans(f.batch)), client: fakeClient }), /genuine constructed/);
+    assert.throws(() => new NightWorkerExecutor({
+      store: f.store,
+      solPlanner: planningLifecycle.planner,
+      client: fakeClient,
+    }), /genuine constructed/);
 
     const startDescriptor = Object.getOwnPropertyDescriptor(ThreadBroker.prototype, "startImplementation");
     const readDescriptor = Object.getOwnPropertyDescriptor(ThreadBroker.prototype, "readWorker");
@@ -319,6 +336,7 @@ test("public production dispatch rejects fake brokers, broker factories, fake cl
       Object.defineProperty(ThreadBroker.prototype, "readWorker", readDescriptor);
     }
   } finally {
+    await planningLifecycle?.client.close();
     await client?.close();
     f.cleanup(prepared.map((entry) => entry.worktree.worktree));
   }
@@ -371,6 +389,9 @@ test("authoritative Git scope ignores worker reports, rejects zero-path publicat
     assert.deepEqual(passed.reported_paths, ["src/not-really-reported.txt"]);
     assert.equal(passed.scope.reported_paths_are_advisory, true);
     assert.doesNotThrow(() => assertPublishable(passed));
+    fs.writeFileSync(path.join(plan.worktree, "after-validation.txt"), "late change\n", "utf8");
+    assert.throws(() => assertPublishable(passed), /scope|allowlist|publishable/i);
+    fs.rmSync(path.join(plan.worktree, "after-validation.txt"));
     assert.equal(Object.isFrozen(passed), true);
     assert.throws(() => { passed.publishable = false; }, /read only|Cannot assign/i);
     assert.doesNotThrow(() => assertPublishable(passed));
@@ -399,6 +420,97 @@ test("authoritative Git scope ignores worker reports, rejects zero-path publicat
   } finally {
     await client?.close();
     f.cleanup(prepared.map((entry) => entry.worktree.worktree));
+  }
+});
+
+test("validation re-derives scope after every command and rechecks the canonical RuntimeStore before publication", async () => {
+  const f = createFixture(1, "task62-validation-mutation");
+  let prepared = [];
+  let client;
+  try {
+    ({ prepared } = await plannedAndPrepared(f, 1));
+    const plan = prepared[0].plan;
+    ({ client } = await createAppServerClient({ writeChanges: true }));
+    await dispatchImplementation({
+      store: f.store,
+      batchId: f.batch.batch_id,
+      plan,
+      client,
+    });
+    const mutationPath = path.join(plan.worktree, "src", "validation-mutation.test.mjs");
+    const outsidePath = path.join(plan.worktree, "outside-validation.txt");
+    fs.writeFileSync(mutationPath, [
+      'import fs from "node:fs";',
+      'import path from "node:path";',
+      'import test from "node:test";',
+      'test("create an out-of-scope file during validation", () => {',
+      '  fs.writeFileSync(path.join(process.cwd(), "outside-validation.txt"), "outside\\n", "utf8");',
+      '});',
+    ].join("\n"), "utf8");
+    const mutationPlan = {
+      ...plan,
+      allowlist: [...plan.allowlist, "src/validation-mutation.test.mjs"],
+      validation_commands: [
+        "node --test src/validation-mutation.test.mjs",
+        "node --check src/task-1-check.mjs",
+      ],
+    };
+    const outOfScope = await validateTaskPlanExecution({
+      plan: mutationPlan,
+      repositoryRoot: f.root,
+      store: f.store,
+      client,
+    });
+    assert.equal(outOfScope.publishable, false);
+    assert.equal(outOfScope.validation.scope_history.length, 1);
+    assert.ok(outOfScope.actual_paths.includes("outside-validation.txt"));
+    assert.ok(outOfScope.validation.scope_history[0].paths.includes("outside-validation.txt"));
+    assert.match(outOfScope.error, /outside the task allowlist/);
+    assert.equal(fs.existsSync(outsidePath), true);
+  } finally {
+    await client?.close();
+    f.cleanup(prepared.map((entry) => entry.worktree.worktree));
+  }
+
+  const tamperFixture = createFixture(1, "task62-validation-store-tamper");
+  let tamperPrepared = [];
+  let tamperClient;
+  try {
+    ({ prepared: tamperPrepared } = await plannedAndPrepared(tamperFixture, 1));
+    const plan = tamperPrepared[0].plan;
+    ({ client: tamperClient } = await createAppServerClient({ writeChanges: true }));
+    await dispatchImplementation({
+      store: tamperFixture.store,
+      batchId: tamperFixture.batch.batch_id,
+      plan,
+      client: tamperClient,
+    });
+    const tamperPath = path.join(plan.worktree, "src", "validation-store-tamper.test.mjs");
+    fs.writeFileSync(tamperPath, [
+      'import fs from "node:fs";',
+      'import test from "node:test";',
+      `test("tamper the canonical RuntimeStore", () => { fs.writeFileSync(${JSON.stringify(tamperFixture.store.filePath)}, "{\\"batches\\":[],\\"workers\\":[]}", "utf8"); });`,
+    ].join("\n"), "utf8");
+    const tamperPlan = {
+      ...plan,
+      allowlist: [...plan.allowlist, "src/validation-store-tamper.test.mjs"],
+      validation_commands: [
+        "node --test src/validation-store-tamper.test.mjs",
+        "node --check src/task-1-check.mjs",
+      ],
+    };
+    const tampered = await validateTaskPlanExecution({
+      plan: tamperPlan,
+      repositoryRoot: tamperFixture.root,
+      store: tamperFixture.store,
+      client: tamperClient,
+    });
+    assert.equal(tampered.publishable, false);
+    assert.equal(tampered.passed, false);
+    assert.match(tampered.error, /RuntimeStore|canonical|ENOENT|submitted batch|schema/i);
+  } finally {
+    await tamperClient?.close();
+    tamperFixture.cleanup(tamperPrepared.map((entry) => entry.worktree.worktree));
   }
 });
 
@@ -566,11 +678,16 @@ test("executor runs disjoint plans through the real broker, validates them, and 
   const f = createFixture(2, "task62-executor");
   let client;
   let transport;
+  let planningLifecycle;
   try {
     ({ client, transport } = await createAppServerClient({ turnDelayMs: 60, writeChanges: true }));
+    planningLifecycle = await createPersistentSOLPlannerFixture({
+      store: f.store,
+      planningOutput: rawPlans(f.batch),
+    });
     const executor = new NightWorkerExecutor({
       store: f.store,
-      solPlanner: solPlanner(() => rawPlans(f.batch)),
+      solPlanner: planningLifecycle.planner,
       client,
       maxParallel: 2,
     });
@@ -584,9 +701,11 @@ test("executor runs disjoint plans through the real broker, validates them, and 
     assert.equal(transport.max_active_turns, 2);
     assert.equal(transport.turn_intervals.some((left) => transport.turn_intervals.some((right) => left !== right
       && left.start < right.end && right.start < left.end)), true);
-    assert.equal(f.store.listWorkerMappings(f.batch.batch_id).length, 2);
+    assert.equal(f.store.listWorkerMappings(f.batch.batch_id)
+      .filter((mapping) => mapping.role === "IMPLEMENTATION").length, 2);
     assert.equal(result.publishing_performed, false);
   } finally {
+    await planningLifecycle?.client.close();
     await client?.close();
     const workers = fs.existsSync(f.worktreeRoot) ? fs.readdirSync(f.worktreeRoot).map((entry) => path.join(f.worktreeRoot, entry)) : [];
     f.cleanup(workers);

@@ -26,12 +26,28 @@ import {
 import {
   createFixture,
   git,
-  persistentSOLPlanner,
   persistentSOLClient,
+  createPersistentSOLPlannerFixture,
   rawPlans,
+  requestsFor,
 } from "./task-62-fixtures.mjs";
 
-const solPlanner = (provider) => persistentSOLPlanner(provider);
+async function planWithServer(f, planningOutput = rawPlans(f.batch), options = {}) {
+  const lifecycle = await createPersistentSOLPlannerFixture({
+    store: f.store,
+    planningOutput,
+  });
+  try {
+    return await planBatch({
+      store: f.store,
+      batchId: f.batch.batch_id,
+      solPlanner: lifecycle.planner,
+      ...options,
+    });
+  } finally {
+    await lifecycle.client.close();
+  }
+}
 
 test("Task 62 model policy is exact, difficulty-based, persistent, and no-authority", () => {
   assert.deepEqual(PLANNING_MODEL_POLICY.model, REVIEW_MODEL_NAME);
@@ -59,16 +75,19 @@ test("Task 62 model policy is exact, difficulty-based, persistent, and no-author
 
 test("planning stays in the persistent Orchestrator thread and bounds an explicit submitted batch", async () => {
   const f = createFixture(2, "task62-plan");
+  const lifecycle = await createPersistentSOLPlannerFixture({
+    store: f.store,
+    planningOutput: rawPlans(f.batch),
+  });
   try {
-    let request;
     const result = await planBatch({
       store: f.store,
       batchId: f.batch.batch_id,
-      solPlanner: solPlanner((value) => {
-        request = value;
-        return rawPlans(f.batch);
-      }),
+      solPlanner: lifecycle.planner,
     });
+    const starts = requestsFor(lifecycle.transport, "turn/start");
+    assert.equal(starts.length, 1);
+    const request = JSON.parse(starts[0].params.input[0].text);
     assert.equal(result.status, "PLANNED");
     assert.equal(result.persisted, false);
     assert.equal(result.planning_thread, "persistent-orchestrator");
@@ -100,46 +119,51 @@ test("planning stays in the persistent Orchestrator thread and bounds an explici
     assert.equal(stored.reply_metadata.__night_worker_plan_binding.batch_id, f.batch.batch_id);
     assert.equal(stored.reply_metadata.__night_worker_plan_binding.submission_id, f.batch.submission_id);
   } finally {
+    await lifecycle.client.close();
     f.cleanup();
   }
 });
 
 test("accepted plans are digest-bound to the submitted batch and cannot be silently replanned", async () => {
   const f = createFixture(1, "task62-binding");
+  const lifecycle = await createPersistentSOLPlannerFixture({
+    store: f.store,
+    planningOutput: rawPlans(f.batch),
+  });
   try {
-    let calls = 0;
     const first = await planBatch({
       store: f.store,
       batchId: f.batch.batch_id,
-      solPlanner: solPlanner(() => { calls += 1; return rawPlans(f.batch); }),
+      solPlanner: lifecycle.planner,
     });
     const second = await planBatch({
       store: f.store,
       batchId: f.batch.batch_id,
     });
-    assert.equal(calls, 1);
+    assert.equal(requestsFor(lifecycle.transport, "turn/start").length, 1);
     assert.equal(second.persisted, true);
     assert.equal(second.plan_digest, first.plan_digest);
     assert.deepEqual(second.plans, first.plans);
-    let replanningCalls = 0;
     const unchanged = await planBatch({
       store: f.store,
       batchId: f.batch.batch_id,
-      solPlanner: solPlanner(() => { replanningCalls += 1; return [{
-        ...rawPlans(f.batch)[0],
-        allowlist: ["src/changed-after-acceptance.txt"],
-      }]; }),
+      solPlanner: lifecycle.planner,
     });
-    assert.equal(replanningCalls, 0);
+    assert.equal(requestsFor(lifecycle.transport, "turn/start").length, 1);
     assert.equal(unchanged.plan_digest, first.plan_digest);
     assert.deepEqual(unchanged.plans, first.plans);
   } finally {
+    await lifecycle.client.close();
     f.cleanup();
   }
 });
 
 test("planner requires the canonical submitted batch and rejects direct plans and policy or execution overrides", async () => {
   const f = createFixture(2, "task62-plan-authority");
+  const lifecycle = await createPersistentSOLPlannerFixture({
+    store: f.store,
+    planningOutput: rawPlans(f.batch),
+  });
   try {
     assert.throws(
       () => createPersistentSOLPlanner(() => rawPlans(f.batch)),
@@ -147,7 +171,7 @@ test("planner requires the canonical submitted batch and rejects direct plans an
     );
     assert.throws(
       () => createPersistentSOLPlanner({ plan: () => rawPlans(f.batch) }),
-      /genuine.*App Server lifecycle identity/i,
+      /caller override|genuine.*App Server lifecycle identity/i,
     );
     assert.throws(
       () => createPersistentSOLPlanner({
@@ -155,7 +179,7 @@ test("planner requires the canonical submitted batch and rejects direct plans an
         threadId: "persistent-orchestrator",
         plan: () => rawPlans(f.batch),
       }),
-      /genuine ready App Server/i,
+      /caller override|genuine ready App Server/i,
     );
     assert.throws(
       () => createPersistentSOLPlanner({
@@ -163,7 +187,15 @@ test("planner requires the canonical submitted batch and rejects direct plans an
         threadId: "worker-thread",
         plan: () => rawPlans(f.batch),
       }),
-      /persistent Orchestrator thread identity/i,
+      /caller override|persistent Orchestrator thread identity/i,
+    );
+    assert.throws(
+      () => createPersistentSOLPlanner({ client: lifecycle.client, store: f.store, plan: () => rawPlans(f.batch) }),
+      /caller override|plan/i,
+    );
+    assert.throws(
+      () => createPersistentSOLPlanner({ client: lifecycle.client, store: {} }),
+      /canonical RuntimeStore/i,
     );
     await assert.rejects(
       planBatch({ store: f.store, batchId: "not-submitted" }),
@@ -177,7 +209,7 @@ test("planner requires the canonical submitted batch and rejects direct plans an
       planBatch({ store: f.store, batchId: f.batch.batch_id, solPlanner: () => rawPlans(f.batch) }),
       /internal persistent Orchestrator SOL planner authority/i,
     );
-    const wrappedPlanner = { ...solPlanner(() => rawPlans(f.batch)) };
+    const wrappedPlanner = { ...lifecycle.planner };
     await assert.rejects(
       planBatch({ store: f.store, batchId: f.batch.batch_id, solPlanner: wrappedPlanner }),
       /internal persistent Orchestrator SOL planner authority/i,
@@ -192,7 +224,7 @@ test("planner requires the canonical submitted batch and rejects direct plans an
         planBatch({
           store: f.store,
           batchId: f.batch.batch_id,
-          solPlanner: solPlanner(() => rawPlans(f.batch)),
+          solPlanner: lifecycle.planner,
           [key]: key === "plans" ? rawPlans(f.batch) : true,
         }),
         /override|persistent Orchestrator|fixed|caller(?:[- ]controlled| supplied)/i,
@@ -208,39 +240,45 @@ test("planner requires the canonical submitted batch and rejects direct plans an
       /override|caller|persistent SOL/i,
     );
     await assert.rejects(
-      planBatch({ store: f.store, batchId: f.batch.batch_id, solPlanner: solPlanner(() => rawPlans(f.batch)), difficulty: "Terra" }),
+      planBatch({ store: f.store, batchId: f.batch.batch_id, solPlanner: lifecycle.planner, difficulty: "Terra" }),
       /Unsupported review difficulty/,
     );
     await assert.rejects(
-      planBatch({
-        store: f.store,
-        batchId: f.batch.batch_id,
-        solPlanner: solPlanner(() => rawPlans(f.batch).map((plan, index) => index === 0
-          ? { ...plan, validation_commands: ["true", "echo done"] }
-          : plan)),
-      }),
+      planWithServer(f, rawPlans(f.batch).map((plan, index) => index === 0
+        ? { ...plan, validation_commands: ["true", "echo done"] }
+        : plan)),
       /fixed validation gates/,
     );
   } finally {
+    await lifecycle.client.close();
     f.cleanup();
   }
 });
 
 test("provider output cannot override derived identity, branch, worktree, base, or authority fields", async () => {
   const f = createFixture(1, "task62-plan-output");
+  const lifecycle = await createPersistentSOLPlannerFixture({
+    store: f.store,
+    planningOutput: rawPlans(f.batch),
+  });
   try {
     for (const field of ["batch_id", "submission_id", "position", "branch", "worktree", "base_ref", "base_sha", "model", "permissions"]) {
+      lifecycle.transport.planning_output = [{
+        ...rawPlans(f.batch)[0],
+        [field]: field === "position" ? 99 : "forged",
+      }];
       await assert.rejects(
         planBatch({
           store: f.store,
           batchId: f.batch.batch_id,
-          solPlanner: solPlanner(() => [{ ...rawPlans(f.batch)[0], [field]: field === "position" ? 99 : "forged" }]),
+          solPlanner: lifecycle.planner,
         }),
         /override|derived|authority|unsupported/i,
         `expected provider field ${field} to be rejected`,
       );
     }
   } finally {
+    await lifecycle.client.close();
     f.cleanup();
   }
 });
@@ -278,12 +316,16 @@ test("task-plan schema carries traceability and only permits bounded state trans
 
 test("worktree preparation creates canonical isolated branches, reuses only clean exact worktrees, and rejects hooks or root reuse", async () => {
   const f = createFixture(2, "task62-plan-worktrees");
+  const lifecycle = await createPersistentSOLPlannerFixture({
+    store: f.store,
+    planningOutput: rawPlans(f.batch),
+  });
   let prepared = [];
   try {
     const plans = (await planBatch({
       store: f.store,
       batchId: f.batch.batch_id,
-      solPlanner: solPlanner(() => rawPlans(f.batch)),
+      solPlanner: lifecycle.planner,
     })).plans;
     prepared = prepareTaskWorktrees({ repositoryRoot: f.root, plans });
     assert.equal(prepared.length, 2);
@@ -332,12 +374,17 @@ test("worktree preparation creates canonical isolated branches, reuses only clea
     assert.throws(() => prepareTaskWorktrees({ repositoryRoot: f.root, plans }), /clean/);
     fs.rmSync(path.join(prepared[0].worktree.worktree, "dirty.txt"));
   } finally {
+    await lifecycle.client.close();
     f.cleanup(prepared.map((entry) => entry.worktree.worktree));
   }
 });
 
 test("protected, shared, deployment, and secret-bearing allowlists fail closed", async () => {
   const f = createFixture(1, "task62-plan-scope");
+  const lifecycle = await createPersistentSOLPlannerFixture({
+    store: f.store,
+    planningOutput: rawPlans(f.batch),
+  });
   try {
       for (const allowlist of [
         ["workflow/**"],
@@ -355,12 +402,17 @@ test("protected, shared, deployment, and secret-bearing allowlists fail closed",
       ["foo/.git?ub/ci.yml"],
       ["foo/deplo?/app.mjs"],
       ["src/s?cret/config.mjs"],
+      ["night-worker/runtime-stor?.mjs"],
+      ["night-worker/app-server-clien?.mjs"],
+      ["src/api-toke?.json"],
+      ["src/my-credentia?.txt"],
     ]) {
+      lifecycle.transport.planning_output = [{ ...rawPlans(f.batch)[0], allowlist }];
       await assert.rejects(
         planBatch({
           store: f.store,
           batchId: f.batch.batch_id,
-          solPlanner: solPlanner(() => [{ ...rawPlans(f.batch)[0], allowlist }]),
+          solPlanner: lifecycle.planner,
         }),
         /protected|shared|deployment|secret/i,
       );
@@ -372,6 +424,7 @@ test("protected, shared, deployment, and secret-bearing allowlists fail closed",
     git(f.root, ["commit", "--allow-empty", "--quiet", "-m", "remote drift"]);
     assert.throws(() => resolveTrustedBaseCommit(f.root), /does not match|provenance/i);
   } finally {
+    await lifecycle.client.close();
     f.cleanup();
   }
 });

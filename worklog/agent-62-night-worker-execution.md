@@ -207,3 +207,21 @@
   remained blocked by permission to create the shared branch lock. The commit
   objects remain preserved in `.task62-objects/`; no push or remote mutation
   was attempted.
+
+## 2026-09-15 — correction cycle 4 validation
+
+- Continued from reviewed head `b3fbe196f9349bd39282c1e58ad83f9b79e8369e` and
+  applied only the four fresh review corrections: post-command and pre-
+  publishability Git scope derivation, wildcard-equivalent protected-path
+  rejection, post-validation/pre-publication canonical RuntimeStore
+  revalidation, and genuine ready App Server persistent-Orchestrator planning
+  authority.
+- Focused Task 62 tests PASS: 21/21.
+- Full Night Worker tests PASS: 54/54, including Task 61 lifecycle/recovery.
+- `node --check` PASS for all 11 changed Task 62 production/test modules.
+- `npm run lint`, `npm run build`, and `npm run typecheck` were attempted and
+  are blocked by unavailable `eslint`, `next`, and `tsc` executables in the
+  restricted environment. No dependency or package file changed.
+- Final diff-scope, ancestry, identity, and push evidence remains to be
+  appended after commit. The existing `.night-worker/runtime.json`,
+  `.task62-index`, and `.task62-objects/` remain untracked and unstaged.

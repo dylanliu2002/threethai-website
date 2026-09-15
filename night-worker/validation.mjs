@@ -37,6 +37,7 @@ const FORBIDDEN_INTERPRETER_EXECUTABLES = new Set([
 const TERMINAL_SUCCESS_STATES = new Set(["complete", "completed", "succeeded", "success", "done"]);
 const TERMINAL_FAILURE_STATES = new Set(["failed", "failure", "error", "errored", "cancelled", "canceled", "aborted", "rejected", "interrupted"]);
 const VALIDATION_EVIDENCE = new WeakSet();
+const VALIDATION_EVIDENCE_CONTEXTS = new WeakMap();
 const BASE_THREAD_BROKER_READ_WORKER = ThreadBroker.prototype.readWorker;
 const BASE_RUNTIME_GET_BATCH = RuntimeStore.prototype.getBatch;
 const BASE_RUNTIME_GET_WORKER_MAPPING = RuntimeStore.prototype.getWorkerMapping;
@@ -70,6 +71,15 @@ function cloneValue(value) {
 
 function digest(value) {
   return crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+function durableBatchAuthorityDigest(batch) {
+  const normalized = cloneValue(batch);
+  if (normalized.claim && typeof normalized.claim === "object") {
+    delete normalized.claim.heartbeat_at;
+    delete normalized.claim.lease_expires_at;
+  }
+  return digest(normalized);
 }
 
 function flushToken(tokens, current, started) {
@@ -269,8 +279,13 @@ export function assertSafeValidationCommands(commands, options = {}) {
 
 function defaultCommandRunner(command, { cwd, timeoutMs = 120_000 } = {}) {
   const [executable, ...args] = commandTokens(command);
+  const environment = { ...process.env };
+  // A worker validation command may itself be run from a node:test process in
+  // CI. Do not let Node mistake the child gate for a recursive test runner.
+  delete environment.NODE_TEST_CONTEXT;
   const result = spawnSync(executable, args, {
     cwd,
+    env: environment,
     encoding: "utf8",
     windowsHide: true,
     shell: false,
@@ -311,36 +326,98 @@ function normalizeCommandResult(result, command) {
 }
 
 export function runValidationCommands(commands, options = {}) {
-  const allowed = new Set(["cwd", "allowlist", "actualPaths"]);
+  const allowed = new Set(["cwd", "repositoryRoot", "allowlist", "actualPaths"]);
   for (const key of Object.keys(options ?? {})) {
     if (!allowed.has(key)) throw new Error(`Validation cannot accept caller override: ${key}`);
   }
-  const { cwd, allowlist, actualPaths } = options;
+  const { cwd, repositoryRoot = cwd, allowlist, actualPaths } = options;
   assertSafeValidationCommands(commands, { allowlist, actualPaths });
-  text(cwd, "validation cwd");
+  const validationCwd = text(cwd, "validation cwd");
+  const scopeRoot = text(repositoryRoot, "validation repository root");
+  if (!samePath(validationCwd, scopeRoot)) {
+    throw new Error("Validation repository root must be the exact worker worktree cwd.");
+  }
+  if (!Array.isArray(allowlist) || allowlist.length === 0) {
+    throw new Error("Validation requires the canonical task allowlist.");
+  }
   const results = [];
+  const scopeHistory = [];
+  let latestScope = null;
+  let scopeError = null;
   for (const command of commands) {
     commandTokens(command);
     try {
       const result = defaultCommandRunner(command, { cwd });
       const normalized = normalizeCommandResult(result, command);
-      results.push(normalized);
-      if (!normalized.passed) break;
+      let commandScope = null;
+      try {
+        commandScope = deriveAuthoritativeGitScope({ repositoryRoot: scopeRoot });
+        assertScopeAllowed(commandScope.paths, allowlist);
+        latestScope = commandScope;
+        scopeHistory.push(commandScope);
+      } catch (error) {
+        scopeError = error;
+        latestScope = commandScope;
+        scopeHistory.push(commandScope ?? {
+          base_ref: TRUSTED_BASE_REF,
+          merge_base: null,
+          changes: [],
+          paths: [],
+          internal_runtime_paths: [],
+          reported_paths_are_advisory: true,
+          error: redactSecrets(error instanceof Error ? error.message : String(error)),
+        });
+      }
+      const checked = scopeError
+        ? {
+          ...normalized,
+          passed: false,
+          scope_passed: false,
+          stderr: trimOutput(`${normalized.stderr}\n${scopeError.message}`),
+        }
+        : { ...normalized, scope_passed: true };
+      results.push(checked);
+      if (!checked.passed) break;
     } catch (error) {
-      results.push({
+      let commandScope = null;
+      try {
+        commandScope = deriveAuthoritativeGitScope({ repositoryRoot: scopeRoot });
+        assertScopeAllowed(commandScope.paths, allowlist);
+        latestScope = commandScope;
+        scopeHistory.push(commandScope);
+      } catch (scopeFailure) {
+        scopeError = scopeFailure;
+        latestScope = commandScope;
+        scopeHistory.push(commandScope ?? {
+          base_ref: TRUSTED_BASE_REF,
+          merge_base: null,
+          changes: [],
+          paths: [],
+          internal_runtime_paths: [],
+          reported_paths_are_advisory: true,
+          error: redactSecrets(scopeFailure instanceof Error ? scopeFailure.message : String(scopeFailure)),
+        });
+      }
+      const failure = {
         command,
         code: null,
         passed: false,
+        scope_passed: scopeError === null,
         stdout: "",
-        stderr: trimOutput(error instanceof Error ? error.message : error),
+        stderr: trimOutput(`${error instanceof Error ? error.message : error}${scopeError ? `\n${scopeError.message}` : ""}`),
         error: true,
-      });
+      };
+      results.push(failure);
       break;
     }
   }
   return {
-    passed: results.length === commands.length && results.every((result) => result.passed),
+    passed: results.length === commands.length && results.every((result) => result.passed && result.scope_passed === true)
+      && scopeError === null,
     results,
+    scope: latestScope,
+    scope_history: scopeHistory,
+    scope_passed: scopeError === null,
   };
 }
 
@@ -606,14 +683,18 @@ export async function validateTaskPlanExecution(options = {}) {
   };
   let normalizedPlan;
   let scope = null;
+  let durableBatch = null;
+  let durableBatchDigest = null;
+  let validation = { passed: false, results: [] };
   try {
     normalizedPlan = validateTaskPlanSchema(plan, { requireReady: false });
     assertNoSecretsDeep(evidenceBase, "validation evidence");
-    const durableBatch = readCanonicalBatch(store, normalizedPlan.batch_id);
+    durableBatch = readCanonicalBatch(store, normalizedPlan.batch_id);
     if (!durableBatch || durableBatch.batch_id !== normalizedPlan.batch_id
       || durableBatch.submission_id !== normalizedPlan.submission_id) {
       throw new Error("Task validation requires the exact durable submitted batch.");
     }
+    durableBatchDigest = durableBatchAuthorityDigest(durableBatch);
     assertCanonicalValidationStore(store, durableBatch);
     if (!samePath(repositoryRoot, durableBatch.repository_root)
       || path.resolve(repositoryRoot) !== path.resolve(durableBatch.repository_root)) {
@@ -634,12 +715,31 @@ export async function validateTaskPlanExecution(options = {}) {
     assertScopeAllowed(scope.paths, normalizedPlan.allowlist);
     const durableWorker = await deriveTerminalWorkerEvidence({ store, batch: durableBatch, plan: normalizedPlan, client });
     assertCanonicalRuntimeStoreAuthority(store, durableBatch.repository_root);
-    const validation = runValidationCommands(normalizedPlan.validation_commands, {
+    validation = runValidationCommands(normalizedPlan.validation_commands, {
       cwd: normalizedPlan.worktree,
+      repositoryRoot: normalizedPlan.worktree,
       allowlist: normalizedPlan.allowlist,
       actualPaths: scope.paths,
     });
+    scope = deriveAuthoritativeGitScope({ repositoryRoot: normalizedPlan.worktree });
+    if (scope.paths.length === 0) {
+      throw new Error("A task cannot become publishable without authoritative Git changes.");
+    }
+    assertScopeAllowed(scope.paths, normalizedPlan.allowlist);
+    validation = { ...validation, scope };
+    if (!validation.passed || validation.scope_passed !== true) {
+      throw new Error("Required task validation gates did not pass.");
+    }
     assertCanonicalRuntimeStoreAuthority(store, durableBatch.repository_root);
+    const currentBatch = readCanonicalBatch(store, durableBatch.batch_id);
+    if (!currentBatch
+      || currentBatch.batch_id !== durableBatch.batch_id
+      || currentBatch.submission_id !== durableBatch.submission_id
+      || currentBatch.state !== durableBatch.state
+      || durableBatchAuthorityDigest(currentBatch) !== durableBatchDigest) {
+      throw new Error("Canonical submitted RuntimeStore changed during validation.");
+    }
+    assertCanonicalRuntimeStoreAuthority(store, currentBatch.repository_root);
     const evidence = {
       ...evidenceBase,
       plan: normalizedPlan,
@@ -661,17 +761,39 @@ export async function validateTaskPlanExecution(options = {}) {
     if (result.publishable === true && result.passed === true && result.scope_passed === true
       && result.validation_passed === true) {
       VALIDATION_EVIDENCE.add(result);
+      VALIDATION_EVIDENCE_CONTEXTS.set(result, {
+        store,
+        repositoryRoot: durableBatch.repository_root,
+        batchId: durableBatch.batch_id,
+        batchDigest: durableBatchDigest,
+        batchState: durableBatch.state,
+        plan: normalizedPlan,
+      });
     }
     return result;
   } catch (error) {
+    if (normalizedPlan?.worktree) {
+      try {
+        scope = deriveAuthoritativeGitScope({ repositoryRoot: normalizedPlan.worktree });
+      } catch {}
+    }
+    let scopePassed = false;
+    if (scope && normalizedPlan?.allowlist) {
+      try {
+        scopePassed = scope.paths.length > 0;
+        assertScopeAllowed(scope.paths, normalizedPlan.allowlist);
+      } catch {
+        scopePassed = false;
+      }
+    }
     const evidence = {
       ...evidenceBase,
       scope,
       actual_paths: scope?.paths ?? [],
       merge_base: scope?.merge_base ?? null,
-      validation: { passed: false, results: [] },
+      validation,
       durable_worker: null,
-      scope_passed: scope !== null && (scope.paths?.length ?? 0) > 0,
+      scope_passed: scopePassed,
       validation_passed: false,
       passed: false,
       publishable: false,
@@ -696,13 +818,36 @@ export function assertPublishable(evidence) {
     digestMatches = typeof evidence?.evidence_digest === "string"
       && evidence.evidence_digest === digest(body);
   } catch {}
-  if (!VALIDATION_EVIDENCE.has(evidence) || !Object.isFrozen(evidence) || !digestMatches
+  const context = VALIDATION_EVIDENCE_CONTEXTS.get(evidence);
+  if (!VALIDATION_EVIDENCE.has(evidence) || !context || !Object.isFrozen(evidence) || !digestMatches
     || evidence.publishable !== true || evidence.passed !== true || evidence.scope_passed !== true
     || evidence.validation_passed !== true || !Array.isArray(evidence.actual_paths)
     || evidence.actual_paths.length === 0
     || evidence.durable_worker?.source !== "canonical-runtime-store+typed-thread-read"
     || evidence.durable_worker?.turn_status !== "SUCCEEDED") {
     throw new Error(`Task is not publishable: ${sanitizeForLog(evidence?.error ?? "validation failed")}`);
+  }
+  try {
+    assertCanonicalRuntimeStoreAuthority(context.store, context.repositoryRoot);
+    const currentBatch = readCanonicalBatch(context.store, context.batchId);
+    if (!currentBatch
+      || currentBatch.batch_id !== context.batchId
+      || currentBatch.state !== context.batchState
+      || durableBatchAuthorityDigest(currentBatch) !== context.batchDigest) {
+      throw new Error("Canonical submitted RuntimeStore changed after validation.");
+    }
+    assertCanonicalRuntimeStoreAuthority(context.store, currentBatch.repository_root);
+    const freshScope = deriveAuthoritativeGitScope({ repositoryRoot: context.plan.worktree });
+    if (freshScope.paths.length === 0) {
+      throw new Error("Authoritative Git scope is empty at publishability time.");
+    }
+    assertScopeAllowed(freshScope.paths, context.plan.allowlist);
+    if (freshScope.evidence_digest !== evidence.scope?.evidence_digest
+      || JSON.stringify(freshScope.paths) !== JSON.stringify(evidence.actual_paths)) {
+      throw new Error("Authoritative Git scope changed after validation.");
+    }
+  } catch (error) {
+    throw new Error(`Task is not publishable: ${sanitizeForLog(error instanceof Error ? error.message : error)}`);
   }
   return evidence;
 }

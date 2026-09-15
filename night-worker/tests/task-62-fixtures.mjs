@@ -126,10 +126,11 @@ function taskPositionFromCwd(cwd) {
 }
 
 class FakeTask62Transport {
-  constructor({ turnDelayMs = 0, writeChanges = false, readStatuses = [] } = {}) {
+  constructor({ turnDelayMs = 0, writeChanges = false, readStatuses = [], planningOutput = null } = {}) {
     this.turn_delay_ms = turnDelayMs;
     this.write_changes = writeChanges;
     this.read_statuses = [...readStatuses];
+    this.planning_output = planningOutput;
     this.callback = null;
     this.requests = [];
     this.threads = new Map();
@@ -195,6 +196,7 @@ class FakeTask62Transport {
         model: request.params.model,
         effort: request.params.effort,
         status: this.read_statuses.length > 0 ? this.read_statuses[0] : "completed",
+        ...(this.planning_output === null ? {} : { output: this.planning_output }),
       };
       thread.turn = turn;
       if (this.write_changes) {
@@ -204,11 +206,18 @@ class FakeTask62Transport {
         fs.appendFileSync(path.join(request.params.cwd, "src", `task-${position}-check.mjs`), "\n", "utf8");
       }
       this.active_turns += 1;
-      this.max_active_turns = Math.max(this.max_active_turns, this.active_turns);
+      const implementationTurn = request.params.model === "gpt-5.6-luna";
+      if (implementationTurn) {
+        this.implementation_active_turns = (this.implementation_active_turns ?? 0) + 1;
+        this.max_active_turns = Math.max(this.max_active_turns, this.implementation_active_turns);
+      }
       const startedAt = Date.now();
       const respond = () => {
         this.active_turns -= 1;
-        this.turn_intervals.push({ start: startedAt, end: Date.now(), cwd: request.params.cwd });
+        if (implementationTurn) {
+          this.implementation_active_turns -= 1;
+          this.turn_intervals.push({ start: startedAt, end: Date.now(), cwd: request.params.cwd });
+        }
         result = { turn };
         this.sendResponse(request, result);
       };
@@ -222,7 +231,10 @@ class FakeTask62Transport {
       const count = (this.read_count.get(threadId) ?? 0) + 1;
       this.read_count.set(threadId, count);
       const status = this.read_statuses[count - 1] ?? "completed";
-      if (thread.turn) thread.turn.status = status;
+      if (thread.turn) {
+        thread.turn.status = status;
+        if (this.planning_output !== null) thread.turn.output = this.planning_output;
+      }
       result = { thread: { id: threadId, turns: thread.turn ? [thread.turn] : [] } };
     } else if (request.method === "initialized") {
       return;
@@ -240,9 +252,20 @@ class FakeTask62Transport {
 
 export async function createAppServerClient(options = {}) {
   const transport = new FakeTask62Transport(options);
-  const client = new AppServerClient({ transport });
+  const client = new AppServerClient({ transport, clientInfo: options.clientInfo });
   await client.connect();
   return { client, transport };
+}
+
+export async function createPersistentSOLPlannerFixture({ store, planningOutput } = {}) {
+  const fixture = await createAppServerClient({
+    planningOutput,
+    clientInfo: { role: "ORCHESTRATOR", planningThread: "persistent-orchestrator" },
+  });
+  return {
+    ...fixture,
+    planner: createPersistentSOLPlanner({ client: fixture.client, store }),
+  };
 }
 
 export function requestsFor(transport, method) {
@@ -253,8 +276,3 @@ const persistentSOLFixture = await createAppServerClient({
   clientInfo: { role: "ORCHESTRATOR", planningThread: "persistent-orchestrator" },
 });
 export const persistentSOLClient = persistentSOLFixture.client;
-export const persistentSOLPlanner = (plan) => createPersistentSOLPlanner({
-  client: persistentSOLClient,
-  threadId: "persistent-orchestrator",
-  plan,
-});

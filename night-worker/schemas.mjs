@@ -63,6 +63,17 @@ const PROTECTED_EXACT_PATHS = Object.freeze([
   "middleware.ts",
   "prisma/schema.prisma",
   "prisma/schema.postgres.prisma",
+  // Task 61 owns the runtime, service, queue, submission, and App Server
+  // authority surfaces. Task 62 may consume them, but cannot scope workers to
+  // them, including through a one-character wildcard variant.
+  "night-worker/app-server-client.mjs",
+  "night-worker/cli.mjs",
+  "night-worker/config.mjs",
+  "night-worker/queue.mjs",
+  "night-worker/runtime-store.mjs",
+  "night-worker/service.mjs",
+  "night-worker/submission.mjs",
+  "night-worker/thread-broker.mjs",
 ]);
 
 const PROTECTED_DIRECTORY_PATTERNS = Object.freeze([
@@ -114,6 +125,8 @@ const PROTECTED_SCOPE_WITNESSES = Object.freeze([
   "src/password.txt",
   "src/token.txt",
   "src/private-key.pem",
+  "src/api-token.json",
+  "src/my-credential.txt",
   "src/task-secret.txt",
   "src/f-secret.txt",
   "x/workflow/worker.mjs",

@@ -1,6 +1,10 @@
 import crypto from "node:crypto";
 import { assertNoSecretsDeep, sanitizeForLog } from "../workflow/secrets.mjs";
-import { MVP_CONFIG, REVIEW_DEFAULT_REASONING_EFFORT } from "./config.mjs";
+import {
+  MVP_CONFIG,
+  REVIEW_DEFAULT_REASONING_EFFORT,
+  REVIEW_MODEL_NAME,
+} from "./config.mjs";
 import {
   PLANNING_MODEL_POLICY,
   assertPlanningPolicy,
@@ -20,12 +24,15 @@ import {
   readCanonicalBatch,
 } from "./validation.mjs";
 import { AppServerClient, isGenuineAppServerClient } from "./app-server-client.mjs";
+import { ThreadBroker } from "./thread-broker.mjs";
 
 const PLAN_BINDING_FIELD = "__night_worker_plan_binding";
 const PLAN_BINDING_SCHEMA_VERSION = 1;
 const PERSISTENT_SOL_PLANNERS = new WeakSet();
 const PERSISTENT_SOL_PLANNER_CONTEXTS = new WeakMap();
 const PERSISTENT_SOL_THREAD_ID = "persistent-orchestrator";
+const PERSISTENT_SOL_ROLE = "ORCHESTRATOR";
+const SUCCESSFUL_TURN_STATES = new Set(["COMPLETED", "SUCCEEDED", "SUCCESS", "DONE"]);
 const PLANNING_OPTION_FIELDS = new Set(["store", "batchId", "difficulty", "solPlanner"]);
 
 const ALLOWED_PROVIDER_PLAN_FIELDS = new Set([
@@ -54,45 +61,171 @@ export function createPersistentSOLPlanner(options = {}) {
   if (!options || typeof options !== "object" || Array.isArray(options)) {
     throw new Error("Persistent SOL planner requires a genuine App Server lifecycle identity object.");
   }
-  const allowed = new Set(["client", "threadId", "plan"]);
+  const allowed = new Set(["client", "store"]);
   for (const key of Object.keys(options)) {
     if (!allowed.has(key)) throw new Error(`Persistent SOL planner cannot accept caller override: ${key}`);
   }
-  const { client, threadId, plan } = options;
+  const { client, store } = options;
   if (!(client instanceof AppServerClient) || !isGenuineAppServerClient(client)
     || client.connectionState !== "READY") {
     throw new Error("Persistent SOL planner requires a genuine ready App Server lifecycle identity.");
   }
-  if (threadId !== PERSISTENT_SOL_THREAD_ID) {
-    throw new Error("Persistent SOL planner must use the persistent Orchestrator thread identity.");
+  if (client.client_info?.role !== PERSISTENT_SOL_ROLE
+    || client.client_info?.planningThread !== PERSISTENT_SOL_THREAD_ID) {
+    throw new Error("Persistent SOL planning requires the persistent Orchestrator client identity.");
   }
-  if (typeof plan !== "function") {
-    throw new Error("Persistent SOL planner requires the internal persistent lifecycle plan method.");
+  if (!(store instanceof RuntimeStore)) {
+    throw new Error("Persistent SOL planning requires the canonical RuntimeStore.");
   }
+  const broker = new ThreadBroker({ client, store });
   let planner;
   planner = Object.freeze({
-    plan: (request) => {
-      assertPersistentSOLPlanner(planner);
-      if (!request || request.planning_thread !== PERSISTENT_SOL_THREAD_ID) {
-        throw new Error("Persistent SOL planner requests must remain in the persistent Orchestrator thread.");
-      }
-      return plan(request);
+    plan: async (request) => {
+      const context = persistentSOLPlannerContext(planner);
+      return executePersistentSOLPlanning(context, request);
     },
   });
-  PERSISTENT_SOL_PLANNER_CONTEXTS.set(planner, { client, plan });
+  PERSISTENT_SOL_PLANNER_CONTEXTS.set(planner, { client, store, broker });
   PERSISTENT_SOL_PLANNERS.add(planner);
   return planner;
 }
 
-function assertPersistentSOLPlanner(planner) {
+function persistentSOLPlannerContext(planner) {
   const context = PERSISTENT_SOL_PLANNER_CONTEXTS.get(planner);
   if (!PERSISTENT_SOL_PLANNERS.has(planner) || !context
     || !(context.client instanceof AppServerClient)
     || !isGenuineAppServerClient(context.client)
-    || context.client.connectionState !== "READY") {
+    || context.client.connectionState !== "READY"
+    || context.client.client_info?.role !== PERSISTENT_SOL_ROLE
+    || context.client.client_info?.planningThread !== PERSISTENT_SOL_THREAD_ID
+    || !(context.store instanceof RuntimeStore)
+    || !(context.broker instanceof ThreadBroker)) {
     throw new Error("Planning requires the internal persistent Orchestrator SOL planner authority.");
   }
+  return context;
+}
+
+function assertPersistentSOLPlanner(planner) {
+  persistentSOLPlannerContext(planner);
   return planner;
+}
+
+function successfulTurn(turn) {
+  return SUCCESSFUL_TURN_STATES.has(String(turn?.status ?? "").toUpperCase());
+}
+
+function parsePlanningPayload(value, seen = new Set()) {
+  if (typeof value === "string") {
+    try {
+      return parsePlanningPayload(JSON.parse(value), seen);
+    } catch {
+      return null;
+    }
+  }
+  if (value === null || typeof value !== "object" || seen.has(value)) return null;
+  seen.add(value);
+  if (Array.isArray(value)) {
+    return value.length === 0 || value.every((entry) => entry && typeof entry === "object") ? value : null;
+  }
+  if (Array.isArray(value.plans)) return value;
+  if (Array.isArray(value.task_plans)) return { plans: value.task_plans };
+  for (const key of ["output", "result", "response", "output_text", "text", "content", "items"]) {
+    const parsed = parsePlanningPayload(value[key], seen);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
+function planningTurnFromRead(response, expectedTurnId, expectedEffort, expectedThreadId, expectedMessageId) {
+  const thread = response?.thread ?? response?.data?.thread ?? response;
+  if (thread?.id !== undefined && thread.id !== expectedThreadId) {
+    throw new Error("Persistent SOL App Server lifecycle returned the wrong durable thread.");
+  }
+  const turns = Array.isArray(thread?.turns)
+    ? thread.turns
+    : Array.isArray(response?.turns)
+      ? response.turns
+      : thread?.turn
+        ? [thread.turn]
+        : response?.turn
+          ? [response.turn]
+          : [];
+  const turn = turns.find((candidate) => candidate?.id === expectedTurnId);
+  if (!turn) throw new Error("Persistent SOL App Server lifecycle did not return the durable planning turn.");
+  if (!successfulTurn(turn)) throw new Error("Persistent SOL planning turn did not complete successfully.");
+  const returnedEffort = turn.reasoning_effort ?? turn.reasoningEffort ?? turn.effort;
+  if (turn.model !== REVIEW_MODEL_NAME || returnedEffort !== expectedEffort) {
+    throw new Error("Persistent SOL planning turn used an unexpected model policy.");
+  }
+  const returnedMessageId = turn.clientUserMessageId
+    ?? turn.client_user_message_id
+    ?? turn.clientRequestId
+    ?? turn.client_request_id;
+  if (returnedMessageId !== undefined && returnedMessageId !== expectedMessageId) {
+    throw new Error("Persistent SOL planning turn does not match the durable client message identity.");
+  }
+  const payload = parsePlanningPayload(
+    turn.output ?? turn.result ?? turn.response ?? turn.output_text ?? turn.content ?? turn.items,
+  );
+  if (payload === null) throw new Error("Persistent SOL App Server lifecycle returned no task-plan payload.");
+  return payload;
+}
+
+async function executePersistentSOLPlanning(context, request) {
+  assertObject(request, "Planning request");
+  if (request.planning_thread !== PERSISTENT_SOL_THREAD_ID) {
+    throw new Error("Planning request is not bound to the persistent Orchestrator thread.");
+  }
+  if (request.policy?.role !== PERSISTENT_SOL_ROLE
+    || request.policy?.model !== REVIEW_MODEL_NAME
+    || request.policy?.sandbox !== "read-only"
+    || request.policy?.persistent !== true) {
+    throw new Error("Planning request is not bound to the persistent SOL model policy.");
+  }
+  assertPlanningPolicy(request.policy);
+  const requestedBatch = request.batch;
+  assertObject(requestedBatch, "Planning request batch");
+  const durableBatch = readCanonicalBatch(context.store, requestedBatch.batch_id);
+  if (!durableBatch || durableBatch.submission_id !== requestedBatch.submission_id) {
+    throw new Error("Planning request is not bound to the canonical submitted batch.");
+  }
+  assertCanonicalRuntimeStoreAuthority(context.store, durableBatch.repository_root);
+  const task = durableBatch.tasks?.[0];
+  if (!task) throw new Error("Persistent SOL planning requires a non-empty submitted batch.");
+
+  const started = await context.broker.startReview({
+    batchId: durableBatch.batch_id,
+    taskId: task.task_id,
+    cwd: durableBatch.repository_root,
+    difficulty: request.policy.difficulty,
+    prompt: JSON.stringify(request),
+  });
+  const mapping = started?.mapping ?? started;
+  if (!mapping
+    || mapping.batch_id !== durableBatch.batch_id
+    || mapping.task_id !== task.task_id
+    || mapping.role !== "REVIEW"
+    || mapping.model !== REVIEW_MODEL_NAME
+    || mapping.effort !== request.policy.effort
+    || mapping.cwd !== durableBatch.repository_root
+    || typeof mapping.thread_id !== "string"
+    || typeof mapping.turn_id !== "string") {
+    throw new Error("Persistent SOL planning lifecycle produced an invalid durable mapping.");
+  }
+  const read = await context.broker.readWorker({
+    batchId: durableBatch.batch_id,
+    taskId: task.task_id,
+    role: "REVIEW",
+  });
+  const payload = planningTurnFromRead(
+    read,
+    mapping.turn_id,
+    request.policy.effort,
+    mapping.thread_id,
+    mapping.client_user_message_id,
+  );
+  assertCanonicalRuntimeStoreAuthority(context.store, durableBatch.repository_root);
+  return payload;
 }
 
 function submittedBatchFrom({ store, batchId } = {}) {
