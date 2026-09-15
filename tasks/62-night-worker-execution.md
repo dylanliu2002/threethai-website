@@ -347,3 +347,18 @@ production/deployment integration or the frozen SYS-AUTO-007 surfaces.
   object store. The managed environment still denies the shared local branch
   lock; the exact current-branch refspec remains the only intended push
   target. No PR or merge was created.
+
+## Correction cycle 4 delivery blocker
+
+- Evidence-record commit: `951acbd72060eb53a9a5365b0294e96ac112d4ee`, a
+  descendant of implementation commit `e2efd41632a90973d175596d1dad073d054c0f52`.
+- `git push origin
+  951acbd72060eb53a9a5365b0294e96ac112d4ee:refs/heads/codex/62-night-worker-execution`
+  — BLOCKED: `ssh: connect to host github.com port 22: Permission denied`.
+- A one-off HTTPS push to the same exact branch refspec was also attempted
+  without changing remote configuration or handling credentials — BLOCKED:
+  `Failed to connect to github.com port 443`.
+- No PR, merge, production action, or other remote mutation was created. The
+  verified commit objects remain preserved in `.task62-objects/`; the shared
+  local branch ref is still at the reviewed head because its lock is denied by
+  the managed environment.

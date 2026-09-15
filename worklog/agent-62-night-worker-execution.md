@@ -241,3 +241,17 @@
   so the implementation commit is retained in `.task62-objects/` and the
   exact current-branch refspec is the only push target. No PR or merge was
   created. Final push evidence will be appended after the handoff attempt.
+
+## 2026-09-15 — correction cycle 4 delivery blocker
+
+- Evidence-record commit `951acbd72060eb53a9a5365b0294e96ac112d4ee` is a
+  descendant of implementation commit `e2efd41632a90973d175596d1dad073d054c0f52`.
+- Exact SSH push to `refs/heads/codex/62-night-worker-execution` was attempted
+  and blocked by the environment: `ssh: connect to host github.com port 22:
+  Permission denied`.
+- A one-off HTTPS push to the same exact refspec was attempted without
+  changing remote configuration or exposing credentials and was blocked by
+  network policy: `Failed to connect to github.com port 443`.
+- No PR, merge, production, or other remote mutation was created. Commit
+  objects remain in `.task62-objects/`; the shared local branch ref remains at
+  the reviewed head because its lock is denied.
