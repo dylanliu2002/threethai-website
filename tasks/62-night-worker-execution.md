@@ -292,10 +292,16 @@ Correction cycle 3 completion record:
 - Correction implementation commit: `ea482f955b68579afae70e71d6cefc226a9c35a3`,
   parent `1b31553e5684a4c2db958d42b41a127548e9cec0`; exact author and committer
   are `dylanliu2002 <dylanliu2002@gmail.com>`.
-- The final handoff record is a verified fast-forward descendant of that
-  implementation commit; final hash-qualified validation reports the exact
-  13-path Task 62 production/test/card/worklog allowlist and `origin/main`
-  ancestry result.
+- Final handoff evidence commit: `27dd89da41e5bda8b28fc12d05779f381850a787`,
+  parent `ea482f955b68579afae70e71d6cefc226a9c35a3`; exact author and committer
+  are `dylanliu2002 <dylanliu2002@gmail.com>`.
+- Against final handoff commit `27dd89da41e5bda8b28fc12d05779f381850a787`,
+  `origin/main` `ab85e1d47e38a1ca3dee4fa782ec831320f29496` is the merge base,
+  `git diff --check` passes, and the exact changed-path count is 13 within the
+  Task 62 production/test/card/worklog allowlist. Workflow, package/lock,
+  `.github`, Task 61, and SYS-AUTO-007 paths are unchanged.
+- The final administrative evidence update is a descendant of this handoff;
+  status remains `REVIEW` pending fresh independent SOL review.
 
 ## Rollback
 
