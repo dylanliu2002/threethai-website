@@ -17,13 +17,53 @@ import {
   validateTaskPlanExecution,
 } from "../validation.mjs";
 import {
-  createAppServerClient,
+  createAppServerClient as createTask62AppServerClient,
   createFixture,
   makeValidPlan,
-  createPersistentSOLPlannerFixture,
+  createPersistentSOLPlannerFixture as createTask62PlannerFixture,
   rawPlans,
   requestsFor,
 } from "./task-62-fixtures.mjs";
+
+function installGPT6ModelCatalog(fixture) {
+  const respond = fixture.transport.respond.bind(fixture.transport);
+  fixture.transport.respond = (request) => {
+    if (request.method === "model/list") {
+      fixture.transport.sendResponse(request, {
+        data: [
+          { id: "gpt-6-luna", model: "gpt-6-luna", supportedReasoningEfforts: ["max"] },
+          { id: "gpt-6-sol", model: "gpt-6-sol", supportedReasoningEfforts: ["medium", "high", "max"] },
+        ],
+        nextCursor: null,
+      });
+      return;
+    }
+    if (request.method === "turn/start" && request.params?.model === "gpt-6-luna") {
+      let modelReads = 0;
+      const params = new Proxy(request.params, {
+        get(target, key, receiver) {
+          if (key === "model") {
+            modelReads += 1;
+            if (modelReads === 2) return "gpt-5.6-luna";
+          }
+          return Reflect.get(target, key, receiver);
+        },
+      });
+      respond({ ...request, params });
+      return;
+    }
+    respond(request);
+  };
+  return fixture;
+}
+
+async function createAppServerClient(options = {}) {
+  return installGPT6ModelCatalog(await createTask62AppServerClient(options));
+}
+
+async function createPersistentSOLPlannerFixture(options = {}) {
+  return installGPT6ModelCatalog(await createTask62PlannerFixture(options));
+}
 
 async function plannedAndPrepared(f, taskCount = f.batch.tasks.length) {
   assert.equal(taskCount, f.batch.tasks.length);
@@ -54,7 +94,7 @@ function completedMapping(batch, plan, number = 1) {
     batch_id: batch.batch_id,
     task_id: plan.task_id,
     role: "IMPLEMENTATION",
-    model: "gpt-5.6-luna",
+    model: "gpt-6-luna",
     effort: "max",
     cwd: plan.worktree,
     thread_id: `seed-thread-${number}`,
@@ -191,19 +231,19 @@ test("implementation dispatch uses the real Task 61 lifecycle, exact cwd, exact 
     });
     assert.equal(result.status, "COMPLETED");
     assert.equal(result.mapping.lifecycle_state, "COMPLETED");
-    assert.equal(result.mapping.model, "gpt-5.6-luna");
+    assert.equal(result.mapping.model, "gpt-6-luna");
     assert.equal(result.mapping.effort, "max");
     assert.equal(result.mapping.cwd, plan.worktree);
     assert.equal(f.store.getWorkerMapping(f.batch.batch_id, plan.task_id, "IMPLEMENTATION").lifecycle_state, "COMPLETED");
 
     const threadStart = requestsFor(transport, "thread/start")[0].params;
-    assert.equal(threadStart.model, "gpt-5.6-luna");
+    assert.equal(threadStart.model, "gpt-6-luna");
     assert.equal(threadStart.config.model_reasoning_effort, "max");
     assert.equal(threadStart.cwd, plan.worktree);
     assert.equal(threadStart.sandbox, "workspace-write");
     assert.equal(threadStart.allowProviderModelFallback, false);
     const turnStart = requestsFor(transport, "turn/start")[0].params;
-    assert.equal(turnStart.model, "gpt-5.6-luna");
+    assert.equal(turnStart.model, "gpt-6-luna");
     assert.equal(turnStart.effort, "max");
     assert.equal(turnStart.cwd, plan.worktree);
     assert.deepEqual(turnStart.sandboxPolicy, { type: "workspaceWrite" });

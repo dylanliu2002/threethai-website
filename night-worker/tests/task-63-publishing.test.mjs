@@ -1,0 +1,436 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import test from "node:test";
+import {
+  IMPLEMENTATION_MODEL_NAME,
+  IMPLEMENTATION_REASONING_EFFORT,
+  MVP_CONFIG,
+  REVIEW_MODEL_NAME,
+  reviewEffortForDifficulty,
+} from "../config.mjs";
+import { IMPLEMENTATION_WORKER_POLICY, assertNoWorkerAuthority } from "../model-policy.mjs";
+import { dispatchImplementation } from "../agent-runner.mjs";
+import { runServe } from "../cli.mjs";
+import { planBatch } from "../planner.mjs";
+import {
+  createDraftPullRequest,
+  updateDraftPullRequest,
+  mergeApprovedPullRequest,
+} from "../publishing-policy.mjs";
+import { runBoundedCorrection, runIndependentReview, verifyIndependentReview } from "../review-runner.mjs";
+import { validateTaskPlanExecution } from "../validation.mjs";
+import { prepareTaskWorktrees } from "../worktrees.mjs";
+import {
+  createAppServerClient as createTask62AppServerClient,
+  createFixture,
+  createPersistentSOLPlannerFixture as createTask62PlannerFixture,
+  git,
+  rawPlans,
+} from "./task-62-fixtures.mjs";
+
+function installGPT6Catalog(fixture) {
+  const respond = fixture.transport.respond.bind(fixture.transport);
+  fixture.transport.respond = (request) => {
+    if (request.method === "model/list") {
+      fixture.transport.sendResponse(request, {
+        data: [
+          { id: "gpt-6-luna", model: "gpt-6-luna", supportedReasoningEfforts: ["max"] },
+          { id: "gpt-6-sol", model: "gpt-6-sol", supportedReasoningEfforts: ["medium", "high", "max"] },
+        ],
+        nextCursor: null,
+      });
+      return;
+    }
+    respond(request);
+  };
+  return fixture;
+}
+
+function commitWorktree(worktree, message) {
+  git(worktree, ["add", "--all"]);
+  try {
+    git(worktree, ["diff", "--cached", "--quiet"]);
+  } catch {
+    git(worktree, ["commit", "--quiet", "-m", message]);
+  }
+}
+
+async function createGPT6Client(options = {}) {
+  const fixture = installGPT6Catalog(await createTask62AppServerClient(options));
+  const respond = fixture.transport.respond.bind(fixture.transport);
+  fixture.transport.respond = (request) => {
+    respond(request);
+    if (request.method === "turn/start" && request.params?.model === IMPLEMENTATION_MODEL_NAME
+      && fixture.transport.write_changes) {
+      commitWorktree(request.params.cwd, "fixture bounded implementation turn");
+    }
+  };
+  return fixture;
+}
+
+async function readyTaskFixture(name) {
+  const fixture = createFixture(1, name);
+  let prepared = [];
+  let client;
+  let fixtureTransport;
+  try {
+    const planning = await createTask62PlannerFixture({
+      store: fixture.store,
+      planningOutput: rawPlans(fixture.batch).map((plan) => ({ ...plan, difficulty: "hard" })),
+    }).then((value) => installGPT6Catalog(value));
+    let result;
+    try {
+      result = await planBatch({ store: fixture.store, batchId: fixture.batch.batch_id, solPlanner: planning.planner });
+    } finally {
+      await planning.client.close();
+    }
+    prepared = prepareTaskWorktrees({ repositoryRoot: fixture.root, plans: result.plans });
+    const plan = prepared[0].plan;
+    ({ client, transport: fixtureTransport } = await createGPT6Client({ writeChanges: true }));
+    await dispatchImplementation({ store: fixture.store, batchId: fixture.batch.batch_id, plan, client });
+    fs.writeFileSync(path.join(plan.worktree, "src", "task-1.txt"), "review baseline\n", "utf8");
+    commitWorktree(plan.worktree, "fixture reviewed baseline");
+    fixtureTransport.write_changes = false;
+    const evidence = await validateTaskPlanExecution({
+      plan,
+      repositoryRoot: fixture.root,
+      store: fixture.store,
+      client,
+    });
+    assert.equal(evidence.publishable, true);
+    return {
+      ...fixture,
+      plan,
+      evidence,
+      client,
+      transport: fixtureTransport,
+      cleanup: async () => {
+        await client?.close();
+        fixture.cleanup(prepared.map((entry) => entry.worktree.worktree));
+      },
+    };
+  } catch (error) {
+    await client?.close();
+    fixture.cleanup(prepared.map((entry) => entry.worktree.worktree));
+    throw error;
+  }
+}
+
+function protectionPolicy() {
+  return {
+    required_status_checks: {
+      strict: true,
+      contexts: ["Task 63 / unit"],
+      checks: [{ context: "Task 63 / security", app_id: 42 }],
+    },
+    required_pull_request_reviews: { required_approving_review_count: 1 },
+    enforce_admins: { enabled: true },
+    allow_force_pushes: { enabled: false },
+    allow_deletions: { enabled: false },
+  };
+}
+
+function passingChecks() {
+  return {
+    statuses: [{ context: "Task 63 / unit", state: "success" }],
+    check_runs: [{
+      name: "Task 63 / security",
+      status: "completed",
+      conclusion: "success",
+      app: { id: 42 },
+    }],
+  };
+}
+
+function fakeGitHub(worktree, baseSha) {
+  const calls = [];
+  let remoteHead = null;
+  let pullRequest = null;
+  let protection = protectionPolicy();
+  let checkEvidence = passingChecks();
+  return {
+    repository_root: worktree,
+    calls,
+    set checks(value) { checkEvidence = value; },
+    get checks() { return checkEvidence; },
+    set protection(value) { protection = value; },
+    get protection() { return protection; },
+    set pr(value) { pullRequest = value; },
+    get pr() { return pullRequest; },
+    async pushTaskBranch({ branch, headSha }) {
+      calls.push({ method: "pushTaskBranch", branch, headSha });
+      assert.equal(git(worktree, ["branch", "--show-current"]), branch);
+      assert.equal(git(worktree, ["rev-parse", "HEAD"]), headSha);
+      if (remoteHead && remoteHead !== headSha) git(worktree, ["merge-base", "--is-ancestor", remoteHead, headSha]);
+      remoteHead = headSha;
+      if (pullRequest?.state === "OPEN" && pullRequest.headRefName === branch) {
+        pullRequest.headRefOid = headSha;
+      }
+      return remoteHead;
+    },
+    async listOpenPullRequests(branch) {
+      calls.push({ method: "listOpenPullRequests", branch });
+      return pullRequest?.state === "OPEN" && pullRequest.headRefName === branch ? [{ ...pullRequest }] : [];
+    },
+    async createDraftPullRequest({ branch, title, body }) {
+      calls.push({ method: "createDraftPullRequest", branch, title, body });
+      assert.equal(remoteHead, git(worktree, ["rev-parse", "HEAD"]));
+      pullRequest = {
+        number: 63,
+        url: "https://github.com/example/site/pull/63",
+        state: "OPEN",
+        headRefName: branch,
+        headRefOid: remoteHead,
+        baseRefName: "main",
+        baseRefOid: baseSha,
+        isDraft: true,
+        reviewDecision: "APPROVED",
+        mergeable: "MERGEABLE",
+        mergeStateStatus: "DRAFT",
+        autoMergeRequest: null,
+      };
+      return { number: pullRequest.number };
+    },
+    async getPullRequest(number) {
+      calls.push({ method: "getPullRequest", number });
+      assert.equal(number, 63);
+      return pullRequest && { ...pullRequest };
+    },
+    async getBranchProtection(branch) {
+      calls.push({ method: "getBranchProtection", branch });
+      assert.equal(branch, "main");
+      if (!protection) throw new Error("protection unavailable");
+      return protection;
+    },
+    async getCheckEvidence(headSha) {
+      calls.push({ method: "getCheckEvidence", headSha });
+      return checkEvidence;
+    },
+    async markPullRequestReady(number) {
+      calls.push({ method: "markPullRequestReady", number });
+      assert.equal(number, 63);
+      pullRequest.isDraft = false;
+      pullRequest.mergeStateStatus = "CLEAN";
+    },
+    async mergePullRequest(number, headSha) {
+      calls.push({ method: "mergePullRequest", number, headSha });
+      assert.equal(number, 63);
+      assert.equal(pullRequest.headRefOid, headSha);
+      pullRequest.state = "MERGED";
+      pullRequest.mergedAt = "2026-09-25T00:00:00.000Z";
+    },
+  };
+}
+
+function reviewResponse(transport, verdict, issue = "") {
+  transport.planning_output = {
+    verdict,
+    summary: verdict === "APPROVED" ? "The exact diff meets the task criteria." : "A bounded correction is needed.",
+    findings: verdict === "CHANGES_REQUESTED"
+      ? [{ path: "src/task-1.txt", line: 1, issue, suggestion: "Correct the finding in this file only." }]
+      : [],
+  };
+}
+
+test("draft PR needs a fresh Task 62-publishable exact head and validated scope", async () => {
+  const task = await readyTaskFixture("task63-draft");
+  try {
+    const baseSha = git(task.root, ["rev-parse", "refs/remotes/origin/main"]);
+    const github = fakeGitHub(task.plan.worktree, baseSha);
+    const draft = await createDraftPullRequest({ evidence: task.evidence, store: task.store, github });
+    assert.equal(draft.state, "DRAFT");
+    assert.equal(draft.head_sha, git(task.plan.worktree, ["rev-parse", "HEAD"]));
+    assert.deepEqual(github.calls.map((entry) => entry.method), [
+      "pushTaskBranch", "listOpenPullRequests", "createDraftPullRequest", "getPullRequest",
+    ]);
+    assert.equal(github.pr.isDraft, true);
+    assert.equal(github.pr.baseRefName, "main");
+
+    const untouched = fakeGitHub(task.plan.worktree, baseSha);
+    await assert.rejects(createDraftPullRequest({ evidence: {}, store: task.store, github: untouched }), /not publishable/i);
+    assert.equal(untouched.calls.length, 0);
+    assert.throws(() => assertNoWorkerAuthority({ review: true, merge: true }), /review|merge/i);
+  } finally {
+    await task.cleanup();
+  }
+});
+
+test("fresh SOL review, bounded same-task correction, re-review, and exact protected merge", async () => {
+  const task = await readyTaskFixture("task63-review-correction");
+  try {
+    const { root, store, plan, client, transport } = task;
+    const baseSha = git(root, ["rev-parse", "refs/remotes/origin/main"]);
+    const github = fakeGitHub(plan.worktree, baseSha);
+    const draft = await createDraftPullRequest({ evidence: task.evidence, store, github });
+
+    reviewResponse(transport, "CHANGES_REQUESTED", "The reviewed baseline needs a small correction.");
+    const firstReview = await runIndependentReview({ evidence: task.evidence, store, client });
+    const firstMapping = store.getWorkerMapping(firstReview.review_batch_id, plan.task_id, "REVIEW");
+    const initialImplementation = store.getWorkerMapping(task.batch.batch_id, plan.task_id, "IMPLEMENTATION");
+    assert.equal(firstReview.verdict, "CHANGES_REQUESTED");
+    assert.equal(firstMapping.model, REVIEW_MODEL_NAME);
+    assert.equal(firstMapping.effort, reviewEffortForDifficulty(plan.difficulty));
+    assert.notEqual(firstMapping.thread_id, initialImplementation.thread_id);
+    assert.equal(store.getBatch(firstReview.review_batch_id).state, "COMPLETED");
+    const reviewStart = transport.requests.find((request) => request.method === "thread/start"
+      && request.params.model === REVIEW_MODEL_NAME);
+    const reviewTurn = transport.requests.find((request) => request.method === "turn/start"
+      && request.params.model === REVIEW_MODEL_NAME);
+    assert.equal(reviewStart.params.sandbox, "read-only");
+    assert.equal(reviewStart.params.ephemeral, false);
+    assert.equal(reviewStart.params.allowProviderModelFallback, false);
+    assert.deepEqual(reviewTurn.params.sandboxPolicy, { type: "readOnly" });
+    assert.match(JSON.stringify(reviewTurn.params), new RegExp(firstReview.target.head_sha));
+    assert.match(JSON.stringify(reviewTurn.params), new RegExp(firstReview.target.diff_sha256));
+    assert.equal(firstReview.target.base_sha, baseSha);
+    assert.equal(firstReview.target.merge_base, baseSha);
+
+    transport.write_changes = true;
+    const correction = await runBoundedCorrection({ evidence: task.evidence, review: firstReview, store, client });
+    transport.write_changes = false;
+    assert.equal(correction.status, "CORRECTED");
+    assert.equal(correction.cycle, 1);
+    assert.equal(correction.task_id, plan.task_id);
+    assert.equal(correction.branch, plan.branch);
+    assert.equal(correction.worktree, plan.worktree);
+    assert.notEqual(correction.corrected_head_sha, correction.reviewed_head_sha);
+    assert.equal(store.getBatch(task.batch.batch_id).correction_cycles, 1);
+    const correctionMapping = store.getWorkerMapping(correction.batch_id, plan.task_id, "IMPLEMENTATION");
+    assert.equal(correctionMapping.model, IMPLEMENTATION_MODEL_NAME);
+    assert.equal(correctionMapping.effort, IMPLEMENTATION_REASONING_EFFORT);
+    assert.equal(correctionMapping.cwd, plan.worktree);
+    assert.equal(correctionMapping.role, "IMPLEMENTATION");
+    assert.equal(IMPLEMENTATION_WORKER_POLICY.capabilities.review, false);
+    assert.equal(IMPLEMENTATION_WORKER_POLICY.capabilities.merge, false);
+
+    const correctedEvidence = await validateTaskPlanExecution({ plan, repositoryRoot: root, store, client });
+    assert.equal(correctedEvidence.publishable, true);
+    const updatedDraft = await updateDraftPullRequest({
+      evidence: correctedEvidence,
+      store,
+      github,
+      pullRequestNumber: draft.number,
+    });
+    assert.equal(updatedDraft.head_sha, correction.corrected_head_sha);
+    assert.equal(github.pr.isDraft, true);
+
+    reviewResponse(transport, "APPROVED");
+    const correctedReview = await runIndependentReview({ evidence: correctedEvidence, store, client });
+    const correctedMapping = store.getWorkerMapping(correctedReview.review_batch_id, plan.task_id, "REVIEW");
+    assert.equal(correctedReview.verdict, "APPROVED");
+    assert.notEqual(correctedMapping.thread_id, firstMapping.thread_id);
+    assert.equal(correctedMapping.model, REVIEW_MODEL_NAME);
+    assert.equal(correctedMapping.effort, "high");
+    const verified = await verifyIndependentReview({ review: correctedReview, evidence: correctedEvidence, store, client });
+    assert.equal(verified.result.verdict, "APPROVED");
+    assert.equal(verified.target.head_sha, correction.corrected_head_sha);
+
+    const forgedCorrectionAsReview = {
+      review_batch_id: correction.batch_id,
+      review_submission_id: correction.submission_id,
+      task_id: correction.task_id,
+      thread_id: correction.correction_thread_id,
+      turn_id: correction.correction_turn_id,
+      verdict: "APPROVED",
+      target: correctedReview.target,
+    };
+    await assert.rejects(
+      verifyIndependentReview({ review: forgedCorrectionAsReview, evidence: correctedEvidence, store, client }),
+      /persisted SOL review/i,
+    );
+
+    const commitForHeadDrift = path.join(plan.worktree, "src", "task-1.txt");
+    fs.writeFileSync(commitForHeadDrift, "post approval drift\n", "utf8");
+    commitWorktree(plan.worktree, "fixture approval drift");
+    const driftEvidence = await validateTaskPlanExecution({ plan, repositoryRoot: root, store, client });
+    assert.equal(driftEvidence.publishable, true);
+    const callsBeforeStale = github.calls.length;
+    await assert.rejects(
+      mergeApprovedPullRequest({
+        evidence: driftEvidence,
+        review: correctedReview,
+        store,
+        client,
+        github,
+        pullRequestNumber: draft.number,
+      }),
+      /stale|different base|different.*head/i,
+    );
+    assert.equal(github.calls.length, callsBeforeStale);
+
+    github.pr.headRefOid = git(plan.worktree, ["rev-parse", "HEAD"]);
+    github.pr.baseRefOid = baseSha;
+    const driftDraft = await updateDraftPullRequest({
+      evidence: driftEvidence,
+      store,
+      github,
+      pullRequestNumber: draft.number,
+    });
+    reviewResponse(transport, "APPROVED");
+    const finalReview = await runIndependentReview({ evidence: driftEvidence, store, client });
+    assert.notEqual(finalReview.thread_id, correctedReview.thread_id);
+    assert.equal(finalReview.target.head_sha, driftDraft.head_sha);
+
+    github.protection = null;
+    await assert.rejects(
+      mergeApprovedPullRequest({ evidence: driftEvidence, review: finalReview, store, client, github, pullRequestNumber: draft.number }),
+      /protection|policy/i,
+    );
+    github.protection = protectionPolicy();
+    github.checks = { statuses: [], check_runs: [] };
+    await assert.rejects(
+      mergeApprovedPullRequest({ evidence: driftEvidence, review: finalReview, store, client, github, pullRequestNumber: draft.number }),
+      /required repository checks/i,
+    );
+    github.checks = {
+      statuses: [{ context: "Task 63 / unit", state: "failure" }],
+      check_runs: [{ name: "Task 63 / security", status: "completed", conclusion: "failure", app: { id: 42 } }],
+    };
+    await assert.rejects(
+      mergeApprovedPullRequest({ evidence: driftEvidence, review: finalReview, store, client, github, pullRequestNumber: draft.number }),
+      /required repository checks/i,
+    );
+    github.checks = passingChecks();
+    github.pr.mergeable = "CONFLICTING";
+    await assert.rejects(
+      mergeApprovedPullRequest({ evidence: driftEvidence, review: finalReview, store, client, github, pullRequestNumber: draft.number }),
+      /not mergeable/i,
+    );
+
+    github.pr.mergeable = "MERGEABLE";
+    github.pr.reviewDecision = "APPROVED";
+    const merged = await mergeApprovedPullRequest({
+      evidence: driftEvidence,
+      review: finalReview,
+      store,
+      client,
+      github,
+      pullRequestNumber: draft.number,
+    });
+    assert.equal(merged.status, "MERGED");
+    assert.equal(merged.head_sha, driftDraft.head_sha);
+    assert.equal(github.pr.state, "MERGED");
+    assert.equal(github.calls.filter((entry) => entry.method === "markPullRequestReady").length, 1);
+    assert.equal(github.calls.at(-2).method, "mergePullRequest");
+    assert.equal(github.calls.at(-2).headSha, driftDraft.head_sha);
+    assert.equal(github.calls.some((entry) => entry.method === "autoMerge" || entry.admin === true), false);
+  } finally {
+    await task.cleanup();
+  }
+});
+
+test("normal service remains idle when no explicit submission exists", async () => {
+  const fixture = createFixture(0, "task63-idle");
+  try {
+    assert.deepEqual(await runServe({ store: fixture.store }), {
+      status: "IDLE",
+      active_batch_id: null,
+      queued_batches: 0,
+    });
+    assert.equal(fixture.store.snapshot().workers.length, 0);
+    assert.equal(MVP_CONFIG.capabilities.approved_safe_pr_merge, true);
+  } finally {
+    fixture.cleanup();
+  }
+});
