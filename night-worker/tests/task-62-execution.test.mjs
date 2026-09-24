@@ -514,6 +514,107 @@ test("validation re-derives scope after every command and rechecks the canonical
   }
 });
 
+test("validation and publishability recheck the canonical terminal implementation mapping", async () => {
+  const f = createFixture(1, "task62-worker-mapping-freshness");
+  let prepared = [];
+  let client;
+  try {
+    ({ prepared } = await plannedAndPrepared(f, 1));
+    const plan = prepared[0].plan;
+    ({ client } = await createAppServerClient({ writeChanges: true }));
+    await dispatchImplementation({
+      store: f.store,
+      batchId: f.batch.batch_id,
+      plan,
+      client,
+    });
+
+    const mappingPath = path.join(plan.worktree, "src", "validation-worker-mapping.test.mjs");
+    const runtimePath = f.store.filePath;
+    const baselineRuntime = fs.readFileSync(runtimePath, "utf8");
+    const batchBefore = f.store.getBatch(f.batch.batch_id);
+    const writeMappingMutation = (mutation) => fs.writeFileSync(mappingPath, [
+      'import assert from "node:assert/strict";',
+      'import fs from "node:fs";',
+      'import test from "node:test";',
+      `const runtimePath = ${JSON.stringify(runtimePath)};`,
+      `const batchId = ${JSON.stringify(f.batch.batch_id)};`,
+      `const taskId = ${JSON.stringify(plan.task_id)};`,
+      'test("mutate the canonical implementation mapping", () => {',
+      '  const state = JSON.parse(fs.readFileSync(runtimePath, "utf8"));',
+      '  const index = state.workers.findIndex((worker) => worker.batch_id === batchId && worker.task_id === taskId && worker.role === "IMPLEMENTATION");',
+      '  assert.notEqual(index, -1);',
+      mutation === "delete"
+        ? '  state.workers.splice(index, 1);'
+        : '  state.workers[index].thread_id = "tampered-worker-thread";',
+      '  fs.writeFileSync(runtimePath, JSON.stringify(state), "utf8");',
+      '});',
+    ].join("\n"), "utf8");
+    const mutationPlan = {
+      ...plan,
+      allowlist: [...plan.allowlist, "src/validation-worker-mapping.test.mjs"],
+      validation_commands: [
+        "node --test src/validation-worker-mapping.test.mjs",
+        "node --check src/task-1-check.mjs",
+      ],
+    };
+
+    for (const mutation of ["delete", "identity"]) {
+      fs.writeFileSync(runtimePath, baselineRuntime, "utf8");
+      writeMappingMutation(mutation);
+      const rejected = await validateTaskPlanExecution({
+        plan: mutationPlan,
+        repositoryRoot: f.root,
+        store: f.store,
+        client,
+      });
+      assert.equal(rejected.publishable, false, `${mutation} during validation must reject publication`);
+      assert.equal(rejected.passed, false);
+      assert.equal(rejected.validation.passed, true);
+      assert.match(rejected.error, /implementation worker mapping changed/i);
+      assert.deepEqual(f.store.getBatch(f.batch.batch_id), batchBefore);
+      const currentMapping = f.store.getWorkerMapping(f.batch.batch_id, plan.task_id, "IMPLEMENTATION");
+      if (mutation === "delete") {
+        assert.equal(currentMapping, null);
+      } else {
+        assert.equal(currentMapping.thread_id, "tampered-worker-thread");
+      }
+    }
+
+    fs.writeFileSync(runtimePath, baselineRuntime, "utf8");
+    const publishablePlan = {
+      ...mutationPlan,
+      validation_commands: ["node --test src/task-1.test.mjs", "node --check src/task-1-check.mjs"],
+    };
+    const evidence = await validateTaskPlanExecution({
+      plan: publishablePlan,
+      repositoryRoot: f.root,
+      store: f.store,
+      client,
+    });
+    assert.equal(evidence.publishable, true);
+    assert.doesNotThrow(() => assertPublishable(evidence));
+    const publishableRuntime = fs.readFileSync(runtimePath, "utf8");
+
+    for (const mutation of ["delete", "identity"]) {
+      const state = JSON.parse(publishableRuntime);
+      const index = state.workers.findIndex((worker) => worker.batch_id === f.batch.batch_id
+        && worker.task_id === plan.task_id && worker.role === "IMPLEMENTATION");
+      assert.notEqual(index, -1);
+      if (mutation === "delete") state.workers.splice(index, 1);
+      else state.workers[index].thread_id = "tampered-after-validation";
+      fs.writeFileSync(runtimePath, JSON.stringify(state), "utf8");
+      assert.deepEqual(f.store.getBatch(f.batch.batch_id), batchBefore);
+      assert.throws(() => assertPublishable(evidence), /implementation worker mapping changed/i);
+      fs.writeFileSync(runtimePath, publishableRuntime, "utf8");
+    }
+    assert.doesNotThrow(() => assertPublishable(evidence));
+  } finally {
+    await client?.close();
+    f.cleanup(prepared.map((entry) => entry.worktree.worktree));
+  }
+});
+
 test("validation authority fixes the trusted base and rejects caller overrides or Git/ref injection", async () => {
   const f = createFixture(2, "task62-validation-authority");
   let prepared = [];

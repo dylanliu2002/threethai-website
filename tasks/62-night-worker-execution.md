@@ -362,3 +362,27 @@ production/deployment integration or the frozen SYS-AUTO-007 surfaces.
   verified commit objects remain preserved in `.task62-objects/`; the shared
   local branch ref is still at the reviewed head because its lock is denied by
   the managed environment.
+
+## Correction cycle 5 validation record
+
+- Continued from exact reviewed head `ae3c0bad30928a80718066b7952f4a00b40d9114`,
+  with `origin/main` at
+  `ab85e1d47e38a1ca3dee4fa782ec831320f29496`.
+- Closed the remaining implementation-mapping freshness finding: validation
+  snapshots terminal worker identity/policy, rereads and compares the
+  canonical implementation mapping after worker-controlled commands and
+  before evidence creation, and `assertPublishable` repeats that comparison.
+- Added regressions for schema-valid mapping deletion and thread identity
+  mutation both during validation and after evidence creation, with the batch
+  unchanged in each case.
+- `node --test night-worker/tests/task-62*.test.mjs` — PASS, 22/22.
+- `node --test night-worker/tests/*.test.mjs` — PASS, 55/55, including Task 61
+  lifecycle and recovery tests.
+- `node --check` — PASS for both changed JavaScript modules.
+- ESLint 9.39.2 — PASS on the current Task 62 worktree using the existing
+  dependency binary and byte-identical repository ESLint config. The normal
+  `npm run lint` lookup cannot resolve from this worktree; the direct lint run
+  completed with exit code 0.
+- `git diff --check` — PASS. Final commit identity and hash-qualified path
+  scope/protected-surface checks will be appended after commit. No push, PR,
+  or merge was performed for this correction.

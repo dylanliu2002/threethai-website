@@ -36,6 +36,20 @@ const FORBIDDEN_INTERPRETER_EXECUTABLES = new Set([
 ]);
 const TERMINAL_SUCCESS_STATES = new Set(["complete", "completed", "succeeded", "success", "done"]);
 const TERMINAL_FAILURE_STATES = new Set(["failed", "failure", "error", "errored", "cancelled", "canceled", "aborted", "rejected", "interrupted"]);
+const TERMINAL_WORKER_IDENTITY_POLICY_FIELDS = Object.freeze([
+  "schema_version",
+  "batch_id",
+  "submission_id",
+  "task_id",
+  "role",
+  "model",
+  "effort",
+  "cwd",
+  "thread_id",
+  "turn_id",
+  "lifecycle_state",
+  "client_user_message_id",
+]);
 const VALIDATION_EVIDENCE = new WeakSet();
 const VALIDATION_EVIDENCE_CONTEXTS = new WeakMap();
 const BASE_THREAD_BROKER_READ_WORKER = ThreadBroker.prototype.readWorker;
@@ -565,6 +579,24 @@ export function readCanonicalWorkerMapping(store, batchId, taskId, role) {
   return runtimeWorkerMapping(store, batchId, taskId, role);
 }
 
+function terminalWorkerIdentityPolicy(mapping) {
+  if (!mapping || typeof mapping !== "object" || Array.isArray(mapping)) return null;
+  return Object.fromEntries(TERMINAL_WORKER_IDENTITY_POLICY_FIELDS.map((field) => [
+    field,
+    mapping[field] ?? null,
+  ]));
+}
+
+function assertTerminalWorkerMappingUnchanged({ store, batch, plan, expectedIdentityPolicy }) {
+  assertCanonicalRuntimeStoreAuthority(store, batch.repository_root);
+  const current = readCanonicalWorkerMapping(store, batch.batch_id, plan.task_id, "IMPLEMENTATION");
+  if (!current || current.lifecycle_state !== "COMPLETED"
+    || digest(terminalWorkerIdentityPolicy(current)) !== digest(expectedIdentityPolicy)) {
+    throw new Error("Canonical terminal implementation worker mapping changed after it was validated.");
+  }
+  return current;
+}
+
 function assertCanonicalValidationStore(store, batch) {
   assertCanonicalRuntimeStoreAuthority(store, batch.repository_root);
 }
@@ -671,6 +703,7 @@ async function deriveTerminalWorkerEvidence({ store, batch, plan, client }) {
     thread_id: mapping.thread_id,
     turn_id: mapping.turn_id,
     turn_status: status,
+    mapping_identity_policy: terminalWorkerIdentityPolicy(mapping),
   };
 }
 
@@ -740,6 +773,12 @@ export async function validateTaskPlanExecution(options = {}) {
       throw new Error("Canonical submitted RuntimeStore changed during validation.");
     }
     assertCanonicalRuntimeStoreAuthority(store, currentBatch.repository_root);
+    assertTerminalWorkerMappingUnchanged({
+      store,
+      batch: currentBatch,
+      plan: normalizedPlan,
+      expectedIdentityPolicy: durableWorker.mapping_identity_policy,
+    });
     const evidence = {
       ...evidenceBase,
       plan: normalizedPlan,
@@ -824,7 +863,8 @@ export function assertPublishable(evidence) {
     || evidence.validation_passed !== true || !Array.isArray(evidence.actual_paths)
     || evidence.actual_paths.length === 0
     || evidence.durable_worker?.source !== "canonical-runtime-store+typed-thread-read"
-    || evidence.durable_worker?.turn_status !== "SUCCEEDED") {
+    || evidence.durable_worker?.turn_status !== "SUCCEEDED"
+    || !evidence.durable_worker?.mapping_identity_policy) {
     throw new Error(`Task is not publishable: ${sanitizeForLog(evidence?.error ?? "validation failed")}`);
   }
   try {
@@ -837,6 +877,12 @@ export function assertPublishable(evidence) {
       throw new Error("Canonical submitted RuntimeStore changed after validation.");
     }
     assertCanonicalRuntimeStoreAuthority(context.store, currentBatch.repository_root);
+    assertTerminalWorkerMappingUnchanged({
+      store: context.store,
+      batch: currentBatch,
+      plan: context.plan,
+      expectedIdentityPolicy: evidence.durable_worker.mapping_identity_policy,
+    });
     const freshScope = deriveAuthoritativeGitScope({ repositoryRoot: context.plan.worktree });
     if (freshScope.paths.length === 0) {
       throw new Error("Authoritative Git scope is empty at publishability time.");

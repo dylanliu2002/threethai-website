@@ -255,3 +255,23 @@
 - No PR, merge, production, or other remote mutation was created. Commit
   objects remain in `.task62-objects/`; the shared local branch ref remains at
   the reviewed head because its lock is denied.
+
+## 2026-09-24 — correction cycle 5 validation
+
+- Continued from reviewed head `ae3c0bad30928a80718066b7952f4a00b40d9114` and
+  `origin/main` `ab85e1d47e38a1ca3dee4fa782ec831320f29496`.
+- Validation now binds evidence to the original terminal implementation
+  mapping identity/policy and rereads the canonical mapping after worker
+  validation commands and again in `assertPublishable`.
+- Regression coverage exercises schema-valid deletion and thread ID mutation
+  during validation and after publishable evidence creation; the canonical
+  batch is asserted unchanged.
+- Focused Task 62 tests PASS: 22/22. Full Night Worker tests PASS: 55/55,
+  including Task 61 lifecycle/recovery. `node --check` PASS for the two
+  changed JavaScript modules. `git diff --check` PASS.
+- ESLint 9.39.2 PASS against the current worktree using the preinstalled
+  dependency binary and byte-identical main-checkout ESLint config. The
+  package script alone cannot find the binary from this worktree.
+- The pre-existing deletion of `download/threethai-website-deploy.zip` remains
+  untouched and excluded from staging. Final commit and hash-qualified scope
+  evidence remains to be appended.
