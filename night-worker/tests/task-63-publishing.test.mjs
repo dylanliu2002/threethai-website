@@ -464,6 +464,64 @@ test("required checks[] entries require their latest commit status to pass too",
   assert.equal(requiredChecksPassed(policy, failedStatus), true);
 });
 
+test("required check names accept a passing sole channel and reject ambiguous channel evidence", () => {
+  const statusProtection = protectionPolicy();
+  statusProtection.required_status_checks.contexts = ["Task 63 / status-only"];
+  statusProtection.required_status_checks.checks = [];
+  const statusOnlyPolicy = requiredChecksFromProtection(statusProtection);
+  assert.equal(requiredChecksPassed(statusOnlyPolicy, {
+    statuses: [{ context: "Task 63 / status-only", state: "success" }],
+    check_runs: [],
+  }), true);
+
+  const runProtection = protectionPolicy();
+  runProtection.required_status_checks.contexts = [];
+  const runOnlyPolicy = requiredChecksFromProtection(runProtection);
+  const runOnlyEvidence = {
+    statuses: [],
+    check_runs: [{
+      name: "Task 63 / security",
+      status: "completed",
+      conclusion: "success",
+      app: { id: 42 },
+    }],
+  };
+  assert.equal(requiredChecksPassed(runOnlyPolicy, runOnlyEvidence), true);
+  assert.equal(requiredChecksPassed(runOnlyPolicy, { statuses: [], check_runs: [] }), false);
+
+  const ambiguousRunOnlyEvidence = {
+    statuses: [],
+    check_runs: [
+      { ...runOnlyEvidence.check_runs[0], id: 60, started_at: "2026-09-25T00:00:00.000Z" },
+      { ...runOnlyEvidence.check_runs[0], conclusion: "failure", id: 60, started_at: "2026-09-25T00:00:00.000Z" },
+    ],
+  };
+  assert.equal(requiredChecksPassed(runOnlyPolicy, ambiguousRunOnlyEvidence), false);
+});
+
+test("required check app_id -1 accepts any app while positive IDs must match exactly", () => {
+  const protection = protectionPolicy();
+  protection.required_status_checks.contexts = [];
+  protection.required_status_checks.checks = [{ context: "Task 63 / security", app_id: -1 }];
+  const anyAppPolicy = requiredChecksFromProtection(protection);
+  const evidence = {
+    statuses: [],
+    check_runs: [{
+      name: "Task 63 / security",
+      status: "completed",
+      conclusion: "success",
+      app: { id: 73 },
+    }],
+  };
+  assert.equal(requiredChecksPassed(anyAppPolicy, evidence), true);
+
+  protection.required_status_checks.checks = [{ context: "Task 63 / security", app_id: 42 }];
+  const exactAppPolicy = requiredChecksFromProtection(protection);
+  assert.equal(requiredChecksPassed(exactAppPolicy, evidence), false);
+  evidence.check_runs[0].app.id = 42;
+  assert.equal(requiredChecksPassed(exactAppPolicy, evidence), true);
+});
+
 test("draft PR needs a fresh Task 62-publishable exact head and validated scope", async () => {
   const task = await readyTaskFixture("task63-draft");
   try {

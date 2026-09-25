@@ -83,3 +83,10 @@
 ## 2026-09-25 — orchestrator commit bookkeeping
 
 - The orchestrator recorded the validated `checks[]` correction in the commit containing this entry after verifying the exact Task 63 file scope, required identity, and clean diff. Git history supplies the exact commit SHA. Fresh independent SOL review, PR publishing, and merge remain pending.
+
+## 2026-09-25 — required-check channel compatibility correction
+
+- Required names now pass with status-only evidence for `contexts[]` or check-run-only evidence for `checks[]` when the other matching channel is absent. If both channels have matching evidence, each latest result must pass; ambiguous, malformed, failed, or pending latest evidence still blocks. `app_id: -1` matches any app, while positive app IDs remain exact.
+- Added regressions for status-only, run-only, both-channel success, failure/pending results, ambiguous latest evidence, wildcard app matching, and exact positive app matching.
+- PASS: focused Task 63 tests (12/12), full Night Worker suite (67/67), syntax checks for both changed JavaScript files, `git diff --check`, exact Task 63 scope, and protected-surface checks.
+- The correction is implemented and pending fresh independent SOL review. Publishing and merge remain pending the authorized workflow. No push, PR action, merge, or self-review was performed.

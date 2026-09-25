@@ -73,6 +73,7 @@ git log -1 --format='%an <%ae>'
 - Concrete bootstrap blocker discovered before Task 63 execution: the merged Night Worker config still binds implementation/review to `gpt-5.6-luna` / `gpt-5.6-sol`, while the human's current policy requires `gpt-6-luna` max for implementation/correction and `gpt-6-sol` for fresh review. Task 63 may make only the narrow config/test changes needed to migrate that model policy; no Thread Broker redesign or unrelated runtime refactor is authorized.
 - Independent GPT-6 Sol reviews requested bounded fixes for descendant publishing, latest-result evaluation, exact commit-author validation, immutable validated-SHA pushes, and requiring both latest status/check-run channels to pass for matching required names. Those corrections were committed by the orchestrator; no publishing or merge action has been performed.
 - A fresh independent GPT-6 Sol review found that a required name declared through `checks[]` could pass despite a failed commit status. The current bounded correction requires both channels for required names from either policy list.
+- A subsequent fresh independent GPT-6 Sol review identified status-only and check-run-only compatibility requirements, fail-closed handling for ambiguous evidence, and GitHub's `app_id: -1` any-app sentinel. The current correction is limited to these cases.
 
 ## Review Status
 
@@ -80,9 +81,9 @@ git log -1 --format='%an <%ae>'
 
 ## Completion Record
 
-- Commit: Required-check channel parity is implemented and validated in the Task 63 branch. The implementation thread could not write the shared worktree index; the orchestrator recorded the validated correction in the commit containing this entry. Git history is the source for its exact SHA. Exact merge base: `36c4dd024118e6c2a8dba1b00c8c7aa54ad15007` (`origin/main`). The commit identity is `dylanliu2002 <dylanliu2002@gmail.com>`.
-- Validation: PASS — focused Task 63 tests (10/10), full Night Worker suite (65/65), syntax checks, `git diff --check`, and Task 63 allowlist/protected-surface checks.
-- Independent review: Fresh SOL review of the current correction is pending. Publishing and merge remain gated on that independent review and explicit authorized submission. No self-review performed.
+- Commit: Required-check channel compatibility is implemented and validated. Git history remains the source for the current revision; exact merge base: `36c4dd024118e6c2a8dba1b00c8c7aa54ad15007` (`origin/main`). Configured Git identity: `dylanliu2002 <dylanliu2002@gmail.com>`.
+- Validation: PASS — focused Task 63 tests (12/12), full Night Worker suite (67/67), syntax checks, working-tree and branch `git diff --check`, Task 63 allowlist/scope, and protected-surface checks.
+- Independent review: Fresh independent SOL review of this correction is pending. Publishing and merge remain gated on review and explicit authorized submission. No self-review performed.
 
 ## Rollback
 

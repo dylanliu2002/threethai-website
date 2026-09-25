@@ -142,7 +142,7 @@ function requiredChecksFromProtection(protection) {
 
 function checkRunPassed(run, appId) {
   return run?.status === "completed" && run?.conclusion === "success"
-    && (appId === null || appId === undefined || run?.app?.id === appId);
+    && (appId === null || appId === undefined || appId === -1 || run?.app?.id === appId);
 }
 
 function resultTimestamp(result, kind) {
@@ -176,15 +176,23 @@ function latestResult(results) {
 }
 
 function requiredCheckChannelsPassed(context, evidence, appId) {
-  const currentStatus = latestResult(evidence.statuses
+  const statusResults = evidence.statuses
     .filter((status) => status?.context === context)
-    .map((value) => ({ kind: "status", value })));
-  const currentCheckRun = latestResult(evidence.check_runs
+    .map((value) => ({ kind: "status", value }));
+  const checkRunResults = evidence.check_runs
     .filter((run) => run?.name === context
-      && (appId === null || appId === undefined || run?.app?.id === appId))
-    .map((value) => ({ kind: "check_run", value })));
-  return currentStatus?.value.state === "success"
-    && Boolean(currentCheckRun && checkRunPassed(currentCheckRun.value, appId));
+      && (appId === null || appId === undefined || appId === -1 || run?.app?.id === appId))
+    .map((value) => ({ kind: "check_run", value }));
+  if (statusResults.length === 0 && checkRunResults.length === 0) return false;
+  if (statusResults.length > 0) {
+    const currentStatus = latestResult(statusResults);
+    if (!currentStatus || currentStatus.value.state !== "success") return false;
+  }
+  if (checkRunResults.length > 0) {
+    const currentCheckRun = latestResult(checkRunResults);
+    if (!currentCheckRun || !checkRunPassed(currentCheckRun.value, appId)) return false;
+  }
+  return true;
 }
 
 function requiredChecksPassed(policy, evidence) {
