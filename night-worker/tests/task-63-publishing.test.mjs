@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
@@ -12,11 +13,14 @@ import {
 import { IMPLEMENTATION_WORKER_POLICY, assertNoWorkerAuthority } from "../model-policy.mjs";
 import { dispatchImplementation } from "../agent-runner.mjs";
 import { runServe } from "../cli.mjs";
+import { createGitHubClient } from "../github.mjs";
 import { planBatch } from "../planner.mjs";
 import {
   createDraftPullRequest,
   updateDraftPullRequest,
   mergeApprovedPullRequest,
+  requiredChecksFromProtection,
+  requiredChecksPassed,
 } from "../publishing-policy.mjs";
 import { runBoundedCorrection, runIndependentReview, verifyIndependentReview } from "../review-runner.mjs";
 import { validateTaskPlanExecution } from "../validation.mjs";
@@ -54,6 +58,42 @@ function commitWorktree(worktree, message) {
   } catch {
     git(worktree, ["commit", "--quiet", "-m", message]);
   }
+}
+
+function createBareRemoteFixture(name) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), `task63-${name}-`));
+  const repository = path.join(directory, "repository");
+  const remote = path.join(directory, "remote.git");
+  fs.mkdirSync(repository, { recursive: true });
+  fs.mkdirSync(remote, { recursive: true });
+  git(repository, ["init", "--quiet"]);
+  git(remote, ["init", "--bare", "--quiet"]);
+  git(repository, ["config", "user.name", "dylanliu2002"]);
+  git(repository, ["config", "user.email", "dylanliu2002@gmail.com"]);
+  fs.mkdirSync(path.join(repository, "src"), { recursive: true });
+  fs.writeFileSync(path.join(repository, "src", "base.txt"), "base\n", "utf8");
+  git(repository, ["add", "--all"]);
+  git(repository, ["commit", "--quiet", "-m", "fixture base"]);
+  git(repository, ["branch", "-M", "main"]);
+  const baseSha = git(repository, ["rev-parse", "HEAD"]);
+  const branch = "codex/63-night-worker-publishing";
+  git(repository, ["remote", "add", "origin", remote]);
+  git(repository, ["push", "--quiet", "origin", "main:refs/heads/main"]);
+  git(repository, ["checkout", "--quiet", "-b", branch]);
+  git(repository, ["push", "--quiet", "origin", `HEAD:refs/heads/${branch}`]);
+  return {
+    directory,
+    repository,
+    remote,
+    branch,
+    baseSha,
+    remoteHead() {
+      return git(repository, ["--git-dir", remote, "rev-parse", "--verify", `refs/heads/${branch}`]);
+    },
+    cleanup() {
+      fs.rmSync(directory, { recursive: true, force: true });
+    },
+  };
 }
 
 async function createGPT6Client(options = {}) {
@@ -164,9 +204,6 @@ function fakeGitHub(worktree, baseSha) {
       assert.equal(git(worktree, ["rev-parse", "HEAD"]), headSha);
       if (remoteHead && remoteHead !== headSha) git(worktree, ["merge-base", "--is-ancestor", remoteHead, headSha]);
       remoteHead = headSha;
-      if (pullRequest?.state === "OPEN" && pullRequest.headRefName === branch) {
-        pullRequest.headRefOid = headSha;
-      }
       return remoteHead;
     },
     async listOpenPullRequests(branch) {
@@ -195,7 +232,7 @@ function fakeGitHub(worktree, baseSha) {
     async getPullRequest(number) {
       calls.push({ method: "getPullRequest", number });
       assert.equal(number, 63);
-      return pullRequest && { ...pullRequest };
+      return pullRequest && { ...pullRequest, headRefOid: remoteHead };
     },
     async getBranchProtection(branch) {
       calls.push({ method: "getBranchProtection", branch });
@@ -233,6 +270,86 @@ function reviewResponse(transport, verdict, issue = "") {
   };
 }
 
+test("GitHub client fast-forwards an existing task branch and blocks branch drift", () => {
+  const fixture = createBareRemoteFixture("safe-task-push");
+  try {
+    const client = createGitHubClient({ repositoryRoot: fixture.repository });
+    fs.writeFileSync(path.join(fixture.repository, "src", "task.txt"), "reviewed\n", "utf8");
+    commitWorktree(fixture.repository, "reviewed head");
+    fs.writeFileSync(path.join(fixture.repository, "src", "task.txt"), "corrected\n", "utf8");
+    commitWorktree(fixture.repository, "corrected descendant");
+    const correctedHead = git(fixture.repository, ["rev-parse", "HEAD"]);
+
+    assert.equal(fixture.remoteHead(), fixture.baseSha);
+    assert.equal(client.pushTaskBranch({ branch: fixture.branch, headSha: correctedHead }), correctedHead);
+    assert.equal(fixture.remoteHead(), correctedHead);
+
+    git(fixture.repository, ["checkout", "--quiet", "-b", "divergent", fixture.baseSha]);
+    fs.writeFileSync(path.join(fixture.repository, "src", "divergent.txt"), "remote drift\n", "utf8");
+    commitWorktree(fixture.repository, "divergent remote change");
+    const divergentHead = git(fixture.repository, ["rev-parse", "HEAD"]);
+    git(fixture.repository, ["checkout", "--quiet", fixture.branch]);
+    git(fixture.repository, ["push", "--quiet", "origin", "divergent:refs/heads/fixture-divergent"]);
+    git(fixture.repository, ["--git-dir", fixture.remote, "update-ref", `refs/heads/${fixture.branch}`, divergentHead]);
+
+    assert.throws(
+      () => client.pushTaskBranch({ branch: fixture.branch, headSha: correctedHead }),
+      /not an ancestor|replacement push is forbidden/i,
+    );
+    assert.equal(fixture.remoteHead(), divergentHead);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test("GitHub client requires the exact latest commit author before pushing", () => {
+  const fixture = createBareRemoteFixture("commit-author");
+  try {
+    const client = createGitHubClient({ repositoryRoot: fixture.repository });
+    const remoteBefore = fixture.remoteHead();
+    git(fixture.repository, ["config", "user.name", "Unapproved Author"]);
+    git(fixture.repository, ["config", "user.email", "other@example.test"]);
+    fs.writeFileSync(path.join(fixture.repository, "src", "task.txt"), "wrong author\n", "utf8");
+    commitWorktree(fixture.repository, "wrong author commit");
+    const wrongAuthorHead = git(fixture.repository, ["rev-parse", "HEAD"]);
+
+    assert.throws(
+      () => client.pushTaskBranch({ branch: fixture.branch, headSha: wrongAuthorHead }),
+      /latest commit author must be exactly dylanliu2002 <dylanliu2002@gmail.com>/i,
+    );
+    assert.equal(fixture.remoteHead(), remoteBefore);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
+test("required checks reject an older success when the latest result failed", () => {
+  const policy = requiredChecksFromProtection(protectionPolicy());
+  const older = "2026-09-24T00:00:00.000Z";
+  const newer = "2026-09-25T00:00:00.000Z";
+
+  const staleStatusSuccess = passingChecks();
+  staleStatusSuccess.statuses = [
+    { context: "Task 63 / unit", state: "success", id: 10, created_at: older },
+    { context: "Task 63 / unit", state: "failure", id: 11, created_at: newer },
+  ];
+  assert.equal(requiredChecksPassed(policy, staleStatusSuccess), false);
+
+  const staleCheckSuccess = passingChecks();
+  staleCheckSuccess.check_runs = [
+    { name: "Task 63 / security", status: "completed", conclusion: "success", app: { id: 42 }, id: 20, started_at: older },
+    { name: "Task 63 / security", status: "completed", conclusion: "failure", app: { id: 42 }, id: 21, started_at: newer },
+  ];
+  assert.equal(requiredChecksPassed(policy, staleCheckSuccess), false);
+
+  const ambiguousLatest = passingChecks();
+  ambiguousLatest.statuses = [
+    { context: "Task 63 / unit", state: "success", id: 10, created_at: newer },
+    { context: "Task 63 / unit", state: "failure", id: 10, created_at: newer },
+  ];
+  assert.equal(requiredChecksPassed(policy, ambiguousLatest), false);
+});
+
 test("draft PR needs a fresh Task 62-publishable exact head and validated scope", async () => {
   const task = await readyTaskFixture("task63-draft");
   try {
@@ -253,6 +370,76 @@ test("draft PR needs a fresh Task 62-publishable exact head and validated scope"
     assert.throws(() => assertNoWorkerAuthority({ review: true, merge: true }), /review|merge/i);
   } finally {
     await task.cleanup();
+  }
+});
+
+test("draft correction updates through a real fast-forward push without a fake PR-head mutation", async () => {
+  const task = await readyTaskFixture("task63-real-draft-push");
+  const remoteDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "task63-draft-remote-"));
+  const remote = path.join(remoteDirectory, "remote.git");
+  try {
+    fs.mkdirSync(remote, { recursive: true });
+    git(remote, ["init", "--bare", "--quiet"]);
+    git(task.root, ["push", "--quiet", remote, "main:refs/heads/main"]);
+    const { plan, root, store, client } = task;
+    const branch = plan.branch;
+    const taskWorktree = plan.worktree;
+    git(taskWorktree, ["push", "--quiet", remote, `HEAD:refs/heads/${branch}`]);
+    git(root, ["remote", "set-url", "origin", remote]);
+    const remoteHead = () => git(taskWorktree, ["ls-remote", "--refs", remote, `refs/heads/${branch}`]).split(/\s+/)[0];
+    const preCorrectionHead = remoteHead();
+    const baseSha = git(root, ["rev-parse", "refs/remotes/origin/main"]);
+
+    fs.writeFileSync(path.join(taskWorktree, "src", "task-1.txt"), "draft correction\n", "utf8");
+    commitWorktree(taskWorktree, "draft correction descendant");
+    const correctedHead = git(taskWorktree, ["rev-parse", "HEAD"]);
+    const correctedEvidence = await validateTaskPlanExecution({ plan, repositoryRoot: root, store, client });
+    assert.equal(correctedEvidence.publishable, true);
+
+    const realGit = createGitHubClient({ repositoryRoot: taskWorktree });
+    const observedPRHeads = [];
+    const pr = {
+      number: 63,
+      url: "https://github.com/example/site/pull/63",
+      state: "OPEN",
+      headRefName: branch,
+      baseRefName: "main",
+      baseRefOid: baseSha,
+      isDraft: true,
+      reviewDecision: "APPROVED",
+      mergeable: "MERGEABLE",
+      mergeStateStatus: "DRAFT",
+      autoMergeRequest: null,
+    };
+    const github = {
+      repository_root: taskWorktree,
+      pushTaskBranch: realGit.pushTaskBranch,
+      async listOpenPullRequests() { return [{ ...pr, headRefOid: remoteHead() }]; },
+      async createDraftPullRequest() { throw new Error("An existing draft must be updated in place."); },
+      async getPullRequest(number) {
+        assert.equal(number, 63);
+        const headRefOid = remoteHead();
+        observedPRHeads.push(headRefOid);
+        return { ...pr, headRefOid };
+      },
+      async getBranchProtection() { return protectionPolicy(); },
+      async getCheckEvidence() { return passingChecks(); },
+      async markPullRequestReady() {},
+      async mergePullRequest() {},
+    };
+
+    const updated = await updateDraftPullRequest({
+      evidence: correctedEvidence,
+      store,
+      github,
+      pullRequestNumber: 63,
+    });
+    assert.equal(updated.head_sha, correctedHead);
+    assert.equal(remoteHead(), correctedHead);
+    assert.deepEqual(observedPRHeads, [preCorrectionHead, correctedHead]);
+  } finally {
+    await task.cleanup();
+    fs.rmSync(remoteDirectory, { recursive: true, force: true });
   }
 });
 

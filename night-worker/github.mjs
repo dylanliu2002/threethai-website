@@ -4,6 +4,7 @@ import { assertGitWorktree, canonicalDirectory } from "./submission.mjs";
 import { normalizeTaskBranch, strictCommitSha } from "./worktrees.mjs";
 
 const MAX_OUTPUT = 2 * 1024 * 1024;
+const REQUIRED_COMMIT_AUTHOR = "dylanliu2002 <dylanliu2002@gmail.com>";
 const PULL_REQUEST_FIELDS = [
   "number", "url", "state", "headRefName", "headRefOid", "baseRefName", "baseRefOid",
   "isDraft", "reviewDecision", "mergeable", "mergeStateStatus", "autoMergeRequest", "mergedAt",
@@ -75,6 +76,10 @@ export function createGitHubClient({ repositoryRoot } = {}) {
     if (currentBranch !== normalized || currentHead !== expectedHead) {
       throw new Error("Refusing to push a task branch that is not the exact reviewed worktree head.");
     }
+    const latestCommitAuthor = git(["log", "-1", "--format=%an <%ae>"]);
+    if (latestCommitAuthor !== REQUIRED_COMMIT_AUTHOR) {
+      throw new Error(`Task branch latest commit author must be exactly ${REQUIRED_COMMIT_AUTHOR}.`);
+    }
     const existing = getRemoteHead(normalized);
     if (existing !== null && existing !== expectedHead) {
       git(["fetch", "--no-tags", "origin", `refs/heads/${normalized}`]);
@@ -86,7 +91,10 @@ export function createGitHubClient({ repositoryRoot } = {}) {
         throw new Error("Remote task branch is not an ancestor of the exact task head; replacement push is forbidden.");
       }
     }
-    if (existing === null) git(["push", "--porcelain", "origin", `HEAD:refs/heads/${normalized}`]);
+    if (existing !== expectedHead) {
+      // A regular push allows only creation or a fast-forward; Git rejects remote drift races.
+      git(["push", "--porcelain", "origin", `HEAD:refs/heads/${normalized}`]);
+    }
     const published = getRemoteHead(normalized);
     if (published !== expectedHead) throw new Error("Remote task branch does not match the exact validated head.");
     return published;

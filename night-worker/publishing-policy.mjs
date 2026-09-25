@@ -145,17 +145,57 @@ function checkRunPassed(run, appId) {
     && (appId === null || appId === undefined || run?.app?.id === appId);
 }
 
+function resultTimestamp(result, kind) {
+  const candidates = kind === "status"
+    ? [result?.updated_at, result?.created_at]
+    : [result?.started_at, result?.created_at];
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string") continue;
+    const timestamp = Date.parse(candidate);
+    if (Number.isFinite(timestamp)) return timestamp;
+  }
+  return null;
+}
+
+function latestResult(results) {
+  if (results.length === 0) return null;
+  if (results.length === 1) return results[0];
+  const scored = results.map((result) => ({
+    ...result,
+    timestamp: resultTimestamp(result.value, result.kind),
+    id: Number.isSafeInteger(result.value?.id) ? result.value.id : null,
+  }));
+  if (scored.some((result) => result.timestamp === null)) return null;
+  const newestTimestamp = Math.max(...scored.map((result) => result.timestamp));
+  const newest = scored.filter((result) => result.timestamp === newestTimestamp);
+  if (newest.length === 1) return newest[0];
+  if (newest.some((result) => result.kind !== newest[0].kind || result.id === null)) return null;
+  const descendingIds = newest.map((result) => result.id).sort((left, right) => right - left);
+  if (descendingIds[0] === descendingIds[1]) return null;
+  return newest.find((result) => result.id === descendingIds[0]);
+}
+
 function requiredChecksPassed(policy, evidence) {
   if (!evidence || !Array.isArray(evidence.check_runs) || !Array.isArray(evidence.statuses)) return false;
   for (const context of policy.contexts) {
-    const statusPassed = evidence.statuses.some((status) => status?.context === context && status?.state === "success");
-    const checkPassed = evidence.check_runs.some((run) => run?.name === context && checkRunPassed(run));
-    if (!statusPassed && !checkPassed) return false;
+    const current = latestResult([
+      ...evidence.statuses
+        .filter((status) => status?.context === context)
+        .map((value) => ({ kind: "status", value })),
+      ...evidence.check_runs
+        .filter((run) => run?.name === context)
+        .map((value) => ({ kind: "check_run", value })),
+    ]);
+    if (!current || !(current.kind === "status"
+      ? current.value.state === "success"
+      : checkRunPassed(current.value))) return false;
   }
   for (const required of policy.checks) {
-    if (!evidence.check_runs.some((run) => run?.name === required.context && checkRunPassed(run, required.app_id))) {
-      return false;
-    }
+    const current = latestResult(evidence.check_runs
+      .filter((run) => run?.name === required.context
+        && (required.app_id === null || required.app_id === undefined || run?.app?.id === required.app_id))
+      .map((value) => ({ kind: "check_run", value })));
+    if (!current || !checkRunPassed(current.value, required.app_id)) return false;
   }
   return true;
 }

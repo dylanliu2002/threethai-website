@@ -31,3 +31,23 @@
 - Retried `git fetch origin` and exact-allowlist `git add` after authorization. Fetch remains blocked writing `.git/worktrees/agent-63-night-worker-publishing/FETCH_HEAD`; staging remains blocked creating `.git/worktrees/agent-63-night-worker-publishing/index.lock` (`Permission denied`).
 - Rechecked the required local Git identity; both name and email still match exactly. Re-ran lint/typecheck and documented fixture CLI commands: ESLint/TypeScript remain unavailable, and the existing CLI still rejects `--fixture` / `--dry-run`.
 - No files staged, no Task 63 commit, and no code scope changes. Current `HEAD` remains `36c4dd024118e6c2a8dba1b00c8c7aa54ad15007`; task remains blocked and is not ready for independent review until required validation and commit gates can run.
+
+## 2026-09-25 — independent review correction started
+
+- The Task 63 implementation is now committed at `963cb50e8aea6d3dbd5f62b0828558da614772b9` with the required author. Fresh independent GPT-6 Sol review returned `CHANGES_REQUESTED` for safe pushing of corrected descendants, latest-result required-check evaluation, and exact latest-commit author validation before push.
+- Reopened the task as `IN_PROGRESS` for only those three requested fixes. Preserve the existing commit and all other implementation; no push, PR action, or review-thread operation is authorized in this correction.
+
+## 2026-09-25 — bounded review corrections validated
+
+- Updated existing-branch publishing to perform an author-gated ordinary fast-forward push, reject remote divergence, and confirm the exact published ref. `updateDraftPullRequest` regression uses a local bare remote and reads the PR head from that ref without mutating it in the fake.
+- Required status/check evaluation now selects the latest timestamped result and fails closed when latest evidence is ambiguous. Added stale-success/newer-failure regressions for statuses and check runs.
+- The push gate checks `git log -1 --format='%an <%ae>'` against exactly `dylanliu2002 <dylanliu2002@gmail.com>` before branch lookup or any push; wrong-author regression confirms the remote ref is unchanged.
+- PASS: focused Task 63 tests (7/7), complete Night Worker suite (62/62), syntax checks, working-tree diff check, correction allowlist and protected-surface checks.
+- Remaining documented environment/interface limits: ESLint and TypeScript commands are unavailable (`eslint`/`tsc` not recognized); the existing CLI rejects `--fixture` and `--dry-run`; `git fetch origin` is blocked writing `FETCH_HEAD`. No workaround or scope expansion was used.
+- Correction commit is pending staging/commit; the required author identity has been verified. No push, PR operation, or independent review was performed.
+
+## 2026-09-25 — correction commit handoff
+
+- Staging the exact five Task 63 allowlisted/admin files failed at `.git/worktrees/agent-63-night-worker-publishing/index.lock` (`Permission denied`). No files were staged, and no correction commit was created.
+- Preserved the tested worktree changes unchanged for orchestrator commit bookkeeping. Current branch head remains `963cb50e8aea6d3dbd5f62b0828558da614772b9`; latest commit author and local Git identity are exactly `dylanliu2002 <dylanliu2002@gmail.com>`.
+- Task status is `BLOCKED` pending that commit. After commit, a fresh independent GPT-6 Sol review is still required. No push, PR operation, or self-review was performed.
