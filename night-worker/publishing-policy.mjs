@@ -175,31 +175,25 @@ function latestResult(results) {
   return newest.find((result) => result.id === descendingIds[0]);
 }
 
+function requiredCheckChannelsPassed(context, evidence, appId) {
+  const currentStatus = latestResult(evidence.statuses
+    .filter((status) => status?.context === context)
+    .map((value) => ({ kind: "status", value })));
+  const currentCheckRun = latestResult(evidence.check_runs
+    .filter((run) => run?.name === context
+      && (appId === null || appId === undefined || run?.app?.id === appId))
+    .map((value) => ({ kind: "check_run", value })));
+  return currentStatus?.value.state === "success"
+    && Boolean(currentCheckRun && checkRunPassed(currentCheckRun.value, appId));
+}
+
 function requiredChecksPassed(policy, evidence) {
   if (!evidence || !Array.isArray(evidence.check_runs) || !Array.isArray(evidence.statuses)) return false;
   for (const context of policy.contexts) {
-    const statusResults = evidence.statuses
-      .filter((status) => status?.context === context)
-      .map((value) => ({ kind: "status", value }));
-    const checkRunResults = evidence.check_runs
-      .filter((run) => run?.name === context)
-      .map((value) => ({ kind: "check_run", value }));
-    if (statusResults.length === 0 && checkRunResults.length === 0) return false;
-    if (statusResults.length > 0) {
-      const currentStatus = latestResult(statusResults);
-      if (!currentStatus || currentStatus.value.state !== "success") return false;
-    }
-    if (checkRunResults.length > 0) {
-      const currentCheckRun = latestResult(checkRunResults);
-      if (!currentCheckRun || !checkRunPassed(currentCheckRun.value)) return false;
-    }
+    if (!requiredCheckChannelsPassed(context, evidence)) return false;
   }
   for (const required of policy.checks) {
-    const current = latestResult(evidence.check_runs
-      .filter((run) => run?.name === required.context
-        && (required.app_id === null || required.app_id === undefined || run?.app?.id === required.app_id))
-      .map((value) => ({ kind: "check_run", value })));
-    if (!current || !checkRunPassed(current.value, required.app_id)) return false;
+    if (!requiredCheckChannelsPassed(required.context, evidence, required.app_id)) return false;
   }
   return true;
 }

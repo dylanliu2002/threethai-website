@@ -70,3 +70,16 @@
 - Retried staging exactly the five Task 63-owned files after validation. Git failed to create `.git/worktrees/agent-63-night-worker-publishing/index.lock` with `Permission denied`; no correction commit was created and no files were staged.
 - Preserved all validated changes. `HEAD` remains `0d0ea184d6044d1ffd30da3e47f2a21cb88d6143`, authored by `dylanliu2002 <dylanliu2002@gmail.com>`. Task status is `BLOCKED` until the shared worktree Git metadata allows staging/commit; fresh independent SOL review remains pending that commit.
 - No push, PR action, merge, or self-review was performed.
+
+## 2026-09-25 — checks[] review correction validated
+
+- Fresh independent SOL review found that a required name declared in `checks[]` could pass when its latest check run succeeded even though its commit status failed. Required-name evaluation now requires both the latest matching commit status and the latest matching check run to pass, including the check's configured app ID.
+- Added a checks-only regression for failed status plus passing check run, with a passing control. Updated required-check fixtures to provide both channels for every required name.
+- PASS: `node --test night-worker/tests/task-63-publishing.test.mjs` (10/10); `node --test night-worker/tests/*.test.mjs` (65/65); syntax checks for both changed JavaScript files; `git diff --check`.
+- Earlier entries describing a then-current checkout or staging condition are historical snapshots. The orchestrator subsequently recorded the previous corrections on this task branch; those snapshots do not describe the current branch/worktree state.
+- This bounded correction is implemented and pending a fresh independent SOL review. Publishing and merge remain pending the authorized workflow. No push, PR action, merge, or self-review was performed.
+- Exact-file staging for the validated correction was denied because Git could not create the shared worktree `index.lock`. The changes remain preserved for orchestrator commit bookkeeping; fresh review and publishing are still pending.
+
+## 2026-09-25 — orchestrator commit bookkeeping
+
+- The orchestrator recorded the validated `checks[]` correction in the commit containing this entry after verifying the exact Task 63 file scope, required identity, and clean diff. Git history supplies the exact commit SHA. Fresh independent SOL review, PR publishing, and merge remain pending.

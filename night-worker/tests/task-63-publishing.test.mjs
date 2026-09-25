@@ -173,8 +173,16 @@ function protectionPolicy() {
 
 function passingChecks() {
   return {
-    statuses: [{ context: "Task 63 / unit", state: "success" }],
+    statuses: [
+      { context: "Task 63 / unit", state: "success" },
+      { context: "Task 63 / security", state: "success" },
+    ],
     check_runs: [{
+      name: "Task 63 / unit",
+      status: "completed",
+      conclusion: "success",
+      app: { id: 42 },
+    }, {
       name: "Task 63 / security",
       status: "completed",
       conclusion: "success",
@@ -367,6 +375,7 @@ test("required checks reject an older success when the latest result failed", ()
   staleStatusSuccess.statuses = [
     { context: "Task 63 / unit", state: "success", id: 10, created_at: older },
     { context: "Task 63 / unit", state: "failure", id: 11, created_at: newer },
+    { context: "Task 63 / security", state: "success" },
   ];
   assert.equal(requiredChecksPassed(policy, staleStatusSuccess), false);
 
@@ -374,6 +383,7 @@ test("required checks reject an older success when the latest result failed", ()
   staleCheckSuccess.check_runs = [
     { name: "Task 63 / security", status: "completed", conclusion: "success", app: { id: 42 }, id: 20, started_at: older },
     { name: "Task 63 / security", status: "completed", conclusion: "failure", app: { id: 42 }, id: 21, started_at: newer },
+    { name: "Task 63 / unit", status: "completed", conclusion: "success", app: { id: 42 } },
   ];
   assert.equal(requiredChecksPassed(policy, staleCheckSuccess), false);
 
@@ -381,6 +391,7 @@ test("required checks reject an older success when the latest result failed", ()
   ambiguousLatest.statuses = [
     { context: "Task 63 / unit", state: "success", id: 10, created_at: newer },
     { context: "Task 63 / unit", state: "failure", id: 10, created_at: newer },
+    { context: "Task 63 / security", state: "success" },
   ];
   assert.equal(requiredChecksPassed(policy, ambiguousLatest), false);
 });
@@ -390,7 +401,11 @@ test("required names present in status and check-run channels require both lates
   const older = "2026-09-24T00:00:00.000Z";
   const newer = "2026-09-25T00:00:00.000Z";
   const failedCheckRun = passingChecks();
-  failedCheckRun.statuses = [{ context: "Task 63 / unit", state: "success", id: 40, created_at: newer }];
+  failedCheckRun.statuses = [
+    { context: "Task 63 / unit", state: "success", id: 40, created_at: newer },
+    { context: "Task 63 / security", state: "success" },
+  ];
+  failedCheckRun.check_runs = failedCheckRun.check_runs.filter((run) => run.name !== "Task 63 / unit");
   failedCheckRun.check_runs.push({
     name: "Task 63 / unit",
     status: "completed",
@@ -402,7 +417,11 @@ test("required names present in status and check-run channels require both lates
   assert.equal(requiredChecksPassed(policy, failedCheckRun), false);
 
   const failedStatus = passingChecks();
-  failedStatus.statuses = [{ context: "Task 63 / unit", state: "failure", id: 42, created_at: older }];
+  failedStatus.statuses = [
+    { context: "Task 63 / unit", state: "failure", id: 42, created_at: older },
+    { context: "Task 63 / security", state: "success" },
+  ];
+  failedStatus.check_runs = failedStatus.check_runs.filter((run) => run.name !== "Task 63 / unit");
   failedStatus.check_runs.push({
     name: "Task 63 / unit",
     status: "completed",
@@ -414,7 +433,11 @@ test("required names present in status and check-run channels require both lates
   assert.equal(requiredChecksPassed(policy, failedStatus), false);
 
   const pendingCheckRun = passingChecks();
-  pendingCheckRun.statuses = [{ context: "Task 63 / unit", state: "success", id: 44, created_at: newer }];
+  pendingCheckRun.statuses = [
+    { context: "Task 63 / unit", state: "success", id: 44, created_at: newer },
+    { context: "Task 63 / security", state: "success" },
+  ];
+  pendingCheckRun.check_runs = pendingCheckRun.check_runs.filter((run) => run.name !== "Task 63 / unit");
   pendingCheckRun.check_runs.push({
     name: "Task 63 / unit",
     status: "in_progress",
@@ -426,15 +449,19 @@ test("required names present in status and check-run channels require both lates
   assert.equal(requiredChecksPassed(policy, pendingCheckRun), false);
 
   const bothPassed = passingChecks();
-  bothPassed.check_runs.push({
-    name: "Task 63 / unit",
-    status: "completed",
-    conclusion: "success",
-    app: { id: 42 },
-    id: 46,
-    started_at: newer,
-  });
   assert.equal(requiredChecksPassed(policy, bothPassed), true);
+});
+
+test("required checks[] entries require their latest commit status to pass too", () => {
+  const protection = protectionPolicy();
+  protection.required_status_checks.contexts = [];
+  const policy = requiredChecksFromProtection(protection);
+  const failedStatus = passingChecks();
+  failedStatus.statuses = [{ context: "Task 63 / security", state: "failure", id: 50 }];
+  assert.equal(requiredChecksPassed(policy, failedStatus), false);
+
+  failedStatus.statuses = [{ context: "Task 63 / security", state: "success", id: 51 }];
+  assert.equal(requiredChecksPassed(policy, failedStatus), true);
 });
 
 test("draft PR needs a fresh Task 62-publishable exact head and validated scope", async () => {
