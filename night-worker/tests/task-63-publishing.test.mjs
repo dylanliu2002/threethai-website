@@ -302,6 +302,41 @@ test("GitHub client fast-forwards an existing task branch and blocks branch drif
   }
 });
 
+test("GitHub client pushes the validated object ID if the task branch advances during remote lookup", () => {
+  const fixture = createBareRemoteFixture("immutable-push-head");
+  try {
+    fs.writeFileSync(path.join(fixture.repository, "src", "task.txt"), "validated\n", "utf8");
+    commitWorktree(fixture.repository, "validated task head");
+    const validatedHead = git(fixture.repository, ["rev-parse", "HEAD"]);
+    const marker = path.join(fixture.directory, "branch-advanced");
+    const wrapper = path.join(fixture.directory, "upload-pack.sh");
+    const script = [
+        "#!/bin/sh",
+        `if [ ! -e "${marker}" ]; then`,
+        `  touch "${marker}"`,
+        `  git -C "${fixture.repository}" commit --quiet --allow-empty -m "branch advanced after validation"`,
+        "fi",
+        "exec git upload-pack \"$@\"",
+        "",
+      ].join("\n");
+    fs.writeFileSync(wrapper, script, "utf8");
+    if (process.platform !== "win32") fs.chmodSync(wrapper, 0o755);
+    const wrapperCommand = process.platform === "win32"
+      ? `sh ${wrapper.replaceAll("\\", "/")}`
+      : wrapper;
+    git(fixture.repository, ["config", "remote.origin.uploadpack", wrapperCommand]);
+
+    const client = createGitHubClient({ repositoryRoot: fixture.repository });
+    assert.equal(client.pushTaskBranch({ branch: fixture.branch, headSha: validatedHead }), validatedHead);
+    const advancedHead = git(fixture.repository, ["rev-parse", "HEAD"]);
+    assert.notEqual(advancedHead, validatedHead);
+    git(fixture.repository, ["merge-base", "--is-ancestor", validatedHead, advancedHead]);
+    assert.equal(fixture.remoteHead(), validatedHead);
+  } finally {
+    fixture.cleanup();
+  }
+});
+
 test("GitHub client requires the exact latest commit author before pushing", () => {
   const fixture = createBareRemoteFixture("commit-author");
   try {
@@ -348,6 +383,58 @@ test("required checks reject an older success when the latest result failed", ()
     { context: "Task 63 / unit", state: "failure", id: 10, created_at: newer },
   ];
   assert.equal(requiredChecksPassed(policy, ambiguousLatest), false);
+});
+
+test("required names present in status and check-run channels require both latest results to pass", () => {
+  const policy = requiredChecksFromProtection(protectionPolicy());
+  const older = "2026-09-24T00:00:00.000Z";
+  const newer = "2026-09-25T00:00:00.000Z";
+  const failedCheckRun = passingChecks();
+  failedCheckRun.statuses = [{ context: "Task 63 / unit", state: "success", id: 40, created_at: newer }];
+  failedCheckRun.check_runs.push({
+    name: "Task 63 / unit",
+    status: "completed",
+    conclusion: "failure",
+    app: { id: 42 },
+    id: 41,
+    started_at: older,
+  });
+  assert.equal(requiredChecksPassed(policy, failedCheckRun), false);
+
+  const failedStatus = passingChecks();
+  failedStatus.statuses = [{ context: "Task 63 / unit", state: "failure", id: 42, created_at: older }];
+  failedStatus.check_runs.push({
+    name: "Task 63 / unit",
+    status: "completed",
+    conclusion: "success",
+    app: { id: 42 },
+    id: 43,
+    started_at: newer,
+  });
+  assert.equal(requiredChecksPassed(policy, failedStatus), false);
+
+  const pendingCheckRun = passingChecks();
+  pendingCheckRun.statuses = [{ context: "Task 63 / unit", state: "success", id: 44, created_at: newer }];
+  pendingCheckRun.check_runs.push({
+    name: "Task 63 / unit",
+    status: "in_progress",
+    conclusion: null,
+    app: { id: 42 },
+    id: 45,
+    started_at: older,
+  });
+  assert.equal(requiredChecksPassed(policy, pendingCheckRun), false);
+
+  const bothPassed = passingChecks();
+  bothPassed.check_runs.push({
+    name: "Task 63 / unit",
+    status: "completed",
+    conclusion: "success",
+    app: { id: 42 },
+    id: 46,
+    started_at: newer,
+  });
+  assert.equal(requiredChecksPassed(policy, bothPassed), true);
 });
 
 test("draft PR needs a fresh Task 62-publishable exact head and validated scope", async () => {

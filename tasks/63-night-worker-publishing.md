@@ -72,6 +72,7 @@ git log -1 --format='%an <%ae>'
 - Keep SYS-AUTO-007 and `workflow/**` untouched.
 - Concrete bootstrap blocker discovered before Task 63 execution: the merged Night Worker config still binds implementation/review to `gpt-5.6-luna` / `gpt-5.6-sol`, while the human's current policy requires `gpt-6-luna` max for implementation/correction and `gpt-6-sol` for fresh review. Task 63 may make only the narrow config/test changes needed to migrate that model policy; no Thread Broker redesign or unrelated runtime refactor is authorized.
 - Independent GPT-6 Sol review of head `963cb50e8aea6d3dbd5f62b0828558da614772b9` returned `CHANGES_REQUESTED`: corrected descendants were not pushed to an existing task branch; required-check aggregation could accept a stale success alongside a newer failure; and the GitHub adapter lacked an exact latest-commit author gate before push. The owner is applying only these bounded corrections.
+- Independent GPT-6 Sol review of committed head `0d0ea184d6044d1ffd30da3e47f2a21cb88d6143` returned `CHANGES_REQUESTED`: push must use the immutable validated SHA if the local branch advances between validation and push, and matching required status/check-run channels must each have a successful latest result. Prior correction commits exist; this bounded correction is in progress.
 
 ## Review Status
 
@@ -79,9 +80,9 @@ git log -1 --format='%an <%ae>'
 
 ## Completion Record
 
-- Commit: Correction commit blocked before staging: shared worktree `index.lock` creation returns `Permission denied`. No correction commit exists; current `HEAD` is `963cb50e8aea6d3dbd5f62b0828558da614772b9` (`dylanliu2002 <dylanliu2002@gmail.com>`). The exact required local identity is verified. Validated changes remain unstaged for orchestrator commit bookkeeping.
-- Validation: PASS — focused Task 63 tests (7/7), full Night Worker suite (62/62), changed-file syntax checks, `git diff --check`, allowlist and protected-surface checks. Environment/interface limits: `npm run lint` cannot start (`eslint` not recognized); `npm run typecheck` cannot start (`tsc` not recognized); CLI `validate --fixture` returns `Unknown option: --fixture`; CLI `run --dry-run --fixture` returns `Unknown option: --dry-run`; `git fetch origin` cannot write `FETCH_HEAD` (`Permission denied`). No scope expansion was made for these existing limits.
-- Independent review: Prior fresh SOL outcome was `CHANGES_REQUESTED` for the parent implementation at `963cb50e8aea6d3dbd5f62b0828558da614772b9`. The requested corrections are implemented and validated, but a fresh independent SOL review awaits the orchestrator's correction commit. No self-review performed.
+- Commit: No commit was created for this second bounded correction. Current `HEAD` remains `0d0ea184d6044d1ffd30da3e47f2a21cb88d6143` (`dylanliu2002 <dylanliu2002@gmail.com>`); merge base and `origin/main` are `36c4dd024118e6c2a8dba1b00c8c7aa54ad15007`. Exact-file staging failed because Git could not create `.git/worktrees/agent-63-night-worker-publishing/index.lock` (`Permission denied`); all five task-owned changes remain unstaged and preserved.
+- Validation: PASS — focused Task 63 tests (9/9), full Night Worker suite (64/64), changed JavaScript syntax checks, working-tree and branch diff checks, allowlist/scope check, protected-surface check, and exact local/latest-commit author identity. CLI `validate --fixture` and `run --dry-run --fixture` remain unsupported (`Unknown option`); `npm run lint` and `npm run typecheck` cannot start because `eslint` and `tsc` are unavailable; `git fetch origin` remains blocked writing `FETCH_HEAD` (`Permission denied`).
+- Independent review: Fresh SOL review of committed head `0d0ea184d6044d1ffd30da3e47f2a21cb88d6143` returned `CHANGES_REQUESTED` for the two findings recorded above. A new independent SOL review requires a correction commit and remains pending. No self-review performed.
 
 ## Rollback
 

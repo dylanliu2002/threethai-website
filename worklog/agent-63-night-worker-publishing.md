@@ -51,3 +51,22 @@
 - Staging the exact five Task 63 allowlisted/admin files failed at `.git/worktrees/agent-63-night-worker-publishing/index.lock` (`Permission denied`). No files were staged, and no correction commit was created.
 - Preserved the tested worktree changes unchanged for orchestrator commit bookkeeping. Current branch head remains `963cb50e8aea6d3dbd5f62b0828558da614772b9`; latest commit author and local Git identity are exactly `dylanliu2002 <dylanliu2002@gmail.com>`.
 - Task status is `BLOCKED` pending that commit. After commit, a fresh independent GPT-6 Sol review is still required. No push, PR operation, or self-review was performed.
+
+## 2026-09-25 — second independent review correction started
+
+- Current committed Task 63 head is `0d0ea184d6044d1ffd30da3e47f2a21cb88d6143`, authored by `dylanliu2002 <dylanliu2002@gmail.com>`; prior correction commits are present. The earlier “no correction commit” completion note was stale and is being corrected in the task card.
+- Fresh independent GPT-6 Sol review of that exact head returned `CHANGES_REQUESTED`: push the immutable validated expected SHA, and require both latest status and latest check-run success when the same required name exists in both channels.
+- Reopened Task 63 as `IN_PROGRESS` for only those findings. No push, PR action, merge, reviewer creation, or self-review is authorized.
+
+## 2026-09-25 — second independent review correction validated
+
+- `pushTaskBranch` now pushes the immutable validated SHA; a local-remote regression advances local `HEAD` during the remote lookup and confirms the published ref stays at the validated object ID. Required checks now independently require the latest status and latest check run to pass when both channels provide the same required name; regressions cover failure and pending results on either side.
+- PASS: `node --test night-worker/tests/task-63-publishing.test.mjs` (9/9); `node --test night-worker/tests/*.test.mjs` (64/64); `node --check` for all three changed JavaScript files; `git diff --check` for working tree and `origin/main...HEAD`; exact Task 63 allowlist and protected-surface checks.
+- Lint/typecheck remain unavailable because `eslint`/`tsc` are not installed. The requested fixture CLI flags remain unsupported (`validate --fixture`, `run --dry-run --fixture`). Fetch remains blocked writing shared `FETCH_HEAD`; the checked `origin/main` and merge base are `36c4dd024118e6c2a8dba1b00c8c7aa54ad15007`.
+- Local Git identity and current committed parent author are exactly `dylanliu2002 <dylanliu2002@gmail.com>`. Exact-file staging and correction commit are pending retry. No push, PR action, merge, or self-review was performed; a new independent SOL review remains required after commit.
+
+## 2026-09-25 — correction commit blocked by shared Git metadata
+
+- Retried staging exactly the five Task 63-owned files after validation. Git failed to create `.git/worktrees/agent-63-night-worker-publishing/index.lock` with `Permission denied`; no correction commit was created and no files were staged.
+- Preserved all validated changes. `HEAD` remains `0d0ea184d6044d1ffd30da3e47f2a21cb88d6143`, authored by `dylanliu2002 <dylanliu2002@gmail.com>`. Task status is `BLOCKED` until the shared worktree Git metadata allows staging/commit; fresh independent SOL review remains pending that commit.
+- No push, PR action, merge, or self-review was performed.

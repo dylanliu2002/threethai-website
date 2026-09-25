@@ -178,17 +178,21 @@ function latestResult(results) {
 function requiredChecksPassed(policy, evidence) {
   if (!evidence || !Array.isArray(evidence.check_runs) || !Array.isArray(evidence.statuses)) return false;
   for (const context of policy.contexts) {
-    const current = latestResult([
-      ...evidence.statuses
-        .filter((status) => status?.context === context)
-        .map((value) => ({ kind: "status", value })),
-      ...evidence.check_runs
-        .filter((run) => run?.name === context)
-        .map((value) => ({ kind: "check_run", value })),
-    ]);
-    if (!current || !(current.kind === "status"
-      ? current.value.state === "success"
-      : checkRunPassed(current.value))) return false;
+    const statusResults = evidence.statuses
+      .filter((status) => status?.context === context)
+      .map((value) => ({ kind: "status", value }));
+    const checkRunResults = evidence.check_runs
+      .filter((run) => run?.name === context)
+      .map((value) => ({ kind: "check_run", value }));
+    if (statusResults.length === 0 && checkRunResults.length === 0) return false;
+    if (statusResults.length > 0) {
+      const currentStatus = latestResult(statusResults);
+      if (!currentStatus || currentStatus.value.state !== "success") return false;
+    }
+    if (checkRunResults.length > 0) {
+      const currentCheckRun = latestResult(checkRunResults);
+      if (!currentCheckRun || !checkRunPassed(currentCheckRun.value)) return false;
+    }
   }
   for (const required of policy.checks) {
     const current = latestResult(evidence.check_runs

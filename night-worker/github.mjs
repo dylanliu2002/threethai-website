@@ -93,7 +93,7 @@ export function createGitHubClient({ repositoryRoot } = {}) {
     }
     if (existing !== expectedHead) {
       // A regular push allows only creation or a fast-forward; Git rejects remote drift races.
-      git(["push", "--porcelain", "origin", `HEAD:refs/heads/${normalized}`]);
+      git(["push", "--porcelain", "origin", `${expectedHead}:refs/heads/${normalized}`]);
     }
     const published = getRemoteHead(normalized);
     if (published !== expectedHead) throw new Error("Remote task branch does not match the exact validated head.");
