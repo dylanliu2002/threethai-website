@@ -1,0 +1,30 @@
+{
+  "site": {
+    "name": "Shandong Three Thai Textile Co., Ltd.",
+    "website": "https://www.threethai.com",
+    "description": "A manufacturer of PVA yarn, sewing thread, staple fiber, and filament yarn for textile and technical-material applications.",
+    "verifiedFacts": [
+      "The company presents PVA yarn, sewing thread, staple fiber, and filament yarn on its website.",
+      "Its product content describes applications including weaving, knitting, embroidery, technical textiles, papermaking, and selected composite-material processes.",
+      "The company is located in Huimin County, Shandong Province, China."
+    ],
+    "targetMarkets": ["international B2B textile and technical-material buyers"],
+    "preferredLanguages": ["English"],
+    "contact": {
+      "name": "Three Thai Textile team",
+      "email": "salesmanager@threethai.com"
+    }
+  },
+  "campaign": {
+    "goal": "Build a reviewable shortlist of credible editorial and resource-link opportunities related to PVA textile materials.",
+    "topics": [
+      "water-soluble PVA yarn",
+      "temporary sewing and embroidery support",
+      "technical textiles",
+      "PVA fiber applications"
+    ],
+    "excludedDomains": ["threethai.com"],
+    "maxProspects": 8,
+    "voice": "Professional, technically precise, concise, and non-promotional."
+  }
+}
