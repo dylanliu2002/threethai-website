@@ -74,6 +74,7 @@ git log -1 --format='%an <%ae>'
 - Independent GPT-6 Sol reviews requested bounded fixes for descendant publishing, latest-result evaluation, exact commit-author validation, immutable validated-SHA pushes, and requiring both latest status/check-run channels to pass for matching required names. Those corrections were committed by the orchestrator; no publishing or merge action has been performed.
 - A fresh independent GPT-6 Sol review found that a required name declared through `checks[]` could pass despite a failed commit status. The current bounded correction requires both channels for required names from either policy list.
 - A subsequent fresh independent GPT-6 Sol review identified status-only and check-run-only compatibility requirements, fail-closed handling for ambiguous evidence, and GitHub's `app_id: -1` any-app sentinel. The current correction is limited to these cases.
+- A fresh independent GPT-6 Sol review found that positive app-bound check requirements could be satisfied without a successful run from the configured app, while a same-name run from another app was filtered out. The current correction requires the configured app's latest run and evaluates each present app's latest same-name run.
 
 ## Review Status
 
@@ -81,8 +82,8 @@ git log -1 --format='%an <%ae>'
 
 ## Completion Record
 
-- Commit: Required-check channel compatibility is implemented and validated. Git history remains the source for the current revision; exact merge base: `36c4dd024118e6c2a8dba1b00c8c7aa54ad15007` (`origin/main`). Configured Git identity: `dylanliu2002 <dylanliu2002@gmail.com>`.
-- Validation: PASS — focused Task 63 tests (12/12), full Night Worker suite (67/67), syntax checks, working-tree and branch `git diff --check`, Task 63 allowlist/scope, and protected-surface checks.
+- Commit: Positive app provenance and same-name cross-app evaluation are implemented and validated. Git history remains the source for the current revision; exact merge base: `36c4dd024118e6c2a8dba1b00c8c7aa54ad15007` (`origin/main`). Configured Git identity: `dylanliu2002 <dylanliu2002@gmail.com>`.
+- Validation: PASS — focused Task 63 tests (13/13), full Night Worker suite (68/68), syntax checks, working-tree and branch `git diff --check`, Task 63 allowlist/scope, and protected-surface checks.
 - Independent review: Fresh independent SOL review of this correction is pending. Publishing and merge remain gated on review and explicit authorized submission. No self-review performed.
 
 ## Rollback

@@ -131,7 +131,8 @@ function requiredChecksFromProtection(protection) {
   const checks = Array.isArray(statusPolicy.checks) ? statusPolicy.checks : [];
   if (contexts.some((context) => typeof context !== "string" || context.length === 0)
     || checks.some((check) => !check || typeof check.context !== "string" || check.context.length === 0
-      || (check.app_id !== null && check.app_id !== undefined && !Number.isInteger(check.app_id)))) {
+      || (check.app_id !== null && check.app_id !== undefined
+        && (!Number.isInteger(check.app_id) || (check.app_id !== -1 && check.app_id <= 0))))) {
     throw new Error("GitHub required status check policy is malformed.");
   }
   if (contexts.length === 0 && checks.length === 0) {
@@ -180,14 +181,32 @@ function requiredCheckChannelsPassed(context, evidence, appId) {
     .filter((status) => status?.context === context)
     .map((value) => ({ kind: "status", value }));
   const checkRunResults = evidence.check_runs
-    .filter((run) => run?.name === context
-      && (appId === null || appId === undefined || appId === -1 || run?.app?.id === appId))
+    .filter((run) => run?.name === context)
     .map((value) => ({ kind: "check_run", value }));
-  if (statusResults.length === 0 && checkRunResults.length === 0) return false;
   if (statusResults.length > 0) {
     const currentStatus = latestResult(statusResults);
     if (!currentStatus || currentStatus.value.state !== "success") return false;
   }
+
+  if (Number.isInteger(appId) && appId > 0) {
+    if (checkRunResults.length === 0) return false;
+    const resultsByApp = new Map();
+    for (const result of checkRunResults) {
+      const resultAppId = result.value?.app?.id;
+      if (!Number.isSafeInteger(resultAppId) || resultAppId <= 0) return false;
+      const appResults = resultsByApp.get(resultAppId) ?? [];
+      appResults.push(result);
+      resultsByApp.set(resultAppId, appResults);
+    }
+    if (!resultsByApp.has(appId)) return false;
+    for (const [resultAppId, appResults] of resultsByApp) {
+      const currentCheckRun = latestResult(appResults);
+      if (!currentCheckRun || !checkRunPassed(currentCheckRun.value, resultAppId)) return false;
+    }
+    return true;
+  }
+
+  if (statusResults.length === 0 && checkRunResults.length === 0) return false;
   if (checkRunResults.length > 0) {
     const currentCheckRun = latestResult(checkRunResults);
     if (!currentCheckRun || !checkRunPassed(currentCheckRun.value, appId)) return false;

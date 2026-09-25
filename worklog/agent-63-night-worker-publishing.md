@@ -90,3 +90,10 @@
 - Added regressions for status-only, run-only, both-channel success, failure/pending results, ambiguous latest evidence, wildcard app matching, and exact positive app matching.
 - PASS: focused Task 63 tests (12/12), full Night Worker suite (67/67), syntax checks for both changed JavaScript files, `git diff --check`, exact Task 63 scope, and protected-surface checks.
 - The correction is implemented and pending fresh independent SOL review. Publishing and merge remain pending the authorized workflow. No push, PR action, merge, or self-review was performed.
+
+## 2026-09-25 — positive app provenance correction
+
+- A positive `app_id` now requires a successful latest check run from that exact app. Same-name check runs from other apps are grouped and their latest results are evaluated too, so a failed or pending other-app run cannot be hidden. Status-only evidence cannot satisfy a positive app-bound check; unbound and `-1` any-app names retain sole-channel compatibility.
+- Added regressions for missing exact-app provenance, wrong-app failed and pending runs alongside a passing status and exact-app run, and a passing exact-app result.
+- PASS: focused Task 63 tests (13/13), full Night Worker suite (68/68), syntax checks for both changed JavaScript files, final `git diff --check`, exact Task 63 scope, and protected-surface checks.
+- The correction is implemented and pending fresh independent SOL review. Publishing and merge remain pending the authorized workflow. No push, PR action, merge, or self-review was performed.

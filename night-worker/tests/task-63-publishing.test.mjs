@@ -522,6 +522,40 @@ test("required check app_id -1 accepts any app while positive IDs must match exa
   assert.equal(requiredChecksPassed(exactAppPolicy, evidence), true);
 });
 
+test("positive app-bound checks require exact-app provenance and reject other-app failures or pending runs", () => {
+  const protection = protectionPolicy();
+  protection.required_status_checks.contexts = [];
+  const policy = requiredChecksFromProtection(protection);
+  const statusSuccess = [{ context: "Task 63 / security", state: "success" }];
+  const run = (appId, status, conclusion = null) => ({
+    name: "Task 63 / security",
+    status,
+    conclusion,
+    app: { id: appId },
+  });
+
+  assert.equal(requiredChecksPassed(policy, { statuses: statusSuccess, check_runs: [] }), false);
+  assert.equal(requiredChecksPassed(policy, {
+    statuses: statusSuccess,
+    check_runs: [run(73, "completed", "success")],
+  }), false);
+
+  for (const otherAppRun of [
+    run(73, "completed", "failure"),
+    run(73, "in_progress"),
+  ]) {
+    assert.equal(requiredChecksPassed(policy, {
+      statuses: statusSuccess,
+      check_runs: [run(42, "completed", "success"), otherAppRun],
+    }), false);
+  }
+
+  assert.equal(requiredChecksPassed(policy, {
+    statuses: statusSuccess,
+    check_runs: [run(42, "completed", "success")],
+  }), true);
+});
+
 test("draft PR needs a fresh Task 62-publishable exact head and validated scope", async () => {
   const task = await readyTaskFixture("task63-draft");
   try {
