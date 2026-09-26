@@ -76,6 +76,12 @@ git diff --name-only
 
 ## Coordination Items
 
+- **Superseded 2026-09-14:** the backlink audit scope moved to Task 67
+  (`tasks/67-backlink-authority-audit.md`, branch `codex/67-backlink-authority-audit`,
+  report `docs/audits/67-backlink-authority.md`), which depends on no legacy hold.
+  Do not start this card; it is retained as the historical Audit Wave record.
+  Task 48's previously uncommitted work was relanded onto `origin/main` as PR #47
+  and its original worktree stays untouched.
 - **Reason:** Legacy Task 48 overlaps backlink research and retains uncommitted
   work on `codex/48-backlink-agent` in `backlink-agent-worktree/`.
 - **Resume condition:** Task 48 is completed, independently reviewed, and merged,

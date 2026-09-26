@@ -129,11 +129,16 @@ This is the current execution assignment, not a permanent Role mapping:
 | 13 | `CRO` | `STRATEGIC_REASONING` | Codex | Not pinned | Not pinned | See Task Card |
 | 14 | `BRAND_UX` | `STRATEGIC_REASONING` | Hermes | Alibaba Token Plan | Qwen | See Task Card |
 | 15 | `QA_PERFORMANCE` | `HIGH_RISK_CODE` | Codex | Not pinned | Not pinned | See Task Card |
-| 16 | `BACKLINK` | `RESEARCH` | Hermes | Alibaba Token Plan | Qwen | `ON_HOLD` pending legacy Task 48 resolution |
+| 16 | `BACKLINK` | `RESEARCH` | Hermes | Alibaba Token Plan | Qwen | `ON_HOLD`; backlink scope reassigned to Task 67 |
+| 67 | `BACKLINK` | `RESEARCH` | Unassigned | Not pinned | Not pinned | See Task Card |
 
 Task 48 remains legacy implementation-specific Qwen tooling. Its implementation
 history does not bind the `BACKLINK` Role, Hermes, or future Backlink Tasks to
-Qwen. Do not touch its dirty worktree during this migration.
+Qwen. Its uncommitted work was relanded onto `origin/main` as PR #47; its original
+worktree stays untouched and preserved as executor history. The backlink audit
+scope was reassigned to Task 67 on 2026-09-14, because Task 16's resume condition
+cannot be met while that worktree must stay untouched; Task 16 remains on hold as
+the historical Audit Wave record.
 
 ## Historical Model Assignments
 
