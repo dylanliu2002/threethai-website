@@ -128,8 +128,8 @@ function startLockWorker({ storePath, ownerToken, startBuffer, releaseBuffer, lo
 function modelCatalog({ luna = ["max"], sol = ["medium", "high"] } = {}) {
   return {
     data: [
-      { id: "gpt-5.6-luna", model: "gpt-5.6-luna", supportedReasoningEfforts: luna },
-      { id: "gpt-5.6-sol", model: "gpt-5.6-sol", supportedReasoningEfforts: sol },
+      { id: "gpt-6-luna", model: "gpt-6-luna", supportedReasoningEfforts: luna },
+      { id: "gpt-6-sol", model: "gpt-6-sol", supportedReasoningEfforts: sol },
     ],
     nextCursor: null,
   };
@@ -245,7 +245,7 @@ test("submission rejects empty, authority-bearing, secret-bearing, and oversized
     const cases = [
       [{ repositoryRoot: f.root, tasks: [] }, /between one and four/],
       [{ repositoryRoot: f.root, tasks: ["  "] }, /cannot be empty/],
-      [{ repositoryRoot: f.root, tasks: ["work"], model: "gpt-5.6-luna" }, /authority field/],
+      [{ repositoryRoot: f.root, tasks: ["work"], model: "gpt-6-luna" }, /authority field/],
       [{ repositoryRoot: f.root, tasks: [`use ${fakeSecret}`] }, /Possible secret/],
       [{ repositoryRoot: f.root, tasks: ["work"], replyMetadata: { password: "not-accepted" } }, /authority field|Possible secret/],
       [{ repositoryRoot: f.root, tasks: ["x".repeat(MVP_CONFIG.max_task_description_chars + 1)] }, /oversized/],
@@ -383,7 +383,7 @@ test("runtime store and FIFO queue reject invalid timestamps and enforce eight-h
       batchId: batch.batch_id,
       taskId: batch.tasks[0].task_id,
       role: "IMPLEMENTATION",
-      model: "gpt-5.6-luna",
+      model: "gpt-6-luna",
       effort: "max",
       cwd: f.root,
       clientUserMessageId: "timestamp-client-message",
@@ -551,8 +551,8 @@ test("broker requires consistent exact model identifiers and consumes model/list
     const mismatchClient = new FakeBrokerClient({
       catalog: {
         data: [
-          { id: "gpt-5.6-luna", model: "gpt-5.6-luna-alias", supportedReasoningEfforts: ["max"] },
-          { id: "gpt-5.6-sol", model: "gpt-5.6-sol", supportedReasoningEfforts: ["medium"] },
+          { id: "gpt-6-luna", model: "gpt-6-luna-alias", supportedReasoningEfforts: ["max"] },
+          { id: "gpt-6-sol", model: "gpt-6-sol", supportedReasoningEfforts: ["medium"] },
         ],
       },
     });
@@ -565,11 +565,11 @@ test("broker requires consistent exact model identifiers and consumes model/list
 
     const pages = [
       {
-        data: [{ id: "gpt-5.6-luna", model: "gpt-5.6-luna-wrong", supportedReasoningEfforts: ["max"] }],
+        data: [{ id: "gpt-6-luna", model: "gpt-6-luna-wrong", supportedReasoningEfforts: ["max"] }],
         nextCursor: "page-2",
       },
       {
-        data: [{ id: "gpt-5.6-luna", model: "gpt-5.6-luna", supportedReasoningEfforts: ["max"] }],
+        data: [{ id: "gpt-6-luna", model: "gpt-6-luna", supportedReasoningEfforts: ["max"] }],
         nextCursor: null,
       },
     ];
@@ -583,7 +583,7 @@ test("broker requires consistent exact model identifiers and consumes model/list
       cwd: f.root,
       prompt: "catalog",
     });
-    assert.equal(result.mapping.model, "gpt-5.6-luna");
+    assert.equal(result.mapping.model, "gpt-6-luna");
     const modelCalls = paginatedClient.calls.filter((call) => call.method === "model/list");
     assert.equal(modelCalls.length, 2);
     assert.equal(modelCalls[1].params.cursor, "page-2");
@@ -612,7 +612,7 @@ test("broker validates exact models and creates no worker for a missing explicit
     assert.equal(client.calls.length, 0);
     const batch = f.submit(["exact policy"]);
     await assert.rejects(
-      broker.startImplementation({ batchId: batch.batch_id, taskId: batch.tasks[0].task_id, cwd: f.root, prompt: "work", model: "gpt-5.6-terra" }),
+      broker.startImplementation({ batchId: batch.batch_id, taskId: batch.tasks[0].task_id, cwd: f.root, prompt: "work", model: "gpt-6-terra" }),
       /policy field/,
     );
     await assert.rejects(
@@ -752,7 +752,7 @@ test("broker rejects concurrent review starts whose effective difficulty differs
     );
     releaseThreadStart();
     const result = await first;
-    assert.equal(result.mapping.model, "gpt-5.6-sol");
+    assert.equal(result.mapping.model, "gpt-6-sol");
     assert.equal(result.mapping.effort, "low");
     assert.equal(client.calls.filter((call) => call.method === "thread/start").length, 1);
     assert.equal(client.calls.filter((call) => call.method === "turn/start").length, 1);
@@ -946,7 +946,7 @@ test("broker ordering durably persists thread before first turn and turn immedia
     assert.deepEqual(order, ["model/list", "thread/start", "durable-thread", "turn/start", "durable-turn"]);
     assert.equal(result.mapping.thread_id, "thread-1");
     assert.equal(result.mapping.turn_id, "turn-1");
-    assert.equal(result.mapping.model, "gpt-5.6-luna");
+    assert.equal(result.mapping.model, "gpt-6-luna");
     assert.equal(result.mapping.effort, "max");
     assert.equal(client.calls.find((call) => call.method === "thread/start").params.ephemeral, false);
     assert.equal(client.calls.find((call) => call.method === "thread/start").params.allowProviderModelFallback, false);
@@ -981,7 +981,7 @@ test("broker retries after durable thread persistence by resuming the same threa
       batch_id: batch.batch_id,
       task_id: batch.tasks[0].task_id,
       role: "IMPLEMENTATION",
-      model: "gpt-5.6-luna",
+      model: "gpt-6-luna",
       effort: "max",
       cwd: f.root,
       thread_id: "thread-1",
@@ -1159,7 +1159,7 @@ test("review broker uses SOL and supplied difficulty effort with read-only polic
       difficulty: "hard",
       prompt: "review this",
     });
-    assert.equal(result.mapping.model, "gpt-5.6-sol");
+    assert.equal(result.mapping.model, "gpt-6-sol");
     assert.equal(result.mapping.effort, "high");
     const start = client.calls.find((call) => call.method === "thread/start").params;
     assert.equal(start.sandbox, "read-only");
@@ -1182,7 +1182,7 @@ test("broker read and resume recovery use only durable thread IDs", async () => 
     assert.equal(client.calls.find((call) => call.method === "thread/read").threadId, "thread-1");
     assert.equal(client.calls.filter((call) => call.method === "thread/resume").at(-1).threadId, "thread-1");
     await assert.rejects(
-      broker.resumeWorker({ batchId: batch.batch_id, taskId: batch.tasks[0].task_id, role: "IMPLEMENTATION", model: "gpt-5.6-terra" }),
+      broker.resumeWorker({ batchId: batch.batch_id, taskId: batch.tasks[0].task_id, role: "IMPLEMENTATION", model: "gpt-6-terra" }),
       /override policy field/,
     );
     await assert.rejects(
@@ -1264,7 +1264,7 @@ test("App Server JSONL client performs one handshake, correlates responses, stre
       batch_id: batch.batch_id,
       task_id: batch.tasks[0].task_id,
       role: "IMPLEMENTATION",
-      model: "gpt-5.6-luna",
+      model: "gpt-6-luna",
       effort: "max",
       cwd: f.root,
       thread_id: "thread-1",
@@ -1369,7 +1369,7 @@ test("App Server client rejects exec, ephemeral/fork paths, secrets, and fallbac
       taskId: "task",
       cwd: f.root,
       prompt: "worker",
-      model: "gpt-5.6-terra",
+      model: "gpt-6-terra",
     }), /policy field/);
     await assert.rejects(() => broker.startImplementation({
       batchId: "batch",

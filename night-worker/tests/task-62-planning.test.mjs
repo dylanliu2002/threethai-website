@@ -27,10 +27,29 @@ import {
   createFixture,
   git,
   persistentSOLClient,
-  createPersistentSOLPlannerFixture,
+  createPersistentSOLPlannerFixture as createTask62PlannerFixture,
   rawPlans,
   requestsFor,
 } from "./task-62-fixtures.mjs";
+
+async function createPersistentSOLPlannerFixture(options = {}) {
+  const fixture = await createTask62PlannerFixture(options);
+  const respond = fixture.transport.respond.bind(fixture.transport);
+  fixture.transport.respond = (request) => {
+    if (request.method === "model/list") {
+      fixture.transport.sendResponse(request, {
+        data: [
+          { id: "gpt-6-luna", model: "gpt-6-luna", supportedReasoningEfforts: ["max"] },
+          { id: "gpt-6-sol", model: "gpt-6-sol", supportedReasoningEfforts: ["medium", "high", "max"] },
+        ],
+        nextCursor: null,
+      });
+      return;
+    }
+    respond(request);
+  };
+  return fixture;
+}
 
 async function planWithServer(f, planningOutput = rawPlans(f.batch), options = {}) {
   const lifecycle = await createPersistentSOLPlannerFixture({
@@ -63,12 +82,12 @@ test("Task 62 model policy is exact, difficulty-based, persistent, and no-author
   assert.equal(IMPLEMENTATION_WORKER_POLICY.capabilities.pr, false);
   assert.equal(assertImplementationPolicy({ cwd: "C:\\task-worktree" }).model, IMPLEMENTATION_MODEL_NAME);
   assert.equal(assertNoWorkerAuthority(IMPLEMENTATION_WORKER_POLICY.capabilities), true);
-  assert.throws(() => assertPlanningPolicy({ model: "gpt-5.6-terra" }), /SOL|Unsupported exact model|Forbidden model/);
+  assert.throws(() => assertPlanningPolicy({ model: "gpt-6-terra" }), /SOL|Unsupported exact model|Forbidden model/);
   assert.throws(() => assertPlanningPolicy({ allowProviderModelFallback: true }), /fallback/);
   assert.throws(() => assertPlanningPolicy({ ephemeral: true }), /Ephemeral/);
   assert.throws(() => assertPlanningPolicy({ fork: true }), /Forked/);
   assert.throws(() => assertPlanningPolicy({ sandbox: "workspace-write" }), /read-only/);
-  assert.throws(() => assertImplementationPolicy({ cwd: "C:\\task", model: "gpt-5.6-terra" }), /LUNA|Forbidden/);
+  assert.throws(() => assertImplementationPolicy({ cwd: "C:\\task", model: "gpt-6-terra" }), /LUNA|Forbidden/);
   assert.throws(() => assertImplementationPolicy({ cwd: "C:\\task", effort: "medium" }), /max/);
   assert.throws(() => assertNoWorkerAuthority({ push: true }), /push/);
 });
