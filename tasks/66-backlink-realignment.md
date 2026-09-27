@@ -180,11 +180,22 @@ Measured on 2026-09-28 at the head recorded in the worklog:
   nothing else. The three-dot form compares against the merge base; because this
   branch carries a merge of `origin/main`, the two-dot-range form is listed too so
   a reviewer can confirm the same seven paths against the current base explicitly.
-- `git grep "cannot be met" HEAD -- tasks docs worklog` — matches only the
-  sentences that name and retract the claim, never as an assertion.
-- `git grep "relanded onto" HEAD -- tasks docs worklog` — matches only the worklog
-  entry recording the wording that was wrong.
-- `git grep "READY task paths" HEAD -- docs/audits/README.md` — empty.
+- `git grep "cannot be met" HEAD -- tasks docs worklog` — 9 matches measured at
+  `1ab8148`, every one either retraction text, a grep command recorded in this card,
+  or the Rollback citation. **None asserts the claim.** The count is not stable: it
+  moves whenever this card is edited, because the commands and their descriptions
+  live in the file being grepped. Read each match; do not count it.
+- `git grep "relanded onto" HEAD -- tasks docs worklog` — 3 matches at `1ab8148`:
+  this card's own command line, this card's description of it, and the worklog entry
+  recording the withdrawn wording. An earlier version of this bullet claimed the
+  worklog was the only match, which the command itself disproved; corrected to the
+  measured output.
+- `git grep "READY task paths" HEAD -- docs/audits/README.md` — empty, measured at
+  the working tree after `1ab8148`. This check had no teeth when first written: the
+  rewrite still contained the phrase inside the sentence describing the correction,
+  so the grep matched it and this bullet claimed "empty" against its own output. The
+  wording was changed to "a startable path alongside the live ones" so the old
+  sentence form is genuinely gone and the grep can prove it.
 - These greps are the whole enforcement of the cross-document agreement criterion.
   No CI path and no test under `tests/` reads these seven files, so the agreement
   is checked by re-running the commands above, not automatically.

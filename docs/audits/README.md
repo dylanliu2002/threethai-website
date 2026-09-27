@@ -13,7 +13,7 @@ path `16-backlink.md` is named here for ownership only: Task 16 is held, has
 produced no report, and must not be started while its resume condition is unmet.
 `tasks/16-backlink-audit.md` remains authoritative for that condition; this
 directory only points at it. This corrects the earlier wording, which listed
-`16-backlink.md` among READY task paths.
+`16-backlink.md` as a startable path alongside the live ones.
 
 Existing reports, including the earlier
 `11-keyword-strategy.md`, are retained as historical input. They are not a

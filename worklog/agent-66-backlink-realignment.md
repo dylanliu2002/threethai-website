@@ -222,3 +222,44 @@ Stage Summary:
 - Next: push, update the PR description, and ask for a round-3 reviewer who was not
   commissioned here. Task 67 cannot start until PR #48 merges, and still lacks both
   owner exports fourteen days on.
+
+---
+Task ID: 66
+Role: ORCHESTRATOR
+Task: Backlink Task Realignment — record-only follow-up
+Branch: codex/66-backlink-realignment
+Commit: see the Resolved Provenance block; this entry is that commit's own parent
+
+Work Log:
+- Resolved provenance, so R1-4's complaint ("the follow-up commit is named nowhere
+  retrievable") does not recur: the round-1 content commit is
+  `f8dd81c875b24124769245ed2beeb4d8e5954182`; round-1 records are `58554af` and
+  `bd2ad7a`; the merge of `origin/main` is the unnamed merge commit between
+  `bd2ad7a` and `0ff733b`; the round-1 corrections are
+  `0ff733b21530060178cb2d8db25baad97dd5da48`; the round-2 corrections are
+  `1ab8148d47c5761f5531d463bf7201a9c68ed450`, pushed 2026-09-28; and this entry plus
+  its Validation rewording land in the commit after `1ab8148`. Read them with
+  `git log --pretty=medium origin/main..HEAD`.
+- `1ab8148` was amended before pushing, from `7bd34b3` to `1ab8148`, to fold in the
+  second message after the staged-files mistake. Both were local at that moment, so
+  no published history was rewritten — the distinction the round-2 findings turn on.
+- **Running this card's own new Validation commands caught two false expectations
+  this task had just written.** The bullet claiming `relanded onto` matched "only the
+  worklog" was wrong (the card's own command line and description match too), and the
+  bullet claiming `READY task paths` was "empty" was contradicted by its own output —
+  the rewritten sentence still contained the phrase while describing the correction.
+  Both were fixed against measured output, and the audits-index wording was changed to
+  "a startable path alongside the live ones" so the third check actually proves
+  something. Recording it because the failure mode is the one round 2 was about: a
+  claim stated wider than the command that produced it.
+- Scope check after `1ab8148`: `git diff --name-status origin/main...HEAD` lists the
+  same seven allowlist paths and nothing else; `git status --short` still reports
+  only the pre-existing ` D download/threethai-website-deploy.zip`, untouched.
+
+Stage Summary:
+- Round 2's three Criticals are closed, and this task's own self-check caught two
+  further overstatements in the closure text before they shipped.
+- Nothing here is approved: both review rounds were commissioned by the implementer.
+- Next: a round-3 reviewer outside this task, the owner's ratification or reversal of
+  the `tasks/16-backlink-audit.md` §14 request, the integrator's merge of PR #48, and
+  the `.gitignore` change request. Task 67 still waits on those two owner exports.
