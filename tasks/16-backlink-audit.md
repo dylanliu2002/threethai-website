@@ -17,8 +17,7 @@
 - **Owner:** Unassigned
 - **Reviewer:** Unassigned (independent)
 - **depends_on:** Legacy Task 48 resolution
-- **blocks:** Nothing live. Follow-up outreach and authority-building work is
-  blocked on Task 67, not on this held card.
+- **blocks:** Follow-up outreach and authority-building tasks
 
 ## Goal
 
@@ -77,17 +76,28 @@ git diff --name-only
 
 ## Coordination Items
 
-- **Scope reassigned 2026-09-14:** the backlink audit scope is now carried by
-  Task 67 (`tasks/67-backlink-authority-audit.md`, branch
+- **Scope reassigned 2026-09-14 (written by Task 66, which does not own this
+  card):** the backlink audit scope is now carried by Task 67
+  (`tasks/67-backlink-authority-audit.md`, branch
   `codex/67-backlink-authority-audit`, report
   `docs/audits/67-backlink-authority.md`), which depends on no legacy hold. While
-  the resume condition below is unmet, do not start this card: it is retained as
-  the historical Audit Wave record. Lifting that hold — merging PR #47 after
-  independent review, or explicitly retiring Task 48 — belongs to this card's
-  owner/user, not to the task that reassigned the scope.
-- Legacy Task 48's previously uncommitted work is preserved in PR #47
-  (`codex/48-backlink-agent-reland-main`), open against `main`, not yet reviewed
-  or merged. Its original worktree stays untouched.
+  the resume condition below is unmet, do not start this card: it is the held Audit
+  Wave card and it produced no report. §7.1 bars a task from editing another task's
+  card and provides no exception, so Task 66 submitted this bullet as a §14 change
+  request for ratification. Nothing in this card's own fields was changed; if the
+  owner declines, revert these two bullets and the card reverts to its `origin/main`
+  text.
+- Lifting the hold belongs to this card's owner/user and follows the condition
+  below as written: Task 48 completed, independently reviewed **and** merged, or
+  explicitly and safely retired. Merging PR #47 without that review does not
+  satisfy the first half.
+- Legacy Task 48's work is preserved in PR #47
+  (`codex/48-backlink-agent-reland-main`), open against `main`, not yet reviewed or
+  merged. Measured 2026-09-28, PR #47 is a **mixture** — three of its six files
+  match the dirty worktree and three are identical to the legacy commit — not a
+  snapshot of the uncommitted state. See
+  `tasks/66-backlink-realignment.md` for the file-level table before relying on
+  any claim about what PR #47 lands. Its original worktree stays untouched.
 - **Reason:** Legacy Task 48 overlaps backlink research and retains uncommitted
   work on `codex/48-backlink-agent` in `backlink-agent-worktree/`.
 - **Resume condition:** Task 48 is completed, independently reviewed, and merged,

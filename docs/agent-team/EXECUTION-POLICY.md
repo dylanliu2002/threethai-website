@@ -134,14 +134,20 @@ This is the current execution assignment, not a permanent Role mapping:
 
 Task 48 remains legacy implementation-specific Qwen tooling. Its implementation
 history does not bind the `BACKLINK` Role, Hermes, or future Backlink Tasks to
-Qwen. Its previously uncommitted work is preserved in PR #47
-(`codex/48-backlink-agent-reland-main`), which is open against `main` and neither
-reviewed nor merged; its original worktree stays untouched as executor history. The
-backlink audit scope was assigned to Task 67 on 2026-09-14. Task 16's resume
-condition is not met — PR #47 has no review decision and its owner/user has not
-retired Task 48 — and rather than keep the audit waiting on that unresolved
-decision, Task 16 stays the historical Audit Wave record while Task 67, which
-depends on no legacy hold, carries the live scope.
+Qwen. Do not touch its dirty worktree during this migration — and, as `AGENTS.md` §4
+requires, keep treating `backlink-agent-worktree/` as read-only coordination state
+until its owner has finished and its Git metadata is cleaned up safely. PR #47
+(`codex/48-backlink-agent-reland-main`) preserves Task 48's work and is open against
+`main`, neither reviewed nor merged. Measured 2026-09-28, PR #47 is a **mixture**:
+three of its six files exist nowhere in committed history and match the dirty
+worktree by byte length only, and three are byte-identical to the legacy commit.
+Review it as a code change touching the §8-protected `.env.example`, not as a
+snapshot of uncommitted work; `tasks/66-backlink-realignment.md` holds the
+file-level table. The backlink audit scope was assigned to Task 67 on 2026-09-14.
+Task 16's resume condition is not met — PR #47 has no review decision and its
+owner/user has not retired Task 48 — and rather than keep the audit waiting on that
+unresolved decision, Task 16 stays the held Audit Wave card (it produced no report)
+while Task 67, which depends on no legacy hold, carries the live scope.
 
 ## Historical Model Assignments
 
