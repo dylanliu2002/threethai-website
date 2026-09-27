@@ -129,16 +129,19 @@ This is the current execution assignment, not a permanent Role mapping:
 | 13 | `CRO` | `STRATEGIC_REASONING` | Codex | Not pinned | Not pinned | See Task Card |
 | 14 | `BRAND_UX` | `STRATEGIC_REASONING` | Hermes | Alibaba Token Plan | Qwen | See Task Card |
 | 15 | `QA_PERFORMANCE` | `HIGH_RISK_CODE` | Codex | Not pinned | Not pinned | See Task Card |
-| 16 | `BACKLINK` | `RESEARCH` | Hermes | Alibaba Token Plan | Qwen | `ON_HOLD`; backlink scope reassigned to Task 67 |
-| 67 | `BACKLINK` | `RESEARCH` | Unassigned | Not pinned | Not pinned | See Task Card |
+| 16 | `BACKLINK` | `RESEARCH` | Hermes | Alibaba Token Plan | Qwen | `ON_HOLD`; backlink scope now carried by Task 67 |
+| 67 | `BACKLINK` | `RESEARCH` | Unassigned | Not pinned | Not pinned | See Task Card; successor to Task 16, not a member of the 10–15 wave |
 
 Task 48 remains legacy implementation-specific Qwen tooling. Its implementation
 history does not bind the `BACKLINK` Role, Hermes, or future Backlink Tasks to
-Qwen. Its uncommitted work was relanded onto `origin/main` as PR #47; its original
-worktree stays untouched and preserved as executor history. The backlink audit
-scope was reassigned to Task 67 on 2026-09-14, because Task 16's resume condition
-cannot be met while that worktree must stay untouched; Task 16 remains on hold as
-the historical Audit Wave record.
+Qwen. Its previously uncommitted work is preserved in PR #47
+(`codex/48-backlink-agent-reland-main`), which is open against `main` and neither
+reviewed nor merged; its original worktree stays untouched as executor history. The
+backlink audit scope was assigned to Task 67 on 2026-09-14. Task 16's resume
+condition is not met — PR #47 has no review decision and its owner/user has not
+retired Task 48 — and rather than keep the audit waiting on that unresolved
+decision, Task 16 stays the historical Audit Wave record while Task 67, which
+depends on no legacy hold, carries the live scope.
 
 ## Historical Model Assignments
 

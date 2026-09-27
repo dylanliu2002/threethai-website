@@ -101,14 +101,24 @@ git diff --name-only
 
 ## Coordination Items
 
+- **Creating this card does not authorize performing the audit.** The audit starts
+  only when an owner assigns it and a matching branch and worktree are created from
+  the then-current `origin/main`.
+- **Evidence gate.** The report may be published from the evidence listed above as
+  available, provided every Success Criterion that needs a pending export is
+  recorded as unmet and every claim resting on it is labelled `unverified from this
+  host` or `hypothesis`. If nothing beyond the 2026-09-14 referring-domains export
+  has arrived, set this card to `BLOCKED` naming the missing exports rather than
+  publishing a three-domain profile as a complete authority audit.
 - **Why this card exists:** Task 16 is `ON_HOLD` on the condition "Task 48 is
   completed, independently reviewed, and merged, or explicitly and safely retired
-  by its owner/user", which a pushed pull request does not satisfy, and the
-  legacy worktree must stay untouched. Task 67 depends on no legacy hold.
-- **Legacy Task 48:** its previously uncommitted work was relanded onto
-  `origin/main` as PR #47 on 2026-09-14 from `codex/48-backlink-agent-reland-main`.
-  PR #47 is open and awaits independent review. Its original worktree
-  `backlink-agent-worktree/` remains untouched and preserved as executor history:
+  by its owner/user". That condition is not met — PR #47 has no review decision and
+  Task 48 has not been retired — and retiring it is the owner/user's decision, not
+  something this reassignment can make for them. Task 67 was therefore given the
+  scope with no legacy dependency rather than waiting on that decision.
+- **Legacy Task 48:** its previously uncommitted work is preserved in PR #47
+  (`codex/48-backlink-agent-reland-main`), open against `main` and not yet reviewed
+  or merged. Its original worktree `backlink-agent-worktree/` remains untouched:
   do not reset, stash, overwrite, move, or delete it.
 - Task 48's Qwen-specific tooling is legacy implementation metadata. It does not
   permanently bind the `BACKLINK` Role or Hermes to Qwen.

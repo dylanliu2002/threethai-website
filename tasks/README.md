@@ -40,18 +40,24 @@ or held task must name its reason in **Coordination items**; it is never silent.
 | 16 | `16-backlink-audit.md` | BACKLINK | `codex/16-backlink-audit` | `docs/audits/16-backlink.md` |
 | 67 | `67-backlink-authority-audit.md` | BACKLINK | `codex/67-backlink-authority-audit` | `docs/audits/67-backlink-authority.md` |
 
-Tasks 10–15 are the current Audit Wave. Read each task-owned card and branch for
+Tasks 10–15 are the current Audit Wave. Task 67 is listed in this table because it
+takes over the `BACKLINK` slot that held Task 16 vacated; it is a successor card,
+not a seventh member of that wave. Read each task-owned card and branch for
 its live status; this table records the durable task, Role, branch, and report
 mapping and does not override task-owned state.
 
-Task 16 is `AUDIT`, `P1`, and `ON_HOLD` because legacy Task 48 overlaps backlink
-research, and its resume condition cannot be met while that legacy worktree must
-stay untouched. On 2026-09-14 the backlink audit scope was reassigned to Task 67
-(`tasks/67-backlink-authority-audit.md`, branch `codex/67-backlink-authority-audit`,
-report `docs/audits/67-backlink-authority.md`), which depends on no legacy hold.
-Task 16 stays on hold as the historical Audit Wave record and must not be
-started. Legacy Task 48's uncommitted work was relanded onto `origin/main` as
-PR #47; its original worktree remains preserved and untouched.
+Task 16 is `AUDIT`, `P1`, and `ON_HOLD`. Its resume condition — legacy Task 48
+completed, independently reviewed and merged, **or** explicitly and safely retired
+by its owner/user — is not met today, and is not met by PR #47 as it stands, which
+is open and unreviewed; the owner/user has not retired Task 48. Rather than leave
+the backlink audit blocked on that decision, the scope was assigned on 2026-09-14
+to Task 67 (`tasks/67-backlink-authority-audit.md`, branch
+`codex/67-backlink-authority-audit`, report
+`docs/audits/67-backlink-authority.md`), which depends on no legacy hold. Task 16
+stays on hold as the historical Audit Wave record and must not be started while
+that condition is unmet. Legacy Task 48's previously uncommitted work is preserved
+in PR #47 (`codex/48-backlink-agent-reland-main`, open against `main`, not merged);
+its original worktree remains untouched.
 
 ## Current Implementation Tasks
 
