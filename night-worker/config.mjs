@@ -1,10 +1,10 @@
-const IMPLEMENTATION_MODEL = "gpt-5.6-luna";
+const IMPLEMENTATION_MODEL = "gpt-6-luna";
 const IMPLEMENTATION_EFFORT = "max";
-const REVIEW_MODEL = "gpt-5.6-sol";
+const REVIEW_MODEL = "gpt-6-sol";
 const DEFAULT_REVIEW_EFFORT = "medium";
 
 const ALLOWED_REVIEW_EFFORTS = Object.freeze(["low", "medium", "high", "xhigh", "max"]);
-const FORBIDDEN_MODELS = Object.freeze(["gpt-5.6-terra"]);
+const FORBIDDEN_MODELS = Object.freeze(["gpt-5.6-terra", "gpt-6-terra"]);
 
 function deepFreeze(value) {
   if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
